@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=Outfit:wght@300;400;500;600&display=swap');
+
+body {
+  font-family: 'Outfit', system-ui, sans-serif;
+  font-weight: 400;
+  background: #faf4ed;
+  color: #1f1a18;
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #e8c5c9; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #c97b84; }
