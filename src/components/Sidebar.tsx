@@ -15,7 +15,7 @@ const NAV_ITEMS = [
   { label: 'Zprávy', href: '/zpravy', icon: '💬', badge: true },
 ]
 
-export default function Sidebar({ profile }: { profile: Profile | null }) {
+export default function Sidebar({ profile, onNavigate }: { profile: Profile | null; onNavigate?: () => void }) {
   const pathname = usePathname()
   const router = useRouter()
 
@@ -55,6 +55,7 @@ export default function Sidebar({ profile }: { profile: Profile | null }) {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavigate}
               className={`flex items-center gap-3 px-6 py-2.5 text-[0.8rem] transition-colors relative ${
                 active
                   ? 'text-sand bg-rose/15'
@@ -82,6 +83,18 @@ export default function Sidebar({ profile }: { profile: Profile | null }) {
               {pathname === '/admin' && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-rose rounded-r" />}
               <span className="text-sm">👥</span>
               Klienti
+            </Link>
+            <Link
+              href="/admin/reports"
+              className={`flex items-center gap-3 px-6 py-2.5 text-[0.8rem] transition-colors relative ${
+                pathname === '/admin/reports'
+                  ? 'text-sand bg-rose/15'
+                  : 'text-white/40 hover:text-sand hover:bg-white/[0.04]'
+              }`}
+            >
+              {pathname === '/admin/reports' && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-rose rounded-r" />}
+              <span className="text-sm">📝</span>
+              Reporty
             </Link>
           </>
         )}

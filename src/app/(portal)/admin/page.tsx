@@ -14,7 +14,9 @@ export default function AdminPage() {
   const [newEmail, setNewEmail] = useState('')
   const [newName, setNewName] = useState('')
   const [newService, setNewService] = useState(SERVICES[0])
+  const [newPassword, setNewPassword] = useState('')
   const [adding, setAdding] = useState(false)
+  const [addError, setAddError] = useState('')
   const [isAdmin, setIsAdmin] = useState(false)
 
   const supabase = createClient()
@@ -41,22 +43,23 @@ export default function AdminPage() {
     if (!newEmail || !newName) return
     setAdding(true)
 
-    // Create auth user via Edge Function or direct insert
-    // For now, insert profile (user needs to be created in Supabase dashboard)
-    const { error } = await supabase.from('profiles').insert({
-      email: newEmail,
-      name: newName,
-      role: 'client',
-      service: newService,
-      active: true,
+    setAddError('')
+    const res = await fetch('/portal/api/create-client', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: newEmail, name: newName, password: newPassword, service: newService }),
     })
+    const result = await res.json()
 
-    if (!error) {
+    if (result.error) {
+      setAddError(result.error)
+    } else {
       const { data } = await supabase.from('profiles').select('*').order('name')
       if (data) setClients(data as Profile[])
       setShowAdd(false)
       setNewEmail('')
       setNewName('')
+      setNewPassword('')
     }
     setAdding(false)
   }
@@ -81,7 +84,7 @@ export default function AdminPage() {
         {showAdd && (
           <div className="bg-white rounded-[20px] p-6 border border-black/[0.06] mb-6">
             <h3 className="font-serif text-base text-ink mb-4">Nový klient</h3>
-            <div className="grid grid-cols-3 gap-4 mb-4">
+            <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="text-[0.62rem] tracking-[0.16em] uppercase text-mid block mb-1.5">Jméno</label>
                 <input value={newName} onChange={(e) => setNewName(e.target.value)}
@@ -94,6 +97,8 @@ export default function AdminPage() {
                   className="w-full border-b-[1.5px] border-black/10 bg-transparent py-2.5 text-sm outline-none focus:border-rose transition-colors"
                   placeholder="jan@firma.cz" />
               </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="text-[0.62rem] tracking-[0.16em] uppercase text-mid block mb-1.5">Služba</label>
                 <select value={newService} onChange={(e) => setNewService(e.target.value)}
@@ -101,8 +106,15 @@ export default function AdminPage() {
                   {SERVICES.map(s => <option key={s}>{s}</option>)}
                 </select>
               </div>
+              <div>
+                <label className="text-[0.62rem] tracking-[0.16em] uppercase text-mid block mb-1.5">Heslo</label>
+                <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full border-b-[1.5px] border-black/10 bg-transparent py-2.5 text-sm outline-none focus:border-rose transition-colors"
+                  placeholder="Min. 6 znaků" />
+              </div>
             </div>
-            <button onClick={addClient} disabled={adding}
+            {addError && <p className="text-rose-deep text-sm mb-3">{addError}</p>}
+            <button onClick={addClient} disabled={adding || !newEmail || !newName || !newPassword}
               className="bg-rose text-white px-6 py-2 rounded-full text-[0.75rem] tracking-[0.1em] uppercase font-medium hover:bg-rose-deep transition-colors disabled:opacity-50">
               {adding ? 'Přidávám...' : 'Přidat'}
             </button>
