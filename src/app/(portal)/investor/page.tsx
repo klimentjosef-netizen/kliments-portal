@@ -53,8 +53,8 @@ export default function InvestorPage() {
 
   const d = report?.data || {}
 
-  if (loading) return <><Topbar title="Příprava na investora" /><div className="p-9"><div className="animate-pulse h-40 bg-white rounded-[20px]" /></div></>
-  if (!report) return <><Topbar title="Příprava na investora" /><div className="p-9"><EmptyState service="Příprava na investora" /></div></>
+  if (loading) return <><Topbar title="Příprava na investora" /><div className="p-4 lg:p-9"><div className="animate-pulse h-40 bg-white rounded-[20px]" /></div></>
+  if (!report) return <><Topbar title="Příprava na investora" /><div className="p-4 lg:p-9"><EmptyState service="Příprava na investora" /></div></>
 
   const checklist = (d.checklist || []) as CheckItem[]
   const metrics = (d.metrics || []) as Metric[]
@@ -73,7 +73,7 @@ export default function InvestorPage() {
     <>
       <Topbar title="Příprava na investora" />
       <SaveToast status={saveStatus} />
-      <div className="p-9">
+      <div className="p-4 lg:p-9">
         {/* Header */}
         <div className="rounded-[20px] p-7 mb-6 flex justify-between items-center relative overflow-hidden"
           style={{ background: 'linear-gradient(135deg, #b5606a, #c97b84, #b89878)' }}>

@@ -56,7 +56,7 @@ export default function DashboardPage() {
   return (
     <>
       <Topbar title="Dashboard" />
-      <div className="p-9">
+      <div className="p-4 lg:p-9">
         {/* Welcome */}
         <div className="bg-ink rounded-[20px] p-7 flex justify-between items-center mb-7 relative overflow-hidden">
           <div className="absolute w-72 h-72 rounded-full -right-16 -top-20"
@@ -76,7 +76,7 @@ export default function DashboardPage() {
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-4 gap-4 mb-7">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-7">
             {[...Array(4)].map((_, i) => (
               <div key={i} className="bg-white rounded-2xl p-5 border border-black/[0.06] animate-pulse">
                 <div className="h-3 bg-sand-pale rounded w-20 mb-3" />
@@ -90,7 +90,7 @@ export default function DashboardPage() {
         ) : (
           <>
             {/* Stats – computed or fallback to legacy strings */}
-            <div className="grid grid-cols-4 gap-4 mb-7">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-7">
               <StatCard
                 label="Měsíční tržby"
                 value={rev ? fmtShort(rev.total) : (d.revenue || '—')}

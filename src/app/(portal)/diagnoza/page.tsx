@@ -52,8 +52,8 @@ export default function DiagnozaPage() {
 
   const d = report?.data || {}
 
-  if (loading) return <><Topbar title="Finanční diagnóza" /><div className="p-9"><div className="animate-pulse h-40 bg-white rounded-[20px]" /></div></>
-  if (!report) return <><Topbar title="Finanční diagnóza" /><div className="p-9"><EmptyState service="Finanční diagnóza" /></div></>
+  if (loading) return <><Topbar title="Finanční diagnóza" /><div className="p-4 lg:p-9"><div className="animate-pulse h-40 bg-white rounded-[20px]" /></div></>
+  if (!report) return <><Topbar title="Finanční diagnóza" /><div className="p-4 lg:p-9"><EmptyState service="Finanční diagnóza" /></div></>
 
   const steps = (d.steps || []) as Step[]
 
@@ -71,7 +71,7 @@ export default function DiagnozaPage() {
     <>
       <Topbar title="Finanční diagnóza" />
       <SaveToast status={saveStatus} />
-      <div className="p-9">
+      <div className="p-4 lg:p-9">
         {/* Header */}
         <div className="bg-ink rounded-[20px] p-7 mb-6 flex justify-between items-start relative overflow-hidden">
           <div className="absolute right-[-10px] bottom-[-40px] font-serif italic text-[180px] text-white/[0.04] leading-none pointer-events-none">K</div>

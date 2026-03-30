@@ -83,7 +83,7 @@ export default function ZpravyPage() {
   return (
     <>
       <Topbar title="Zprávy" />
-      <div className="p-9 flex flex-col" style={{ height: 'calc(100vh - 64px)' }}>
+      <div className="p-4 lg:p-9 flex flex-col" style={{ height: 'calc(100vh - 64px)' }}>
         <div className="bg-white rounded-[20px] border border-black/[0.06] flex-1 flex flex-col overflow-hidden">
           {/* Header */}
           <div className="px-6 py-4 border-b border-black/[0.06] flex items-center gap-3">

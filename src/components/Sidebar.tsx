@@ -16,7 +16,7 @@ const NAV_ITEMS = [
   { label: 'Zprávy', href: '/zpravy', icon: '💬', badge: true },
 ]
 
-export default function Sidebar({ profile, onNavigate }: { profile: Profile | null; onNavigate?: () => void }) {
+export default function Sidebar({ profile, onNavigate, unreadCount = 0 }: { profile: Profile | null; onNavigate?: () => void; unreadCount?: number }) {
   const pathname = usePathname()
   const router = useRouter()
 
@@ -71,6 +71,11 @@ export default function Sidebar({ profile, onNavigate }: { profile: Profile | nu
               {active && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-rose rounded-r" />}
               <span className="text-sm">{item.icon}</span>
               {item.label}
+              {item.badge && unreadCount > 0 && (
+                <span className="ml-auto bg-rose text-white text-[0.58rem] font-semibold w-5 h-5 rounded-full flex items-center justify-center">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
             </Link>
           )
         })}

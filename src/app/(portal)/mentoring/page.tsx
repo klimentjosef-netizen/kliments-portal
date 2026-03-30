@@ -54,8 +54,8 @@ export default function MentoringPage() {
   const d = report?.data || {}
   const sessions = (d.sessions || []) as Session[]
 
-  if (loading) return <><Topbar title="Mentoring" /><div className="p-9"><div className="animate-pulse h-40 bg-white rounded-[20px]" /></div></>
-  if (!report) return <><Topbar title="Mentoring" /><div className="p-9"><EmptyState service="Mentoring" /></div></>
+  if (loading) return <><Topbar title="Mentoring" /><div className="p-4 lg:p-9"><div className="animate-pulse h-40 bg-white rounded-[20px]" /></div></>
+  if (!report) return <><Topbar title="Mentoring" /><div className="p-4 lg:p-9"><EmptyState service="Mentoring" /></div></>
 
   function toggleTask(sessionIdx: number, taskIdx: number) {
     const updated = sessions.map((s, si) =>
@@ -73,7 +73,7 @@ export default function MentoringPage() {
     <>
       <Topbar title="Mentoring" />
       <SaveToast status={saveStatus} />
-      <div className="p-9">
+      <div className="p-4 lg:p-9">
         {sessions.map((session, i) => (
           <div key={i} className="bg-white rounded-2xl p-6 border border-black/[0.06] mb-4">
             <div className="flex justify-between items-center mb-4">

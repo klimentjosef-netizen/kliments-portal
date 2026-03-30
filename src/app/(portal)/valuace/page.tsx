@@ -52,8 +52,8 @@ export default function ValuacePage() {
 
   const d = report?.data || {}
 
-  if (loading) return <><Topbar title="Prodej za maximum" /><div className="p-9"><div className="animate-pulse h-40 bg-white rounded-[20px]" /></div></>
-  if (!report) return <><Topbar title="Prodej za maximum" /><div className="p-9"><EmptyState service="Prodej za maximum" /></div></>
+  if (loading) return <><Topbar title="Prodej za maximum" /><div className="p-4 lg:p-9"><div className="animate-pulse h-40 bg-white rounded-[20px]" /></div></>
+  if (!report) return <><Topbar title="Prodej za maximum" /><div className="p-4 lg:p-9"><EmptyState service="Prodej za maximum" /></div></>
 
   const steps = (d.steps || []) as Step[]
 
@@ -69,7 +69,7 @@ export default function ValuacePage() {
     <>
       <Topbar title="Prodej za maximum" />
       <SaveToast status={saveStatus} />
-      <div className="p-9">
+      <div className="p-4 lg:p-9">
         {/* Result banner */}
         {d.result && (
           <div className="bg-ink rounded-[20px] p-7 grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 relative overflow-hidden">
