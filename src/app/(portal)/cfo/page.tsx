@@ -1,18 +1,68 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Topbar from '@/components/Topbar'
 import EmptyState from '@/components/EmptyState'
+import CfoTabs from '@/components/cfo/CfoTabs'
+import PricingTab from '@/components/cfo/PricingTab'
+import CostsTab from '@/components/cfo/CostsTab'
+import CashflowTab from '@/components/cfo/CashflowTab'
+import BudgetTab from '@/components/cfo/BudgetTab'
+import RisksTab from '@/components/cfo/RisksTab'
+import QuestionsTab from '@/components/cfo/QuestionsTab'
+import { type Tier, type Extra, type CostItem, type Budget, calcRevenue, calcOpex } from '@/components/cfo/calcEngine'
 import type { Report } from '@/lib/types'
+
+const ALL_TABS = [
+  { id: 'pricing', label: 'Cenotvorba' },
+  { id: 'cashflow', label: 'Cashflow' },
+  { id: 'budget', label: 'Rozpočet' },
+  { id: 'costs', label: 'Náklady' },
+  { id: 'risks', label: 'Rizika & Plán' },
+  { id: 'questions', label: 'Dotazy' },
+]
+
+// Default data for new reports
+const DEFAULT_DATA = {
+  title: 'CFO na volné noze',
+  subtitle: '',
+  status: 'active',
+  tiers: [{ name: 'Základní', price: 0, capacity: 10, members: 0, features: ['Přístup k službě'] }] as Tier[],
+  extras: [] as Extra[],
+  fixed_costs: [
+    { name: 'Nájem', amount: 0 },
+    { name: 'Energie a voda', amount: 0 },
+    { name: 'Administrativa', amount: 0 },
+    { name: 'Marketing', amount: 0 },
+  ] as CostItem[],
+  variable_cost_pct: 5,
+  budget: {
+    total: 0,
+    capex_budget: 0,
+    reserve_budget: 0,
+    capex_items: [],
+    reserve_drawn: 0,
+  } as Budget,
+  ramp_months: 17,
+  projection_months: 24,
+  risks: [],
+  steps: [],
+  questions: [],
+  summary: '',
+}
 
 export default function CfoPage() {
   const [report, setReport] = useState<Report | null>(null)
   const [loading, setLoading] = useState(true)
+  const [tab, setTab] = useState('pricing')
+  const [saveStatus, setSaveStatus] = useState<string>('')
+  const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const supabase = createClient()
 
+  // Load report
   useEffect(() => {
     async function load() {
-      const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
       const { data } = await supabase
@@ -23,98 +73,142 @@ export default function CfoPage() {
       setLoading(false)
     }
     load()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const d = report?.data || {}
+  // Auto-save with debounce
+  const autoSave = useCallback(async (newData: Record<string, unknown>) => {
+    if (!report) return
+    setSaveStatus('Ukládám...')
+    if (saveTimeout.current) clearTimeout(saveTimeout.current)
+    saveTimeout.current = setTimeout(async () => {
+      const { error } = await supabase
+        .from('reports')
+        .update({ data: newData })
+        .eq('id', report.id)
+      if (error) {
+        setSaveStatus('Chyba ukládání')
+        setTimeout(() => setSaveStatus(''), 3000)
+      } else {
+        setSaveStatus('✓ Uloženo ' + new Date().toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' }))
+      }
+    }, 800)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [report])
 
-  if (loading) return <><Topbar title="CFO na volné noze" /><div className="p-9"><div className="animate-pulse h-40 bg-white rounded-[20px]" /></div></>
-  if (!report) return <><Topbar title="CFO na volné noze" /><div className="p-9"><EmptyState /></div></>
+  // Update helper
+  function updateData(key: string, value: unknown) {
+    if (!report) return
+    const newData = { ...report.data, [key]: value }
+    setReport({ ...report, data: newData })
+    autoSave(newData)
+  }
+
+  // Merge defaults with stored data
+  const d = report ? { ...DEFAULT_DATA, ...report.data } : DEFAULT_DATA
+  const tiers = (d.tiers || DEFAULT_DATA.tiers) as Tier[]
+  const extras = (d.extras || DEFAULT_DATA.extras) as Extra[]
+  const fixedCosts = (d.fixed_costs || DEFAULT_DATA.fixed_costs) as CostItem[]
+  const variablePct = (d.variable_cost_pct ?? DEFAULT_DATA.variable_cost_pct) as number
+  const budget = (d.budget || DEFAULT_DATA.budget) as Budget
+  const rampMonths = (d.ramp_months ?? DEFAULT_DATA.ramp_months) as number
+  const projectionMonths = (d.projection_months ?? DEFAULT_DATA.projection_months) as number
+
+  // Calculate EBITDA for budget tab
+  const rev = calcRevenue(tiers, extras)
+  const opex = calcOpex(fixedCosts, variablePct, rev.total)
+  const monthlyEbitda = rev.total - opex.total
+
+  // Visible tabs
+  const visibleTabs = ALL_TABS.filter(t => {
+    if (t.id === 'risks') return d.risks && (d.risks as unknown[]).length > 0
+    if (t.id === 'questions') return d.questions && (d.questions as unknown[]).length > 0
+    return true
+  })
+
+  if (loading) return (
+    <>
+      <Topbar title="CFO na volné noze" />
+      <div className="p-9"><div className="animate-pulse h-40 bg-white rounded-[20px]" /></div>
+    </>
+  )
+
+  if (!report) return (
+    <>
+      <Topbar title="CFO na volné noze" />
+      <div className="p-9"><EmptyState /></div>
+    </>
+  )
 
   return (
     <>
       <Topbar title="CFO na volné noze" />
       <div className="p-9">
+        {/* Header */}
         <div className="bg-ink rounded-[20px] p-7 mb-6 flex justify-between items-start relative overflow-hidden">
           <div className="absolute right-[-10px] bottom-[-40px] font-serif italic text-[180px] text-white/[0.04] leading-none pointer-events-none">K</div>
           <div>
             <h2 className="font-serif text-xl text-sand font-light mb-1.5">{d.title || 'CFO na volné noze'}</h2>
             <p className="text-[0.78rem] text-white/40">{d.subtitle || ''}</p>
           </div>
-          <span className="bg-green text-white px-5 py-2 rounded-full text-[0.68rem] tracking-[0.1em] uppercase font-medium">Aktivní ●</span>
+          <div className="flex items-center gap-3">
+            {saveStatus && (
+              <span className={`text-[0.68rem] ${saveStatus.startsWith('✓') ? 'text-green' : saveStatus.startsWith('Chyba') ? 'text-rose-pale' : 'text-white/40'}`}>
+                {saveStatus}
+              </span>
+            )}
+            <span className={`px-5 py-2 rounded-full text-[0.68rem] tracking-[0.1em] uppercase font-medium ${
+              d.status === 'paused' ? 'bg-amber text-white' :
+              d.status === 'completed' ? 'bg-mid text-white' :
+              'bg-green text-white'
+            }`}>
+              {d.status === 'paused' ? 'Pozastaveno ●' : d.status === 'completed' ? 'Ukončeno' : 'Aktivní ●'}
+            </span>
+          </div>
         </div>
 
-        {/* KPIs */}
-        {d.kpis && (
-          <div className="grid grid-cols-5 gap-3 mb-6">
-            {(d.kpis as { label: string; value: string; delta: string; up: boolean }[]).map((k, i) => (
-              <div key={i} className="bg-white rounded-[14px] p-4 border border-black/[0.06]">
-                <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid mb-1.5">{k.label}</div>
-                <div className="font-serif text-xl font-light text-rose leading-none">{k.value}</div>
-                <div className={`text-[0.68rem] mt-1 ${k.up ? 'text-green' : 'text-rose-deep'}`}>{k.delta}</div>
-              </div>
-            ))}
-          </div>
+        {/* Tabs */}
+        <CfoTabs tabs={visibleTabs} active={tab} onChange={setTab} />
+
+        {/* Tab content */}
+        {tab === 'pricing' && (
+          <PricingTab
+            tiers={tiers}
+            extras={extras}
+            fixedCosts={fixedCosts}
+            variablePct={variablePct}
+            onTiersChange={v => updateData('tiers', v)}
+            onExtrasChange={v => updateData('extras', v)}
+          />
         )}
-
-        <div className="grid grid-cols-2 gap-5 mb-6">
-          {/* Cashflow */}
-          {d.cashflow_months && (
-            <div className="bg-white rounded-[20px] p-6 border border-black/[0.06]">
-              <h3 className="font-serif text-base text-ink mb-4">Cashflow — 6 měsíců</h3>
-              <div className="flex items-end gap-2 h-24">
-                {(d.cashflow_months as { label: string; value: number; amount: string }[]).map((m, i) => (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                    <span className="text-[0.62rem] font-medium text-mid">{m.amount}</span>
-                    <div className={`w-full rounded-t ${m.value >= 0 ? 'bg-rose' : 'bg-rose-pale'}`}
-                      style={{ height: `${Math.min(Math.abs(m.value), 100)}%` }} />
-                    <span className="text-[0.6rem] text-mid">{m.label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Risks */}
-          {d.risks && (
-            <div className="bg-white rounded-[20px] p-6 border border-black/[0.06]">
-              <h3 className="font-serif text-base text-ink mb-4">Rizika tohoto měsíce</h3>
-              <div className="space-y-2.5">
-                {(d.risks as { level: string; title: string; desc: string }[]).map((r, i) => (
-                  <div key={i} className={`flex gap-3 items-start p-3 rounded-lg ${
-                    r.level === 'critical' ? 'bg-[#fdf0f0]' : r.level === 'medium' ? 'bg-[#fff8f0]' : 'bg-[#eef6f1]'
-                  }`}>
-                    <span className={`text-[0.58rem] tracking-[0.1em] font-semibold px-2 py-0.5 rounded flex-shrink-0 ${
-                      r.level === 'critical' ? 'bg-rose/20 text-rose-deep' : r.level === 'medium' ? 'bg-amber/20 text-amber' : 'bg-green/20 text-green'
-                    }`}>
-                      {r.level === 'critical' ? 'KRITICKÉ' : r.level === 'medium' ? 'STŘEDNÍ' : 'NÍZKÉ'}
-                    </span>
-                    <div>
-                      <div className="text-[0.8rem] font-medium text-ink">{r.title}</div>
-                      <div className="text-[0.72rem] text-mid">{r.desc}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Action plan */}
-        {d.steps && (
-          <div className="bg-white rounded-[20px] p-6 border border-black/[0.06]">
-            <h3 className="font-serif text-base text-ink mb-4">Akční plán</h3>
-            <div className="grid grid-cols-3 gap-3.5">
-              {(d.steps as { num: string; deadline: string; title: string; desc: string }[]).map((s, i) => (
-                <div key={i} className="rounded-[14px] p-5 border border-black/[0.06]">
-                  <div className="font-serif text-3xl font-light text-rose-pale mb-2">{s.num}</div>
-                  <div className="text-[0.62rem] tracking-[0.12em] uppercase text-rose font-medium mb-1.5">{s.deadline}</div>
-                  <div className="text-[0.85rem] font-medium text-ink mb-1">{s.title}</div>
-                  <div className="text-[0.75rem] text-mid leading-relaxed">{s.desc}</div>
-                </div>
-              ))}
-            </div>
-          </div>
+        {tab === 'cashflow' && (
+          <CashflowTab
+            tiers={tiers}
+            extras={extras}
+            fixedCosts={fixedCosts}
+            variablePct={variablePct}
+            budget={budget}
+            rampMonths={rampMonths}
+            projectionMonths={projectionMonths}
+          />
         )}
+        {tab === 'budget' && (
+          <BudgetTab
+            budget={budget}
+            monthlyEbitda={monthlyEbitda}
+            onBudgetChange={v => updateData('budget', v)}
+          />
+        )}
+        {tab === 'costs' && (
+          <CostsTab
+            fixedCosts={fixedCosts}
+            variablePct={variablePct}
+            onCostsChange={v => updateData('fixed_costs', v)}
+            onVariableChange={v => updateData('variable_cost_pct', v)}
+          />
+        )}
+        {tab === 'risks' && <RisksTab data={d} />}
+        {tab === 'questions' && <QuestionsTab data={d} />}
       </div>
     </>
   )

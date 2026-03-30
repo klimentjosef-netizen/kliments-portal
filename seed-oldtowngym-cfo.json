@@ -1,0 +1,95 @@
+{
+  "title": "CFO na volné noze",
+  "subtitle": "Old Town Gym — Private Fitness Club",
+  "status": "active",
+
+  "tiers": [
+    {
+      "name": "Standard",
+      "price": 2490,
+      "capacity": 20,
+      "members": 20,
+      "badge": "",
+      "features": ["Přístup: 6:00–22:00", "Slot: 1h15 denně", "Rezervace: 2 týdny dopředu", "Zrušení zdarma: 24h předem", "Host: ne"]
+    },
+    {
+      "name": "Premium",
+      "price": 3900,
+      "capacity": 10,
+      "members": 10,
+      "badge": "Doporučený",
+      "features": ["Přístup: 24/7 (smart lock)", "Slot: 1h15 denně", "Rezervace: 1 měsíc dopředu", "Host: 2× měsíčně (max 1 osoba)", "Zrušení zdarma: 12h předem"]
+    },
+    {
+      "name": "VIP",
+      "price": 6990,
+      "capacity": 3,
+      "members": 3,
+      "badge": "",
+      "features": ["Přístup: 24/7", "Slot: 2h30 denně (2 sloty)", "Rezervace: 6 měsíců dopředu", "Host: kdykoli (1+1)", "Výživová konzultace 1× měsíčně"]
+    },
+    {
+      "name": "Partner VIP",
+      "price": 10000,
+      "capacity": 3,
+      "members": 2,
+      "badge": "Firemní",
+      "features": ["Vše z VIP +", "3 aktivní přístupy (1 hlavní + 2 osoby)", "Max 1 návštěva najednou", "Logo na Wall of Partners", "Instagram mention 1× měsíčně"]
+    }
+  ],
+
+  "extras": [
+    { "name": "Blokové pronájmy", "quantity": 8, "unit_price": 500, "unit": "hod" },
+    { "name": "Jednorázové vstupy", "quantity": 16, "unit_price": 260, "unit": "vstup" }
+  ],
+
+  "fixed_costs": [
+    { "name": "Nájem", "amount": 28000 },
+    { "name": "Energie a voda", "amount": 8000 },
+    { "name": "Administrativa a účetnictví", "amount": 5000 },
+    { "name": "Pojištění", "amount": 2000 },
+    { "name": "Marketing", "amount": 5000 }
+  ],
+  "variable_cost_pct": 5,
+
+  "budget": {
+    "total": 1400000,
+    "capex_budget": 1200000,
+    "reserve_budget": 200000,
+    "capex_items": [
+      { "name": "Stavební úpravy", "planned": 350000, "spent": 280000 },
+      { "name": "Sprchy + šatny", "planned": 200000, "spent": 150000 },
+      { "name": "Vybavení (stroje, činky, kardio)", "planned": 250000, "spent": 180000 },
+      { "name": "Smart-entry systém", "planned": 60000, "spent": 45000 },
+      { "name": "Design + interiér + branding", "planned": 40000, "spent": 25000 }
+    ],
+    "reserve_drawn": 0
+  },
+
+  "ramp_months": 17,
+  "projection_months": 24,
+
+  "risks": [
+    { "level": "critical", "title": "Pomalý náběr členů", "desc": "Méně než 20 členů v M6 ohrozí cash runway. Mitigace: pre-launch validace, Partner VIP, přímé oslovení founding members." },
+    { "level": "medium", "title": "Zvýšení nájmu", "desc": "Zajistit 10letou smlouvu před zahájením CAPEX investic." },
+    { "level": "medium", "title": "Příjem provozovatele od M1", "desc": "Operátor potřebuje mzdu od prvního měsíce — zahrnout do cashflow modelu. 200K rezerva jako buffer." },
+    { "level": "low", "title": "Konkurence velkých řetězců", "desc": "Diferenciace přes exkluzivitu (cap 50 členů), osobní přístup a premium prostředí." }
+  ],
+
+  "steps": [
+    { "num": "01", "deadline": "Do 5. dubna", "title": "Ověřit živnostenský list", "desc": "Přidat obor 'Provozování sportovních zařízení' (1 000 Kč).", "done": true },
+    { "num": "02", "deadline": "Do 5. dubna", "title": "Aktualizovat OR", "desc": "Podat změnu předmětu podnikání na krajský soud (2 000 Kč).", "done": false },
+    { "num": "03", "deadline": "Do 10. dubna", "title": "Registrace k DPH", "desc": "Dobrovolná registrace — vrácení ~200-220K DPH z CAPEX (1,2M × 21 %).", "done": false },
+    { "num": "04", "deadline": "Do 15. dubna", "title": "Podpis nájemní smlouvy", "desc": "10letá smlouva. Fitness musí být výslovně povoleno.", "done": false },
+    { "num": "05", "deadline": "Do 20. dubna", "title": "Oslovit 5-8 firem", "desc": "LinkedIn outreach pro corporate partnerships. Cíl: 2 Partner VIP smlouvy.", "done": false },
+    { "num": "06", "deadline": "Do 30. dubna", "title": "Zahájit renovaci", "desc": "Stavební úpravy, sprchy, šatny. Předpokládaná doba: 6-8 týdnů.", "done": false }
+  ],
+
+  "questions": [
+    { "question": "Povolení 24/7 provozu", "status": "open", "answer": "Aktuálně řešíme 6:00-22:00. Noční provoz bude řešen po rozběhu." },
+    { "question": "Hlukové limity", "status": "resolved", "answer": "Neaplikuje se v denním režimu 6-22h." },
+    { "question": "Nájemní smlouva povoluje fitness?", "status": "resolved", "answer": "Potvrzeno — ano." },
+    { "question": "DPH na nájem a platební brány", "status": "open", "answer": "Nájem typicky osvobozený od DPH. Pro členské platby doporučujeme GoPay/Stripe (1-2 % fee)." },
+    { "question": "Nutriční poradce — partnerství", "status": "open", "answer": "Ověřit: ceník konzultanta (500-800 Kč), licence, platební model." }
+  ]
+}

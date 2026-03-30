@@ -260,30 +260,199 @@ function DiagnozaForm({ data, onChange }: { data: Record<string, any>; onChange:
   )
 }
 
-// ── CFO FORM ──
+// ── CFO FORM (interactive plan model) ──
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function CfoForm({ data, onChange }: { data: Record<string, any>; onChange: (k: string, v: unknown) => void }) {
+  const tiers = (data.tiers || []) as Array<{ name: string; price: number; capacity: number; members: number; badge?: string; features: string[] }>
+  const extras = (data.extras || []) as Array<{ name: string; quantity: number; unit_price: number; unit: string }>
+  const fixedCosts = (data.fixed_costs || []) as Array<{ name: string; amount: number }>
+  const budget = (data.budget || null) as { total: number; capex_budget: number; reserve_budget: number; capex_items: Array<{ name: string; planned: number; spent: number }>; reserve_drawn: number } | null
+  const risks = (data.risks || []) as Array<{ level: string; title: string; desc: string }>
+  const steps = (data.steps || []) as Array<{ num: string; deadline: string; title: string; desc: string; done?: boolean }>
+  const questions = (data.questions || []) as Array<{ question: string; status: string; answer?: string }>
+
+  const sectionCls = "border border-black/[0.06] rounded-xl p-4 mt-4"
+  const sectionTitle = "text-[0.68rem] text-rose font-medium uppercase tracking-wider mb-3"
+  const smallBtn = "text-[0.65rem] px-3 py-1 rounded-full border border-black/10 text-mid hover:border-rose hover:text-rose transition-colors"
+  const removeBtn = "text-[0.6rem] text-mid hover:text-rose-deep cursor-pointer ml-2"
+
   return (
     <>
+      {/* Meta */}
       <div className="grid grid-cols-2 gap-4">
         <Field label="Název" value={data.title || ''} onChange={v => onChange('title', v)} />
         <Field label="Podtitul" value={data.subtitle || ''} onChange={v => onChange('subtitle', v)} />
       </div>
-      <div className="grid grid-cols-4 gap-3 mt-4">
-        <Field label="Cashflow" value={data.cashflow || ''} onChange={v => onChange('cashflow', v)} />
-        <Field label="Tržby" value={data.revenue || ''} onChange={v => onChange('revenue', v)} />
-        <Field label="EBITDA" value={data.ebitda || ''} onChange={v => onChange('ebitda', v)} />
-        <Field label="Pohledávky" value={data.receivables || ''} onChange={v => onChange('receivables', v)} />
+      <div className="grid grid-cols-3 gap-3 mt-4">
+        <Field label="Variabilní náklady (%)" value={String(data.variable_cost_pct ?? 5)} onChange={v => onChange('variable_cost_pct', Number(v) || 0)} />
+        <Field label="Ramp-up měsíců" value={String(data.ramp_months ?? 17)} onChange={v => onChange('ramp_months', Number(v) || 17)} />
+        <Field label="Projekce měsíců" value={String(data.projection_months ?? 24)} onChange={v => onChange('projection_months', Number(v) || 24)} />
       </div>
-      <p className="text-[0.68rem] text-rose mt-4 mb-2 font-medium uppercase tracking-wider">KPIs (JSON)</p>
-      <textarea value={JSON.stringify(data.kpis || [], null, 2)} className="w-full font-mono text-xs p-3 border border-black/10 rounded-lg bg-sand h-28 outline-none focus:border-rose"
-        onChange={e => { try { onChange('kpis', JSON.parse(e.target.value)) } catch {} }} />
-      <p className="text-[0.68rem] text-rose mt-2 mb-2 font-medium uppercase tracking-wider">Rizika (JSON)</p>
-      <textarea value={JSON.stringify(data.risks || [], null, 2)} className="w-full font-mono text-xs p-3 border border-black/10 rounded-lg bg-sand h-28 outline-none focus:border-rose"
-        onChange={e => { try { onChange('risks', JSON.parse(e.target.value)) } catch {} }} />
-      <p className="text-[0.68rem] text-rose mt-2 mb-2 font-medium uppercase tracking-wider">Akční kroky (JSON)</p>
-      <textarea value={JSON.stringify(data.steps || [], null, 2)} className="w-full font-mono text-xs p-3 border border-black/10 rounded-lg bg-sand h-28 outline-none focus:border-rose"
-        onChange={e => { try { onChange('steps', JSON.parse(e.target.value)) } catch {} }} />
+
+      {/* Tiers */}
+      <div className={sectionCls}>
+        <div className="flex justify-between items-center mb-3">
+          <p className={sectionTitle}>Tarify</p>
+          <button className={smallBtn} onClick={() => onChange('tiers', [...tiers, { name: 'Nový tarif', price: 0, capacity: 10, members: 0, features: ['Základní přístup'] }])}>+ Tarif</button>
+        </div>
+        {tiers.map((t, i) => (
+          <div key={i} className="grid grid-cols-[1fr_80px_80px_80px_80px_30px] gap-2 mb-2 items-end">
+            <input placeholder="Název" value={t.name} className="border-b border-black/10 bg-transparent py-1 text-xs outline-none focus:border-rose"
+              onChange={e => { const arr = [...tiers]; arr[i] = { ...arr[i], name: e.target.value }; onChange('tiers', arr) }} />
+            <input placeholder="Cena" type="number" value={t.price || ''} className="border-b border-black/10 bg-transparent py-1 text-xs outline-none focus:border-rose text-right"
+              onChange={e => { const arr = [...tiers]; arr[i] = { ...arr[i], price: +e.target.value || 0 }; onChange('tiers', arr) }} />
+            <input placeholder="Kapacita" type="number" value={t.capacity || ''} className="border-b border-black/10 bg-transparent py-1 text-xs outline-none focus:border-rose text-right"
+              onChange={e => { const arr = [...tiers]; arr[i] = { ...arr[i], capacity: +e.target.value || 0 }; onChange('tiers', arr) }} />
+            <input placeholder="Členů" type="number" value={t.members || ''} className="border-b border-black/10 bg-transparent py-1 text-xs outline-none focus:border-rose text-right"
+              onChange={e => { const arr = [...tiers]; arr[i] = { ...arr[i], members: +e.target.value || 0 }; onChange('tiers', arr) }} />
+            <input placeholder="Badge" value={t.badge || ''} className="border-b border-black/10 bg-transparent py-1 text-xs outline-none focus:border-rose"
+              onChange={e => { const arr = [...tiers]; arr[i] = { ...arr[i], badge: e.target.value }; onChange('tiers', arr) }} />
+            <button className={removeBtn} onClick={() => onChange('tiers', tiers.filter((_, j) => j !== i))}>✕</button>
+          </div>
+        ))}
+      </div>
+
+      {/* Extra revenue */}
+      <div className={sectionCls}>
+        <div className="flex justify-between items-center mb-3">
+          <p className={sectionTitle}>Doplňkové příjmy</p>
+          <button className={smallBtn} onClick={() => onChange('extras', [...extras, { name: '', quantity: 0, unit_price: 0, unit: 'ks' }])}>+ Příjem</button>
+        </div>
+        {extras.map((e, i) => (
+          <div key={i} className="grid grid-cols-[1fr_80px_80px_60px_30px] gap-2 mb-2 items-end">
+            <input placeholder="Název" value={e.name} className="border-b border-black/10 bg-transparent py-1 text-xs outline-none focus:border-rose"
+              onChange={ev => { const arr = [...extras]; arr[i] = { ...arr[i], name: ev.target.value }; onChange('extras', arr) }} />
+            <input placeholder="Počet" type="number" value={e.quantity || ''} className="border-b border-black/10 bg-transparent py-1 text-xs outline-none focus:border-rose text-right"
+              onChange={ev => { const arr = [...extras]; arr[i] = { ...arr[i], quantity: +ev.target.value || 0 }; onChange('extras', arr) }} />
+            <input placeholder="Kč/ks" type="number" value={e.unit_price || ''} className="border-b border-black/10 bg-transparent py-1 text-xs outline-none focus:border-rose text-right"
+              onChange={ev => { const arr = [...extras]; arr[i] = { ...arr[i], unit_price: +ev.target.value || 0 }; onChange('extras', arr) }} />
+            <input placeholder="jed." value={e.unit} className="border-b border-black/10 bg-transparent py-1 text-xs outline-none focus:border-rose"
+              onChange={ev => { const arr = [...extras]; arr[i] = { ...arr[i], unit: ev.target.value }; onChange('extras', arr) }} />
+            <button className={removeBtn} onClick={() => onChange('extras', extras.filter((_, j) => j !== i))}>✕</button>
+          </div>
+        ))}
+      </div>
+
+      {/* Fixed costs */}
+      <div className={sectionCls}>
+        <div className="flex justify-between items-center mb-3">
+          <p className={sectionTitle}>Fixní náklady</p>
+          <button className={smallBtn} onClick={() => onChange('fixed_costs', [...fixedCosts, { name: '', amount: 0 }])}>+ Náklad</button>
+        </div>
+        {fixedCosts.map((c, i) => (
+          <div key={i} className="grid grid-cols-[1fr_120px_30px] gap-2 mb-1.5 items-end">
+            <input placeholder="Název" value={c.name} className="border-b border-black/10 bg-transparent py-1 text-xs outline-none focus:border-rose"
+              onChange={e => { const arr = [...fixedCosts]; arr[i] = { ...arr[i], name: e.target.value }; onChange('fixed_costs', arr) }} />
+            <input placeholder="Kč/měs" type="number" value={c.amount || ''} className="border-b border-black/10 bg-transparent py-1 text-xs outline-none focus:border-rose text-right"
+              onChange={e => { const arr = [...fixedCosts]; arr[i] = { ...arr[i], amount: +e.target.value || 0 }; onChange('fixed_costs', arr) }} />
+            <button className={removeBtn} onClick={() => onChange('fixed_costs', fixedCosts.filter((_, j) => j !== i))}>✕</button>
+          </div>
+        ))}
+      </div>
+
+      {/* Budget */}
+      <div className={sectionCls}>
+        <p className={sectionTitle}>Rozpočet</p>
+        <div className="grid grid-cols-3 gap-3 mb-3">
+          <div>
+            <label className="text-[0.55rem] text-mid block mb-0.5">Celkový rozpočet</label>
+            <input type="number" value={budget?.total || ''} className="w-full border-b border-black/10 bg-transparent py-1 text-xs outline-none focus:border-rose"
+              onChange={e => onChange('budget', { ...(budget || { capex_budget: 0, reserve_budget: 0, capex_items: [], reserve_drawn: 0 }), total: +e.target.value || 0 })} />
+          </div>
+          <div>
+            <label className="text-[0.55rem] text-mid block mb-0.5">CAPEX rozpočet</label>
+            <input type="number" value={budget?.capex_budget || ''} className="w-full border-b border-black/10 bg-transparent py-1 text-xs outline-none focus:border-rose"
+              onChange={e => onChange('budget', { ...(budget || { total: 0, reserve_budget: 0, capex_items: [], reserve_drawn: 0 }), capex_budget: +e.target.value || 0 })} />
+          </div>
+          <div>
+            <label className="text-[0.55rem] text-mid block mb-0.5">Provozní rezerva</label>
+            <input type="number" value={budget?.reserve_budget || ''} className="w-full border-b border-black/10 bg-transparent py-1 text-xs outline-none focus:border-rose"
+              onChange={e => onChange('budget', { ...(budget || { total: 0, capex_budget: 0, capex_items: [], reserve_drawn: 0 }), reserve_budget: +e.target.value || 0 })} />
+          </div>
+        </div>
+        <p className="text-[0.6rem] text-mid mb-2">CAPEX položky (plán + čerpáno)</p>
+        {(budget?.capex_items || []).map((item, i) => (
+          <div key={i} className="grid grid-cols-[1fr_100px_100px_30px] gap-2 mb-1.5 items-end">
+            <input placeholder="Název" value={item.name} className="border-b border-black/10 bg-transparent py-1 text-xs outline-none focus:border-rose"
+              onChange={e => { const items = [...(budget?.capex_items || [])]; items[i] = { ...items[i], name: e.target.value }; onChange('budget', { ...budget, capex_items: items }) }} />
+            <input placeholder="Plán" type="number" value={item.planned || ''} className="border-b border-black/10 bg-transparent py-1 text-xs outline-none focus:border-rose text-right"
+              onChange={e => { const items = [...(budget?.capex_items || [])]; items[i] = { ...items[i], planned: +e.target.value || 0 }; onChange('budget', { ...budget, capex_items: items }) }} />
+            <input placeholder="Čerpáno" type="number" value={item.spent || ''} className="border-b border-black/10 bg-transparent py-1 text-xs outline-none focus:border-rose text-right"
+              onChange={e => { const items = [...(budget?.capex_items || [])]; items[i] = { ...items[i], spent: +e.target.value || 0 }; onChange('budget', { ...budget, capex_items: items }) }} />
+            <button className={removeBtn} onClick={() => onChange('budget', { ...budget, capex_items: (budget?.capex_items || []).filter((_: unknown, j: number) => j !== i) })}>✕</button>
+          </div>
+        ))}
+        <button className={smallBtn} onClick={() => onChange('budget', { ...(budget || { total: 0, capex_budget: 0, reserve_budget: 0, reserve_drawn: 0 }), capex_items: [...(budget?.capex_items || []), { name: '', planned: 0, spent: 0 }] })}>+ CAPEX položka</button>
+      </div>
+
+      {/* Risks */}
+      <div className={sectionCls}>
+        <div className="flex justify-between items-center mb-3">
+          <p className={sectionTitle}>Rizika</p>
+          <button className={smallBtn} onClick={() => onChange('risks', [...risks, { level: 'medium', title: '', desc: '' }])}>+ Riziko</button>
+        </div>
+        {risks.map((r, i) => (
+          <div key={i} className="grid grid-cols-[100px_1fr_1fr_30px] gap-2 mb-2 items-end">
+            <select value={r.level} className="border-b border-black/10 bg-transparent py-1 text-xs outline-none focus:border-rose"
+              onChange={e => { const arr = [...risks]; arr[i] = { ...arr[i], level: e.target.value }; onChange('risks', arr) }}>
+              <option value="low">Nízké</option>
+              <option value="medium">Střední</option>
+              <option value="critical">Kritické</option>
+            </select>
+            <input placeholder="Název" value={r.title} className="border-b border-black/10 bg-transparent py-1 text-xs outline-none focus:border-rose"
+              onChange={e => { const arr = [...risks]; arr[i] = { ...arr[i], title: e.target.value }; onChange('risks', arr) }} />
+            <input placeholder="Popis" value={r.desc} className="border-b border-black/10 bg-transparent py-1 text-xs outline-none focus:border-rose"
+              onChange={e => { const arr = [...risks]; arr[i] = { ...arr[i], desc: e.target.value }; onChange('risks', arr) }} />
+            <button className={removeBtn} onClick={() => onChange('risks', risks.filter((_, j) => j !== i))}>✕</button>
+          </div>
+        ))}
+      </div>
+
+      {/* Steps */}
+      <div className={sectionCls}>
+        <div className="flex justify-between items-center mb-3">
+          <p className={sectionTitle}>Akční plán</p>
+          <button className={smallBtn} onClick={() => onChange('steps', [...steps, { num: String(steps.length + 1).padStart(2, '0'), deadline: '', title: '', desc: '', done: false }])}>+ Krok</button>
+        </div>
+        {steps.map((s, i) => (
+          <div key={i} className="grid grid-cols-[50px_100px_1fr_1fr_50px_30px] gap-2 mb-2 items-end">
+            <input placeholder="#" value={s.num} className="border-b border-black/10 bg-transparent py-1 text-xs outline-none focus:border-rose"
+              onChange={e => { const arr = [...steps]; arr[i] = { ...arr[i], num: e.target.value }; onChange('steps', arr) }} />
+            <input placeholder="Deadline" value={s.deadline} className="border-b border-black/10 bg-transparent py-1 text-xs outline-none focus:border-rose"
+              onChange={e => { const arr = [...steps]; arr[i] = { ...arr[i], deadline: e.target.value }; onChange('steps', arr) }} />
+            <input placeholder="Název" value={s.title} className="border-b border-black/10 bg-transparent py-1 text-xs outline-none focus:border-rose"
+              onChange={e => { const arr = [...steps]; arr[i] = { ...arr[i], title: e.target.value }; onChange('steps', arr) }} />
+            <input placeholder="Popis" value={s.desc} className="border-b border-black/10 bg-transparent py-1 text-xs outline-none focus:border-rose"
+              onChange={e => { const arr = [...steps]; arr[i] = { ...arr[i], desc: e.target.value }; onChange('steps', arr) }} />
+            <label className="flex items-center gap-1 text-[0.6rem] text-mid">
+              <input type="checkbox" checked={s.done ?? false} onChange={e => { const arr = [...steps]; arr[i] = { ...arr[i], done: e.target.checked }; onChange('steps', arr) }} /> Done
+            </label>
+            <button className={removeBtn} onClick={() => onChange('steps', steps.filter((_, j) => j !== i))}>✕</button>
+          </div>
+        ))}
+      </div>
+
+      {/* Questions */}
+      <div className={sectionCls}>
+        <div className="flex justify-between items-center mb-3">
+          <p className={sectionTitle}>Otevřené dotazy</p>
+          <button className={smallBtn} onClick={() => onChange('questions', [...questions, { question: '', status: 'open', answer: '' }])}>+ Dotaz</button>
+        </div>
+        {questions.map((q, i) => (
+          <div key={i} className="grid grid-cols-[100px_1fr_1fr_30px] gap-2 mb-2 items-end">
+            <select value={q.status} className="border-b border-black/10 bg-transparent py-1 text-xs outline-none focus:border-rose"
+              onChange={e => { const arr = [...questions]; arr[i] = { ...arr[i], status: e.target.value }; onChange('questions', arr) }}>
+              <option value="open">Otevřený</option>
+              <option value="resolved">Vyřešený</option>
+            </select>
+            <input placeholder="Dotaz" value={q.question} className="border-b border-black/10 bg-transparent py-1 text-xs outline-none focus:border-rose"
+              onChange={e => { const arr = [...questions]; arr[i] = { ...arr[i], question: e.target.value }; onChange('questions', arr) }} />
+            <input placeholder="Odpověď" value={q.answer || ''} className="border-b border-black/10 bg-transparent py-1 text-xs outline-none focus:border-rose"
+              onChange={e => { const arr = [...questions]; arr[i] = { ...arr[i], answer: e.target.value }; onChange('questions', arr) }} />
+            <button className={removeBtn} onClick={() => onChange('questions', questions.filter((_, j) => j !== i))}>✕</button>
+          </div>
+        ))}
+      </div>
     </>
   )
 }
