@@ -15,3 +15,6 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #e8c5c9; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #c97b84; }
+
+/* PDF export mode - ensure clean capture */
+.pdf-export { padding: 24px; background: #faf4ed; }

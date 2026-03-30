@@ -77,6 +77,18 @@ export default function ZpravyPage() {
       read: false,
     })
 
+    // Notify recipient
+    fetch('/portal/api/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'new_message',
+        recipientId: receiverId,
+        title: 'Nová zpráva',
+        body: newMsg.trim().slice(0, 100),
+      }),
+    }).catch(() => {}) // fire and forget
+
     setNewMsg('')
   }
 

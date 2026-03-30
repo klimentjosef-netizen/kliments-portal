@@ -15,6 +15,7 @@ import RisksTab from '@/components/cfo/RisksTab'
 import QuestionsTab from '@/components/cfo/QuestionsTab'
 import { type Tier, type Extra, type CostItem, type Budget, calcRevenue, calcOpex } from '@/components/cfo/calcEngine'
 import type { Report } from '@/lib/types'
+import { exportCfoPdf } from '@/lib/pdfExport'
 
 const ALL_TABS = [
   { id: 'pricing', label: 'Cenotvorba' },
@@ -158,19 +159,28 @@ export default function CfoPage() {
             <h2 className="font-serif text-xl text-sand font-light mb-1.5">{d.title || 'CFO na volné noze'}</h2>
             <p className="text-[0.78rem] text-white/40">{d.subtitle || ''}</p>
           </div>
-          <span className={`px-5 py-2 rounded-full text-[0.68rem] tracking-[0.1em] uppercase font-medium ${
-            d.status === 'paused' ? 'bg-amber text-white' :
-            d.status === 'completed' ? 'bg-mid text-white' :
-            'bg-green text-white'
-          }`}>
-            {d.status === 'paused' ? 'Pozastaveno ●' : d.status === 'completed' ? 'Ukončeno' : 'Aktivní ●'}
-          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => exportCfoPdf('cfo-content', d.title || 'CFO na volné noze')}
+              className="px-4 py-2 rounded-full text-[0.68rem] tracking-[0.1em] uppercase font-medium bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-colors"
+            >
+              Export PDF
+            </button>
+            <span className={`px-5 py-2 rounded-full text-[0.68rem] tracking-[0.1em] uppercase font-medium ${
+              d.status === 'paused' ? 'bg-amber text-white' :
+              d.status === 'completed' ? 'bg-mid text-white' :
+              'bg-green text-white'
+            }`}>
+              {d.status === 'paused' ? 'Pozastaveno ●' : d.status === 'completed' ? 'Ukončeno' : 'Aktivní ●'}
+            </span>
+          </div>
         </div>
 
         {/* Tabs */}
         <CfoTabs tabs={ALL_TABS} active={tab} onChange={handleTabChange} />
 
         {/* Tab content */}
+        <div id="cfo-content">
         {tab === 'pricing' && (
           <PricingTab
             tiers={tiers}
@@ -211,6 +221,7 @@ export default function CfoPage() {
         )}
         {tab === 'risks' && <RisksTab data={d} onRisksChange={v => updateData('risks', v)} onStepsChange={v => updateData('steps', v)} />}
         {tab === 'questions' && <QuestionsTab data={d} onQuestionsChange={v => updateData('questions', v)} />}
+        </div>
       </div>
     </>
   )
