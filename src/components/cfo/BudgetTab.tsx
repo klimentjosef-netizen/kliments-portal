@@ -44,17 +44,17 @@ export default function BudgetTab({ budget, monthlyEbitda, onBudgetChange }: Bud
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
             <div className="text-[0.6rem] tracking-[0.1em] uppercase text-white/40 mb-1">Celkový rozpočet</div>
-            <input type="number" value={budget.total || ''} onChange={e => onBudgetChange({ ...budget, total: +e.target.value || 0 })}
+            <input type="number" value={budget.total || ''} min="0" onChange={e => onBudgetChange({ ...budget, total: Math.max(0, +e.target.value || 0) })}
               className="font-serif text-xl text-sand bg-transparent border-b border-white/10 outline-none focus:border-rose w-full" />
           </div>
           <div>
             <div className="text-[0.6rem] tracking-[0.1em] uppercase text-white/40 mb-1">CAPEX rozpočet</div>
-            <input type="number" value={budget.capex_budget || ''} onChange={e => onBudgetChange({ ...budget, capex_budget: +e.target.value || 0 })}
+            <input type="number" value={budget.capex_budget || ''} min="0" onChange={e => onBudgetChange({ ...budget, capex_budget: Math.max(0, +e.target.value || 0) })}
               className="font-serif text-xl text-sand bg-transparent border-b border-white/10 outline-none focus:border-rose w-full" />
           </div>
           <div>
             <div className="text-[0.6rem] tracking-[0.1em] uppercase text-white/40 mb-1">Provozní rezerva</div>
-            <input type="number" value={budget.reserve_budget || ''} onChange={e => onBudgetChange({ ...budget, reserve_budget: +e.target.value || 0 })}
+            <input type="number" value={budget.reserve_budget || ''} min="0" onChange={e => onBudgetChange({ ...budget, reserve_budget: Math.max(0, +e.target.value || 0) })}
               className="font-serif text-xl text-sand bg-transparent border-b border-white/10 outline-none focus:border-rose w-full" />
           </div>
           <div>
@@ -84,8 +84,8 @@ export default function BudgetTab({ budget, monthlyEbitda, onBudgetChange }: Bud
             {budget.capex_items.map((item, i) => (
               <div key={i} className="grid grid-cols-[1fr_100px_100px_30px] gap-2 items-end">
                 <input value={item.name} onChange={e => updateCapex(i, { name: e.target.value })} className={inputCls} />
-                <input type="number" value={item.planned || ''} onChange={e => updateCapex(i, { planned: +e.target.value || 0 })} className={numCls} />
-                <input type="number" value={item.spent || ''} onChange={e => updateCapex(i, { spent: +e.target.value || 0 })} className={numCls} />
+                <input type="number" value={item.planned || ''} min="0" onChange={e => updateCapex(i, { planned: Math.max(0, +e.target.value || 0) })} className={numCls} />
+                <input type="number" value={item.spent || ''} min="0" onChange={e => updateCapex(i, { spent: Math.max(0, +e.target.value || 0) })} className={numCls} />
                 <button onClick={() => removeCapex(i)} className="text-mid hover:text-rose-deep text-sm pb-1.5">✕</button>
               </div>
             ))}
@@ -105,7 +105,7 @@ export default function BudgetTab({ budget, monthlyEbitda, onBudgetChange }: Bud
           <div className="mt-4 space-y-3">
             <div>
               <label className="text-[0.58rem] tracking-[0.1em] uppercase text-mid">Čerpáno z rezervy (Kč)</label>
-              <input type="number" value={budget.reserve_drawn || ''} onChange={e => onBudgetChange({ ...budget, reserve_drawn: +e.target.value || 0 })} className={numCls} />
+              <input type="number" value={budget.reserve_drawn || ''} min="0" onChange={e => onBudgetChange({ ...budget, reserve_drawn: Math.max(0, +e.target.value || 0) })} className={numCls} />
             </div>
 
             <div className="flex justify-between items-center pt-3 border-t border-black/[0.06]">

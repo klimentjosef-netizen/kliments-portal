@@ -19,9 +19,11 @@ interface CashflowTabProps {
   budget: Budget
   rampMonths: number
   projectionMonths: number
+  onRampMonthsChange?: (v: number) => void
+  onProjectionMonthsChange?: (v: number) => void
 }
 
-export default function CashflowTab({ tiers, extras, fixedCosts, variablePct, budget, rampMonths, projectionMonths }: CashflowTabProps) {
+export default function CashflowTab({ tiers, extras, fixedCosts, variablePct, budget, rampMonths, projectionMonths, onRampMonthsChange, onProjectionMonthsChange }: CashflowTabProps) {
   const rev = calcRevenue(tiers, extras)
   const opex = calcOpex(fixedCosts, variablePct, rev.total)
   const ebitda = rev.total - opex.total
@@ -80,6 +82,37 @@ export default function CashflowTab({ tiers, extras, fixedCosts, variablePct, bu
       </div>
 
       {/* Cashflow projection chart */}
+      {/* Ramp & projection settings */}
+      {(onRampMonthsChange || onProjectionMonthsChange) && (
+        <div className="bg-white rounded-[20px] p-6 border border-black/[0.06]">
+          <h3 className="font-serif text-base text-ink mb-3">Nastavení projekce</h3>
+          <div className="flex gap-6">
+            <div>
+              <label className="text-[0.58rem] tracking-[0.1em] uppercase text-mid block mb-1">Ramp-up (měsíce)</label>
+              <input
+                type="number"
+                value={rampMonths}
+                min={1}
+                max={36}
+                onChange={e => onRampMonthsChange?.(Math.max(1, Math.min(36, +e.target.value || 1)))}
+                className="w-24 bg-transparent border-b border-black/10 py-1.5 text-sm outline-none focus:border-rose text-right transition-colors"
+              />
+            </div>
+            <div>
+              <label className="text-[0.58rem] tracking-[0.1em] uppercase text-mid block mb-1">Projekce (měsíce)</label>
+              <input
+                type="number"
+                value={projectionMonths}
+                min={6}
+                max={60}
+                onChange={e => onProjectionMonthsChange?.(Math.max(6, Math.min(60, +e.target.value || 6)))}
+                className="w-24 bg-transparent border-b border-black/10 py-1.5 text-sm outline-none focus:border-rose text-right transition-colors"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {projection.length > 0 && (
         <CashflowChart months={projection} title={`Cashflow — ${projectionMonths} měsíční projekce`} />
       )}
