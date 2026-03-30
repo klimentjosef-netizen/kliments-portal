@@ -69,7 +69,7 @@ export default function ZpravyPage() {
   async function sendMessage() {
     if (!newMsg.trim() || !userId || !adminId) return
 
-    const receiverId = userId === adminId ? adminId : adminId // client always sends to admin
+    const receiverId = adminId // client always sends to admin
     await supabase.from('messages').insert({
       sender_id: userId,
       receiver_id: receiverId,
@@ -90,7 +90,7 @@ export default function ZpravyPage() {
             <div className="w-9 h-9 rounded-full bg-rose flex items-center justify-center text-white text-sm font-medium">JK</div>
             <div>
               <div className="text-[0.88rem] font-medium text-ink">Josef Kliment</div>
-              <div className="text-[0.7rem] text-green">Online</div>
+              <div className="text-[0.7rem] text-mid">Váš finanční poradce</div>
             </div>
           </div>
 

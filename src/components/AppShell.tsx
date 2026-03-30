@@ -1,13 +1,17 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Sidebar from './Sidebar'
+import { getRoutesForService } from '@/lib/services'
 import type { Profile } from '@/lib/types'
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const pathname = usePathname()
+  const router = useRouter()
 
   useEffect(() => {
     async function loadProfile() {
@@ -25,6 +29,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }
     loadProfile()
   }, [])
+
+  // Route protection: redirect clients to dashboard if they access unauthorized pages
+  useEffect(() => {
+    if (!profile || profile.role === 'admin') return
+    const allowed = getRoutesForService(profile.service)
+    // Check if current path starts with any allowed route (for nested routes like /admin/reports)
+    const isAllowed = allowed.some(route => pathname === route || pathname.startsWith(route + '/'))
+    if (!isAllowed) {
+      router.replace('/dashboard')
+    }
+  }, [profile, pathname, router])
 
   return (
     <div className="flex min-h-screen">

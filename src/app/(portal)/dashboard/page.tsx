@@ -86,7 +86,7 @@ export default function DashboardPage() {
             ))}
           </div>
         ) : !report ? (
-          <EmptyState />
+          <EmptyState service={profile?.service} />
         ) : (
           <>
             {/* Stats – computed or fallback to legacy strings */}
