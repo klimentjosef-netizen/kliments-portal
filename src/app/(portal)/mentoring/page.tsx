@@ -1,18 +1,24 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Topbar from '@/components/Topbar'
 import EmptyState from '@/components/EmptyState'
+import SaveToast from '@/components/SaveToast'
 import type { Report } from '@/lib/types'
+
+interface Task { text: string; done: boolean }
+interface Session { num: string; topic: string; date: string; notes: string; tasks: Task[]; client_notes?: string }
 
 export default function MentoringPage() {
   const [report, setReport] = useState<Report | null>(null)
   const [loading, setLoading] = useState(true)
+  const [saveStatus, setSaveStatus] = useState('')
+  const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const supabase = createClient()
 
   useEffect(() => {
     async function load() {
-      const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
       const { data } = await supabase
@@ -23,18 +29,52 @@ export default function MentoringPage() {
       setLoading(false)
     }
     load()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const autoSave = useCallback(async (newData: Record<string, unknown>) => {
+    if (!report) return
+    setSaveStatus('Ukládám...')
+    if (saveTimeout.current) clearTimeout(saveTimeout.current)
+    saveTimeout.current = setTimeout(async () => {
+      const { error } = await supabase.from('reports').update({ data: newData }).eq('id', report.id)
+      if (error) { setSaveStatus('Chyba ukládání'); setTimeout(() => setSaveStatus(''), 3000) }
+      else setSaveStatus('✓ Uloženo ' + new Date().toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' }))
+    }, 800)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [report])
+
+  function updateData(key: string, value: unknown) {
+    if (!report) return
+    const newData = { ...report.data, [key]: value }
+    setReport({ ...report, data: newData })
+    autoSave(newData)
+  }
+
   const d = report?.data || {}
+  const sessions = (d.sessions || []) as Session[]
 
   if (loading) return <><Topbar title="Mentoring" /><div className="p-9"><div className="animate-pulse h-40 bg-white rounded-[20px]" /></div></>
-  if (!report) return <><Topbar title="Mentoring" /><div className="p-9"><EmptyState /></div></>
+  if (!report) return <><Topbar title="Mentoring" /><div className="p-9"><EmptyState service="Mentoring" /></div></>
+
+  function toggleTask(sessionIdx: number, taskIdx: number) {
+    const updated = sessions.map((s, si) =>
+      si === sessionIdx ? { ...s, tasks: s.tasks.map((t, ti) => ti === taskIdx ? { ...t, done: !t.done } : t) } : s
+    )
+    updateData('sessions', updated)
+  }
+
+  function updateClientNotes(sessionIdx: number, client_notes: string) {
+    const updated = sessions.map((s, si) => si === sessionIdx ? { ...s, client_notes } : s)
+    updateData('sessions', updated)
+  }
 
   return (
     <>
       <Topbar title="Mentoring" />
+      <SaveToast status={saveStatus} />
       <div className="p-9">
-        {d.sessions && (d.sessions as { num: string; topic: string; date: string; notes: string; tasks: { text: string; done: boolean }[] }[]).map((session, i) => (
+        {sessions.map((session, i) => (
           <div key={i} className="bg-white rounded-2xl p-6 border border-black/[0.06] mb-4">
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-4">
@@ -50,16 +90,27 @@ export default function MentoringPage() {
               {session.notes}
             </div>
 
+            {/* Tasks - interactive */}
             {session.tasks && session.tasks.length > 0 && (
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 mb-3">
                 {session.tasks.map((task, j) => (
-                  <div key={j} className="flex gap-2 items-center text-[0.76rem] text-mid">
-                    <div className={`w-3.5 h-3.5 rounded flex-shrink-0 ${task.done ? 'bg-green' : 'border-[1.5px] border-black/10'}`} />
+                  <button key={j} onClick={() => toggleTask(i, j)}
+                    className="flex gap-2 items-center text-[0.76rem] text-mid w-full text-left hover:bg-sand/50 rounded px-1 py-0.5 transition-colors">
+                    <div className={`w-3.5 h-3.5 rounded flex-shrink-0 transition-colors ${task.done ? 'bg-green' : 'border-[1.5px] border-black/10'}`} />
                     <span className={task.done ? 'line-through opacity-60' : ''}>{task.text}</span>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
+
+            {/* Client notes */}
+            <textarea
+              value={session.client_notes || ''}
+              onChange={e => updateClientNotes(i, e.target.value)}
+              placeholder="Vaše poznámky k sezení..."
+              rows={2}
+              className="w-full bg-sand/50 rounded-lg px-4 py-2.5 text-[0.76rem] text-mid outline-none focus:ring-1 focus:ring-rose/30 resize-none"
+            />
           </div>
         ))}
       </div>
