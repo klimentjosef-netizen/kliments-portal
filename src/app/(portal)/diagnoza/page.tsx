@@ -81,7 +81,7 @@ function DiagnozaPageInner() {
   const d = report?.data || {}
 
   if (isAdminNoPick) return <AdminClientPicker serviceName="Finanční diagnóza" pageUrl="/diagnoza" title="Finanční diagnóza" />
-  if (loading) return <><Topbar title={isAdminView ? `Diagnóza — ${clientName}` : 'Finanční diagnóza'} /><div className="p-4 lg:p-9"><div className="animate-pulse h-40 bg-white rounded-[20px]" /></div></>
+  if (loading) return <><Topbar title={isAdminView ? `Diagnóza · ${clientName}` : 'Finanční diagnóza'} /><div className="p-4 lg:p-9"><div className="animate-pulse h-40 bg-white rounded-[20px]" /></div></>
   if (!report) return <><Topbar title="Finanční diagnóza" /><div className="p-4 lg:p-9"><EmptyState service="Finanční diagnóza" /></div></>
 
   const steps = (d.steps || []) as Step[]
@@ -129,7 +129,7 @@ function DiagnozaPageInner() {
         {/* Cashflow */}
         {d.cashflow_months && (
           <div className="bg-white rounded-2xl p-6 border border-black/[0.06] mb-6">
-            <h3 className="font-serif text-base text-ink mb-4">Cashflow — posledních 6 měsíců</h3>
+            <h3 className="font-serif text-base text-ink mb-4">Cashflow: posledních 6 měsíců</h3>
             <div className="flex items-end gap-2 h-24">
               {(d.cashflow_months as { label: string; value: number; amount: string }[]).map((m, i) => (
                 <div key={i} className="flex-1 flex flex-col items-center gap-1">

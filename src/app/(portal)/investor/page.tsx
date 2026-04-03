@@ -160,7 +160,7 @@ function InvestorPageInner() {
         {d.mrr_projection && (
           <div className="bg-white rounded-[20px] p-6 border border-black/[0.06]">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="font-serif text-base text-ink">MRR projekce — 12 měsíců</h3>
+              <h3 className="font-serif text-base text-ink">MRR projekce: 12 měsíců</h3>
               <span className="text-[0.7rem] text-rose">Cíl: {d.mrr_target || ''}</span>
             </div>
             <div className="flex items-end gap-1.5 h-24">

@@ -89,32 +89,32 @@ export default function DashboardPage() {
           <EmptyState service={profile?.service || undefined} />
         ) : (
           <>
-            {/* Stats – computed or fallback to legacy strings */}
+            {/* Stats: computed or fallback to legacy strings */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-7">
               <StatCard
                 label="Měsíční tržby"
-                value={rev ? fmtShort(rev.total) : (d.revenue || '—')}
+                value={rev ? fmtShort(rev.total) : (d.revenue || '···')}
                 sub={rev ? `z ${totalMembers} členů` : 'Kč celkem'}
                 trend={rev && extras.length > 0 ? `+ ${fmtShort(rev.extraRevenue)} doplňkové` : d.revenue_trend}
                 trendUp={rev ? (rev.total > 0) : d.revenue_trend_up}
               />
               <StatCard
                 label="EBITDA"
-                value={ebitda !== null ? fmtShort(ebitda) : (d.ebitda || '—')}
+                value={ebitda !== null ? fmtShort(ebitda) : (d.ebitda || '···')}
                 sub={ebitdaMargin !== null ? `${ebitdaMargin} % marže` : (d.ebitda_period || '')}
                 trend={ebitda !== null ? (ebitda >= 0 ? 'Ziskový' : 'Ztrátový') : d.ebitda_trend}
                 trendUp={ebitda !== null ? ebitda >= 0 : d.ebitda_trend_up}
               />
               <StatCard
                 label="Break-even"
-                value={breakeven ? `${Math.ceil(breakeven.members)}` : '—'}
+                value={breakeven ? `${Math.ceil(breakeven.members)}` : '···'}
                 sub={breakeven ? `členů potřeba (ø ${fmtShort(breakeven.avgPrice)})` : ''}
                 trend={breakeven && totalMembers >= breakeven.members ? `Dosaženo (${totalMembers}/${Math.ceil(breakeven.members)})` : breakeven ? `${totalMembers}/${Math.ceil(breakeven.members)} členů` : undefined}
                 trendUp={breakeven ? totalMembers >= breakeven.members : false}
               />
               <StatCard
                 label="Návratnost CAPEX"
-                value={capexRoi !== null ? `${Math.round(capexRoi)} měs.` : (d.receivables || '—')}
+                value={capexRoi !== null ? `${Math.round(capexRoi)} měs.` : (d.receivables || '···')}
                 sub={budget.capex_budget > 0 ? `z ${fmtShort(budget.capex_budget)} investice` : (d.receivables_note || '')}
                 trend={capexRoi !== null && capexRoi <= 24 ? 'Do 2 let' : capexRoi !== null ? `${Math.round(capexRoi / 12)} let` : undefined}
                 trendUp={capexRoi !== null ? capexRoi <= 24 : false}

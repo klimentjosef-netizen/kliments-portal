@@ -124,7 +124,7 @@ export default function ReceivablesTab({ receivables, onReceivablesChange }: Rec
 
       {/* Aging report */}
       <div className="bg-white rounded-[20px] p-6 border border-black/[0.06]">
-        <h3 className="font-serif text-base text-ink mb-4">Aging report — pohledávky</h3>
+        <h3 className="font-serif text-base text-ink mb-4">Aging report: pohledávky</h3>
         <div className="flex gap-1 h-8 rounded-lg overflow-hidden">
           {[
             { label: 'Aktuální', value: aging.current, color: 'bg-green' },

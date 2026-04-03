@@ -154,7 +154,7 @@ export default function ActualTab({ actuals, onActualsChange }: ActualTabProps) 
       {/* Transactions table */}
       <div className="bg-white rounded-[20px] p-6 border border-black/[0.06]">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="font-serif text-base text-ink">Pohyby — {monthLabel(selectedMonth)}</h3>
+          <h3 className="font-serif text-base text-ink">Pohyby: {monthLabel(selectedMonth)}</h3>
           <button onClick={addTransaction}
             className="text-[0.72rem] px-4 py-1.5 rounded-full border border-black/10 text-mid hover:border-rose hover:text-rose transition-colors">
             + Přidat pohyb
@@ -184,7 +184,7 @@ export default function ActualTab({ actuals, onActualsChange }: ActualTabProps) 
                   <option value={12}>12 %</option>
                   <option value={21}>21 %</option>
                 </select>
-                <div className="text-right text-[0.72rem] text-mid">{item.vat_amount ? fmt(item.vat_amount) : '—'}</div>
+                <div className="text-right text-[0.72rem] text-mid">{item.vat_amount ? fmt(item.vat_amount) : '···'}</div>
                 <button onClick={() => removeTransaction(item.id)} className="text-mid hover:text-rose-deep text-sm">✕</button>
               </div>
             ))}

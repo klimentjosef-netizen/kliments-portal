@@ -57,13 +57,13 @@ export default function CashflowTab({ tiers, extras, fixedCosts, variablePct, bu
         </div>
         <div className="bg-white rounded-[14px] p-4 border border-black/[0.06]">
           <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid mb-1.5">Break-even</div>
-          <div className="font-serif text-xl font-light text-ink leading-none">{be.members < 999 ? `${be.members} členů` : '—'}</div>
+          <div className="font-serif text-xl font-light text-ink leading-none">{be.members < 999 ? `${be.members} členů` : '···'}</div>
           <div className="text-[0.68rem] mt-1 text-mid">při avg {Math.round(be.avgPrice).toLocaleString('cs-CZ')} Kč</div>
         </div>
         <div className="bg-white rounded-[14px] p-4 border border-black/[0.06]">
           <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid mb-1.5">Návratnost CAPEX</div>
           <div className="font-serif text-xl font-light text-ink leading-none">
-            {roi < 999 ? `${roi} měs` : '—'}
+            {roi < 999 ? `${roi} měs` : '···'}
           </div>
           <div className="text-[0.68rem] mt-1 text-mid">{roi > 36 ? '> 3 roky' : roi < 999 ? '< 3 roky' : 'nejdříve dosáhni zisku'}</div>
         </div>
@@ -112,7 +112,7 @@ export default function CashflowTab({ tiers, extras, fixedCosts, variablePct, bu
       )}
 
       {projection.length > 0 && (
-        <CashflowChart months={projection} title={`Cashflow — ${projectionMonths} měsíční projekce`} />
+        <CashflowChart months={projection} title={`Cashflow: ${projectionMonths}M projekce`} />
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">

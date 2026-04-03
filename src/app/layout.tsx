@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Kliments — Klientský portál",
-  description: "Finanční poradenství — Josef Kliment",
+  title: "Kliments · Klientský portál",
+  description: "Finanční poradenství · Josef Kliment",
 };
 
 export default function RootLayout({

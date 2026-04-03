@@ -207,7 +207,7 @@ function CfoPageInner() {
 
   return (
     <>
-      <Topbar title={isAdminView ? `CFO — ${clientName}` : 'CFO na volné noze'} />
+      <Topbar title={isAdminView ? `CFO · ${clientName}` : 'CFO na volné noze'} />
       <SaveToast status={saveStatus} />
       <div className="p-4 lg:p-9">
         {/* Admin banner */}

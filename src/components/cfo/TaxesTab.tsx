@@ -23,15 +23,15 @@ export default function TaxesTab({ taxes, onTaxesChange }: TaxesTabProps) {
   const allPayments: Array<{ name: string; amount: number; due_date: string; paid: boolean; toggle: () => void }> = []
 
   taxes.income_tax.advances.forEach((a, i) => allPayments.push({
-    name: `Daň z příjmů — ${a.period}`, amount: a.amount, due_date: a.due_date, paid: a.paid,
+    name: `Daň z příjmů: ${a.period}`, amount: a.amount, due_date: a.due_date, paid: a.paid,
     toggle: () => { const adv = [...taxes.income_tax.advances]; adv[i] = { ...adv[i], paid: !adv[i].paid }; onTaxesChange({ ...taxes, income_tax: { ...taxes.income_tax, advances: adv } }) }
   }))
   taxes.social.advances.forEach((a, i) => allPayments.push({
-    name: `Sociální — ${a.period}`, amount: a.amount, due_date: a.due_date, paid: a.paid,
+    name: `Sociální: ${a.period}`, amount: a.amount, due_date: a.due_date, paid: a.paid,
     toggle: () => { const adv = [...taxes.social.advances]; adv[i] = { ...adv[i], paid: !adv[i].paid }; onTaxesChange({ ...taxes, social: { ...taxes.social, advances: adv } }) }
   }))
   taxes.health.advances.forEach((a, i) => allPayments.push({
-    name: `Zdravotní — ${a.period}`, amount: a.amount, due_date: a.due_date, paid: a.paid,
+    name: `Zdravotní: ${a.period}`, amount: a.amount, due_date: a.due_date, paid: a.paid,
     toggle: () => { const adv = [...taxes.health.advances]; adv[i] = { ...adv[i], paid: !adv[i].paid }; onTaxesChange({ ...taxes, health: { ...taxes.health, advances: adv } }) }
   }))
   taxes.other_taxes.forEach((t, i) => allPayments.push({
@@ -105,7 +105,7 @@ export default function TaxesTab({ taxes, onTaxesChange }: TaxesTabProps) {
                 </button>
                 <div className="flex-1 min-w-0">
                   <div className={`text-[0.8rem] font-medium ${p.paid ? 'line-through text-mid' : 'text-ink'}`}>{p.name}</div>
-                  <div className="text-[0.68rem] text-mid">{p.due_date ? new Date(p.due_date).toLocaleDateString('cs-CZ') : '—'}</div>
+                  <div className="text-[0.68rem] text-mid">{p.due_date ? new Date(p.due_date).toLocaleDateString('cs-CZ') : '···'}</div>
                 </div>
                 <div className={`text-[0.85rem] font-medium ${p.paid ? 'text-mid' : 'text-ink'}`}>{fmt(p.amount)}</div>
               </div>

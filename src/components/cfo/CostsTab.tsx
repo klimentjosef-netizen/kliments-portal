@@ -84,7 +84,7 @@ export default function CostsTab({ fixedCosts, variablePct, onCostsChange, onVar
         <div className="absolute right-[-10px] bottom-[-40px] font-serif italic text-[120px] text-white/[0.04] leading-none pointer-events-none">%</div>
         <h3 className="font-serif text-base text-sand font-light mb-2">Jak to funguje</h3>
         <p className="text-[0.78rem] text-white/40 leading-relaxed">
-          Fixní náklady se platí každý měsíc bez ohledu na příjmy. Variabilní náklady rostou s obratem — typicky 3-8 % pro služby, 15-30 % pro prodejce zboží.
+          Fixní náklady se platí každý měsíc bez ohledu na příjmy. Variabilní náklady rostou s obratem , typicky 3-8 % pro služby, 15-30 % pro prodejce zboží.
           Všechny výpočty (P&L, break-even, cashflow projekce) se automaticky přepočítají při jakékoli změně.
         </p>
       </div>

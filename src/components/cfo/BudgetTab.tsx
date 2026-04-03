@@ -70,7 +70,7 @@ export default function BudgetTab({ budget, monthlyEbitda, onBudgetChange }: Bud
         {/* CAPEX tracker */}
         <div className="bg-white rounded-[20px] p-6 border border-black/[0.06]">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="font-serif text-base text-ink">CAPEX — investice</h3>
+            <h3 className="font-serif text-base text-ink">CAPEX · investice</h3>
             <button onClick={addCapex} className="text-[0.72rem] px-4 py-1.5 rounded-full border border-black/10 text-mid hover:border-rose hover:text-rose transition-colors">
               + Položka
             </button>

@@ -86,12 +86,12 @@ export default function PricingTab({ tiers, extras, fixedCosts, variablePct, bud
         </div>
         <div className="bg-white rounded-[14px] p-4 border border-black/[0.06]">
           <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid mb-1.5">Break-even</div>
-          <div className="font-serif text-xl font-light text-ink leading-none">{be.members < 999 ? `${be.members} členů` : '—'}</div>
+          <div className="font-serif text-xl font-light text-ink leading-none">{be.members < 999 ? `${be.members} členů` : '···'}</div>
           <div className="text-[0.68rem] mt-1 text-mid">aktuálně {totalMembers} ({be.members < 999 ? Math.round(totalMembers / be.members * 100) : 0} %)</div>
         </div>
         <div className="bg-white rounded-[14px] p-4 border border-black/[0.06]">
           <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid mb-1.5">Návratnost CAPEX</div>
-          <div className="font-serif text-xl font-light text-ink leading-none">{roi < 999 ? `${roi} měs` : '—'}</div>
+          <div className="font-serif text-xl font-light text-ink leading-none">{roi < 999 ? `${roi} měs` : '···'}</div>
           <div className="text-[0.68rem] mt-1 text-mid">{roi > 36 ? '> 3 roky' : roi < 999 ? '< 3 roky' : 'nejdříve dosáhni zisku'}</div>
         </div>
       </div>

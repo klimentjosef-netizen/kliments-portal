@@ -30,7 +30,7 @@ interface CashflowChartProps {
   title?: string
 }
 
-export default function CashflowChart({ months, title = 'Cashflow — projekce' }: CashflowChartProps) {
+export default function CashflowChart({ months, title = 'Cashflow: projekce' }: CashflowChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const chartRef = useRef<ChartJS | null>(null)
 
