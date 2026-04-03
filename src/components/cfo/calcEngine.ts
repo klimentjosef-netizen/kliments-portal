@@ -57,6 +57,564 @@ export interface CashflowMonth {
   cumulative: number
 }
 
+// ══════════════════════════════════════════════
+// ── Smart vCFO: Ledger types ──
+// ══════════════════════════════════════════════
+
+export type ExpectedSource = 'tier_revenue' | 'extra_revenue' | 'fixed_cost' | 'tax_advance' | 'social' | 'health' | 'vat_payment' | 'invoice' | 'bill' | 'manual'
+export type ItemStatus = 'expected' | 'confirmed' | 'paid' | 'skipped'
+
+export interface LedgerItem {
+  id: string
+  date: string
+  description: string
+  category: TransactionCategory
+  source: ExpectedSource
+  source_id?: string
+  amount_expected: number
+  amount_actual: number
+  vat_rate?: number
+  vat_amount?: number
+  status: ItemStatus
+}
+
+export interface MonthLedger {
+  month: string
+  items: LedgerItem[]
+  locked: boolean
+}
+
+export interface Ledger {
+  bank_balance: number
+  months: MonthLedger[]
+}
+
+export interface Alert {
+  id: string
+  severity: 'critical' | 'warning' | 'info'
+  message: string
+  detail?: string
+  tab?: string
+}
+
+// ── Ledger: auto-generation ──
+
+export function generateExpectedItems(
+  month: string,
+  tiers: Tier[],
+  extras: Extra[],
+  fixedCosts: CostItem[],
+  taxes: TaxData,
+  vat: VatData,
+  rampFactor: number = 1,
+): LedgerItem[] {
+  const items: LedgerItem[] = []
+  const firstOfMonth = `${month}-01`
+
+  // Tier revenue
+  for (const t of tiers) {
+    if (t.members <= 0 || t.price <= 0) continue
+    const amount = Math.round(t.price * t.members * rampFactor)
+    items.push({
+      id: genId(),
+      date: firstOfMonth,
+      description: `${t.name} (${t.members} × ${t.price.toLocaleString('cs-CZ')} Kč)`,
+      category: 'revenue',
+      source: 'tier_revenue',
+      source_id: t.name,
+      amount_expected: amount,
+      amount_actual: 0,
+      vat_rate: 12,
+      vat_amount: Math.round(amount - amount / 1.12),
+      status: 'expected',
+    })
+  }
+
+  // Extra revenue
+  for (const e of extras) {
+    if (e.quantity <= 0 || e.unit_price <= 0) continue
+    const amount = Math.round(e.quantity * e.unit_price * rampFactor)
+    items.push({
+      id: genId(),
+      date: firstOfMonth,
+      description: `${e.name} (${e.quantity} × ${e.unit_price.toLocaleString('cs-CZ')} Kč)`,
+      category: 'revenue',
+      source: 'extra_revenue',
+      source_id: e.name,
+      amount_expected: amount,
+      amount_actual: 0,
+      vat_rate: 21,
+      vat_amount: Math.round(amount - amount / 1.21),
+      status: 'expected',
+    })
+  }
+
+  // Fixed costs
+  for (const c of fixedCosts) {
+    if (c.amount <= 0) continue
+    items.push({
+      id: genId(),
+      date: firstOfMonth,
+      description: c.name,
+      category: 'cost',
+      source: 'fixed_cost',
+      source_id: c.name,
+      amount_expected: -c.amount,
+      amount_actual: 0,
+      status: 'expected',
+    })
+  }
+
+  // Social insurance
+  if (taxes.social.monthly > 0) {
+    items.push({
+      id: genId(),
+      date: firstOfMonth,
+      description: 'Sociální pojištění',
+      category: 'social',
+      source: 'social',
+      amount_expected: -taxes.social.monthly,
+      amount_actual: 0,
+      status: 'expected',
+    })
+  }
+
+  // Health insurance
+  if (taxes.health.monthly > 0) {
+    items.push({
+      id: genId(),
+      date: firstOfMonth,
+      description: 'Zdravotní pojištění',
+      category: 'health',
+      source: 'health',
+      amount_expected: -taxes.health.monthly,
+      amount_actual: 0,
+      status: 'expected',
+    })
+  }
+
+  // Income tax advances (check if any fall in this month)
+  for (const adv of taxes.income_tax.advances) {
+    if (adv.due_date && adv.due_date.startsWith(month) && adv.amount > 0) {
+      items.push({
+        id: genId(),
+        date: adv.due_date,
+        description: `Záloha na daň z příjmů: ${adv.period}`,
+        category: 'tax',
+        source: 'tax_advance',
+        source_id: adv.period,
+        amount_expected: -adv.amount,
+        amount_actual: 0,
+        status: 'expected',
+      })
+    }
+  }
+
+  // VAT payment (quarterly: months 3, 6, 9, 12)
+  if (vat.registered) {
+    const monthNum = parseInt(month.split('-')[1])
+    const isQuarterEnd = vat.period === 'quarterly' && monthNum % 3 === 0
+    const isMonthlyVat = vat.period === 'monthly'
+    if (isQuarterEnd || isMonthlyVat) {
+      // Find matching period
+      const period = vat.periods.find(p => {
+        if (!p.due_date) return false
+        return p.due_date.startsWith(month)
+      })
+      if (period && period.liability !== 0 && !period.paid) {
+        items.push({
+          id: genId(),
+          date: period.due_date || firstOfMonth,
+          description: `DPH: ${period.label}`,
+          category: 'vat',
+          source: 'vat_payment',
+          source_id: period.label,
+          amount_expected: -Math.abs(period.liability),
+          amount_actual: 0,
+          status: 'expected',
+        })
+      }
+    }
+  }
+
+  return items
+}
+
+export function mergeExpectedWithExisting(generated: LedgerItem[], existing: LedgerItem[]): LedgerItem[] {
+  const result = [...existing]
+
+  for (const gen of generated) {
+    // Find matching existing item by source + source_id
+    const match = result.find(e =>
+      e.source === gen.source && e.source_id === gen.source_id
+    )
+
+    if (match) {
+      // Only update if still in expected status (user hasn't acted)
+      if (match.status === 'expected') {
+        match.amount_expected = gen.amount_expected
+        match.description = gen.description
+        match.vat_rate = gen.vat_rate
+        match.vat_amount = gen.vat_amount
+      }
+      // If confirmed/paid/skipped, leave it alone
+    } else {
+      // New item, add it
+      result.push(gen)
+    }
+  }
+
+  return result
+}
+
+export function migrateActualsToLedger(oldActuals: Actuals): Ledger {
+  const months: MonthLedger[] = oldActuals.months.map(m => ({
+    month: m.month,
+    locked: false,
+    items: m.items.map(t => ({
+      id: t.id,
+      date: t.date,
+      description: t.description,
+      category: t.category,
+      source: 'manual' as ExpectedSource,
+      amount_expected: t.amount,
+      amount_actual: t.amount,
+      vat_rate: t.vat_rate,
+      vat_amount: t.vat_amount,
+      status: (t.paid ? 'paid' : 'confirmed') as ItemStatus,
+    })),
+  }))
+  return { bank_balance: oldActuals.bank_balance, months }
+}
+
+// ── Ledger: calculations ──
+
+export function calcLedgerMonth(items: LedgerItem[]): {
+  expected_income: number; expected_expense: number; expected_net: number
+  actual_income: number; actual_expense: number; actual_net: number
+  variance_pct: number
+} {
+  let ei = 0, ee = 0, ai = 0, ae = 0
+  for (const item of items) {
+    if (item.amount_expected > 0) ei += item.amount_expected
+    else ee += Math.abs(item.amount_expected)
+
+    if (item.status === 'confirmed' || item.status === 'paid') {
+      if (item.amount_actual > 0) ai += item.amount_actual
+      else ae += Math.abs(item.amount_actual)
+    }
+  }
+  const en = ei - ee
+  const an = ai - ae
+  const variance_pct = en !== 0 ? Math.round((an - en) / Math.abs(en) * 100) : 0
+
+  return {
+    expected_income: ei, expected_expense: ee, expected_net: en,
+    actual_income: ai, actual_expense: ae, actual_net: an,
+    variance_pct,
+  }
+}
+
+export function calcCashPosition(
+  bankBalance: number,
+  ledger: Ledger,
+  monthsAhead: number = 6
+): Array<{ month: string; opening: number; expected_in: number; expected_out: number; closing: number }> {
+  const result: Array<{ month: string; opening: number; expected_in: number; expected_out: number; closing: number }> = []
+  let balance = bankBalance
+  const now = new Date()
+
+  for (let i = 0; i < monthsAhead; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1)
+    const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const ml = ledger.months.find(m => m.month === month)
+    let expected_in = 0, expected_out = 0
+
+    if (ml) {
+      for (const item of ml.items) {
+        if (item.status === 'skipped') continue
+        const amt = item.status === 'paid' || item.status === 'confirmed' ? item.amount_actual : item.amount_expected
+        if (amt > 0) expected_in += amt
+        else expected_out += Math.abs(amt)
+      }
+    }
+
+    const opening = balance
+    balance = balance + expected_in - expected_out
+    result.push({ month, opening, expected_in, expected_out, closing: balance })
+  }
+
+  return result
+}
+
+// ── Ledger: invoice sync ──
+
+export function syncInvoicesToLedger(receivables: ReceivablesData, ledger: Ledger): Ledger {
+  const updated = { ...ledger, months: ledger.months.map(m => ({ ...m, items: [...m.items] })) }
+
+  // Sync paid issued invoices → revenue in ledger
+  for (const inv of receivables.invoices_issued) {
+    if (inv.status !== 'paid' || !inv.paid_date) continue
+    const month = inv.paid_date.slice(0, 7)
+    let ml = updated.months.find(m => m.month === month)
+    if (!ml) {
+      ml = { month, items: [], locked: false }
+      updated.months.push(ml)
+    }
+    const existing = ml.items.find(i => i.source === 'invoice' && i.source_id === inv.id)
+    if (!existing) {
+      ml.items.push({
+        id: genId(),
+        date: inv.paid_date,
+        description: `Faktura ${inv.number}: ${inv.client}`,
+        category: 'revenue',
+        source: 'invoice',
+        source_id: inv.id,
+        amount_expected: inv.total,
+        amount_actual: inv.total,
+        vat_rate: inv.vat_rate,
+        vat_amount: inv.vat_amount,
+        status: 'paid',
+      })
+    }
+  }
+
+  // Sync paid received bills → cost in ledger
+  for (const bill of receivables.invoices_received) {
+    if (bill.status !== 'paid' || !bill.paid_date) continue
+    const month = bill.paid_date.slice(0, 7)
+    let ml = updated.months.find(m => m.month === month)
+    if (!ml) {
+      ml = { month, items: [], locked: false }
+      updated.months.push(ml)
+    }
+    const existing = ml.items.find(i => i.source === 'bill' && i.source_id === bill.id)
+    if (!existing) {
+      ml.items.push({
+        id: genId(),
+        date: bill.paid_date,
+        description: `Faktura ${bill.number}: ${bill.supplier}`,
+        category: 'cost',
+        source: 'bill',
+        source_id: bill.id,
+        amount_expected: -bill.total,
+        amount_actual: -bill.total,
+        vat_rate: bill.vat_rate,
+        vat_amount: bill.vat_amount,
+        status: 'paid',
+      })
+    }
+  }
+
+  updated.months.sort((a, b) => a.month.localeCompare(b.month))
+  return updated
+}
+
+// ── Ledger: VAT from confirmed items ──
+
+export function calcVatFromLedger(ledger: Ledger): { output: number; input: number; liability: number } {
+  let output = 0, input = 0
+  for (const m of ledger.months) {
+    for (const item of m.items) {
+      if (item.status !== 'confirmed' && item.status !== 'paid') continue
+      const vat = item.vat_amount ?? 0
+      if (item.amount_actual > 0) output += vat
+      else input += vat
+    }
+  }
+  return { output, input, liability: output - input }
+}
+
+// ── Ledger: income tax estimate ──
+
+export function calcIncomeTaxEstimate(ledger: Ledger, taxRate: number): number {
+  let totalProfit = 0
+  for (const m of ledger.months) {
+    for (const item of m.items) {
+      if (item.status !== 'confirmed' && item.status !== 'paid') continue
+      totalProfit += item.amount_actual
+    }
+  }
+  return totalProfit > 0 ? Math.round(totalProfit * taxRate / 100) : 0
+}
+
+// ── Smart alerts ──
+
+export function calcAlerts(
+  ledger: Ledger,
+  tiers: Tier[],
+  fixedCosts: CostItem[],
+  variablePct: number,
+  budget: Budget,
+  receivables: ReceivablesData,
+  taxes: TaxData,
+  vat: VatData,
+  today: string = new Date().toISOString().slice(0, 10),
+): Alert[] {
+  const alerts: Alert[] = []
+  const todayMs = new Date(today).getTime()
+
+  // 1. Cash position negative
+  const cashPos = calcCashPosition(ledger.bank_balance, ledger, 6)
+  const negMonth = cashPos.find(m => m.closing < 0)
+  if (negMonth) {
+    const monthsUntil = cashPos.indexOf(negMonth) + 1
+    alerts.push({
+      id: 'cash_negative',
+      severity: 'critical',
+      message: `Cashflow bude záporný za ${monthsUntil} ${monthsUntil === 1 ? 'měsíc' : monthsUntil < 5 ? 'měsíce' : 'měsíců'}`,
+      detail: `Aktuální zůstatek: ${fmt(ledger.bank_balance)}, očekávaný stav: ${fmt(negMonth.closing)}`,
+      tab: 'monthly',
+    })
+  }
+
+  // 2. Overdue invoices
+  const overdue = receivables.invoices_issued.filter(i => i.status === 'overdue' || (i.status !== 'paid' && i.due_date && new Date(i.due_date).getTime() < todayMs))
+  if (overdue.length > 0) {
+    const total = overdue.reduce((s, i) => s + i.total, 0)
+    alerts.push({
+      id: 'invoices_overdue',
+      severity: 'warning',
+      message: `${overdue.length} ${overdue.length === 1 ? 'faktura' : overdue.length < 5 ? 'faktury' : 'faktur'} po splatnosti, celkem ${fmt(total)}`,
+      tab: 'receivables',
+    })
+  }
+
+  // 3. VAT due soon
+  for (const p of vat.periods) {
+    if (p.paid || !p.due_date) continue
+    const days = Math.floor((new Date(p.due_date).getTime() - todayMs) / 86400000)
+    if (days >= 0 && days <= 14) {
+      alerts.push({
+        id: `vat_due_${p.label}`,
+        severity: days <= 3 ? 'critical' : 'warning',
+        message: `DPH přiznání splatné za ${days} dní (${p.label})`,
+        detail: `Částka: ${fmt(Math.abs(p.liability))}`,
+        tab: 'vat',
+      })
+    }
+  }
+
+  // 4. Break-even not reached
+  const be = calcBreakeven(tiers, fixedCosts, variablePct)
+  const totalMembers = tiers.reduce((s, t) => s + t.members, 0)
+  if (be.members < 999 && totalMembers < be.members) {
+    alerts.push({
+      id: 'breakeven_gap',
+      severity: 'info',
+      message: `Break-even nedosažen, chybí ${be.members - totalMembers} zákazníků`,
+      detail: `Aktuálně ${totalMembers} z potřebných ${be.members}`,
+      tab: 'pricing',
+    })
+  }
+
+  // 5. Revenue below plan (current month)
+  const currentMonth = today.slice(0, 7)
+  const currentML = ledger.months.find(m => m.month === currentMonth)
+  if (currentML) {
+    const stats = calcLedgerMonth(currentML.items)
+    if (stats.expected_income > 0 && stats.actual_income < stats.expected_income * 0.8) {
+      const pct = Math.round((1 - stats.actual_income / stats.expected_income) * 100)
+      alerts.push({
+        id: 'revenue_variance',
+        severity: 'warning',
+        message: `Tržby o ${pct}% nižší než plán tento měsíc`,
+        detail: `Očekáváno: ${fmt(stats.expected_income)}, skutečnost: ${fmt(stats.actual_income)}`,
+        tab: 'monthly',
+      })
+    }
+  }
+
+  // 6. Tax advances due soon
+  const allAdvances = [
+    ...taxes.income_tax.advances.map(a => ({ ...a, type: 'daň z příjmů' })),
+    ...taxes.social.advances.map(a => ({ ...a, type: 'sociální' })),
+    ...taxes.health.advances.map(a => ({ ...a, type: 'zdravotní' })),
+  ]
+  for (const adv of allAdvances) {
+    if (adv.paid || !adv.due_date) continue
+    const days = Math.floor((new Date(adv.due_date).getTime() - todayMs) / 86400000)
+    if (days >= 0 && days <= 7) {
+      alerts.push({
+        id: `tax_due_${adv.type}_${adv.period}`,
+        severity: 'warning',
+        message: `Záloha na ${adv.type} splatná za ${days} dní`,
+        detail: `Období: ${adv.period}, částka: ${fmt(adv.amount)}`,
+        tab: 'taxes',
+      })
+    }
+  }
+
+  // 7. Reserve running low
+  const opex = calcOpex(fixedCosts, variablePct, calcRevenue(tiers, []).total)
+  const monthlyEbitda = calcRevenue(tiers, []).total - opex.total
+  if (monthlyEbitda < 0) {
+    const reserveRemaining = budget.reserve_budget - budget.reserve_drawn
+    const runway = Math.floor(reserveRemaining / Math.abs(monthlyEbitda))
+    if (runway < 3 && runway >= 0) {
+      alerts.push({
+        id: 'reserve_low',
+        severity: 'critical',
+        message: `Rezerva pokryje jen ${runway} ${runway === 1 ? 'měsíc' : runway < 5 ? 'měsíce' : 'měsíců'}`,
+        detail: `Zbývá: ${fmt(reserveRemaining)}, měsíční ztráta: ${fmt(Math.abs(monthlyEbitda))}`,
+        tab: 'budget',
+      })
+    }
+  }
+
+  return alerts
+}
+
+// ── Hybrid cashflow (actual + projected) ──
+
+export function calcHybridCashflow(
+  ledger: Ledger,
+  tiers: Tier[],
+  extras: Extra[],
+  fixedCosts: CostItem[],
+  variablePct: number,
+  budget: Budget,
+  projectionMonths: number = 24,
+  rampMonths: number = 17,
+): Array<CashflowMonth & { isActual: boolean }> {
+  const projected = calcCashflowProjection(tiers, extras, fixedCosts, variablePct, budget, projectionMonths, rampMonths)
+
+  return projected.map(p => {
+    // Check if we have actual data for this month
+    const ml = ledger.months.find(m => {
+      const CZ = ['Led', 'Úno', 'Bře', 'Dub', 'Kvě', 'Čvn', 'Čvc', 'Srp', 'Zář', 'Říj', 'Lis', 'Pro']
+      const [y, mo] = m.month.split('-').map(Number)
+      return p.label === `${CZ[mo - 1]} ${String(y).slice(-2)}`
+    })
+
+    if (ml && ml.items.some(i => i.status === 'confirmed' || i.status === 'paid')) {
+      const stats = calcLedgerMonth(ml.items)
+      return {
+        ...p,
+        revenue: stats.actual_income,
+        costs: stats.actual_expense,
+        ebitda: stats.actual_net,
+        isActual: true,
+      }
+    }
+
+    return { ...p, isActual: false }
+  })
+}
+
+// ── Ramp factor for a specific month ──
+
+export function getRampFactorForMonth(month: string, startMonth: string, rampMonths: number = 17): number {
+  const [sy, sm] = startMonth.split('-').map(Number)
+  const [my, mm] = month.split('-').map(Number)
+  const monthIndex = (my - sy) * 12 + (mm - sm)
+  if (monthIndex < 0) return 0
+  if (monthIndex >= rampMonths) return 1
+  const t = monthIndex / rampMonths
+  return Math.round((3 * t * t - 2 * t * t * t) * 100) / 100
+}
+
+// ══════════════════════════════════════════════
 // ── Revenue ──
 
 export function calcRevenue(tiers: Tier[], extras: Extra[]): Revenue {

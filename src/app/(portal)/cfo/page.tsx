@@ -7,30 +7,38 @@ import Topbar from '@/components/Topbar'
 import EmptyState from '@/components/EmptyState'
 import SaveToast from '@/components/SaveToast'
 import CfoTabs from '@/components/cfo/CfoTabs'
+import DashboardTab from '@/components/cfo/DashboardTab'
+import MonthlyPlanTab from '@/components/cfo/MonthlyPlanTab'
 import PricingTab from '@/components/cfo/PricingTab'
 import CostsTab from '@/components/cfo/CostsTab'
 import CashflowTab from '@/components/cfo/CashflowTab'
 import BudgetTab from '@/components/cfo/BudgetTab'
 import RisksTab from '@/components/cfo/RisksTab'
 import QuestionsTab from '@/components/cfo/QuestionsTab'
-import ActualTab from '@/components/cfo/ActualTab'
 import VatTab from '@/components/cfo/VatTab'
 import TaxesTab from '@/components/cfo/TaxesTab'
 import ReceivablesTab from '@/components/cfo/ReceivablesTab'
-import { type Tier, type Extra, type CostItem, type Budget, type Actuals, type VatData, type TaxData, type ReceivablesData, calcRevenue, calcOpex } from '@/components/cfo/calcEngine'
+import {
+  type Tier, type Extra, type CostItem, type Budget, type Ledger,
+  type VatData, type TaxData, type ReceivablesData, type Actuals,
+  calcRevenue, calcOpex,
+  migrateActualsToLedger, generateExpectedItems, mergeExpectedWithExisting,
+  syncInvoicesToLedger, getRampFactorForMonth,
+} from '@/components/cfo/calcEngine'
 import AdminClientPicker from '@/components/AdminClientPicker'
 import type { Report } from '@/lib/types'
 import { exportCfoPdf } from '@/lib/pdfExport'
 
 const ALL_TABS = [
+  { id: 'dashboard', label: 'Přehled' },
+  { id: 'monthly', label: 'Měsíční plán' },
   { id: 'pricing', label: 'Cenotvorba' },
-  { id: 'actual', label: 'Skutečnost' },
   { id: 'cashflow', label: 'Cashflow' },
+  { id: 'receivables', label: 'Pohledávky a závazky' },
   { id: 'vat', label: 'DPH' },
   { id: 'taxes', label: 'Daně & Odvody' },
-  { id: 'receivables', label: 'Pohledávky' },
-  { id: 'budget', label: 'Rozpočet' },
   { id: 'costs', label: 'Náklady' },
+  { id: 'budget', label: 'Rozpočet' },
   { id: 'risks', label: 'Rizika & Plán' },
   { id: 'questions', label: 'Dotazy' },
 ]
@@ -80,7 +88,7 @@ function CfoPageInner() {
   const initialTab = searchParams.get('tab')
   const [report, setReport] = useState<Report | null>(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState(initialTab && TAB_IDS.includes(initialTab) ? initialTab : 'pricing')
+  const [tab, setTab] = useState(initialTab && TAB_IDS.includes(initialTab) ? initialTab : 'dashboard')
   const [saveStatus, setSaveStatus] = useState<string>('')
   const [clientName, setClientName] = useState<string>('')
   const [isAdminView, setIsAdminView] = useState(false)
@@ -181,10 +189,40 @@ function CfoPageInner() {
   const budget = (d.budget || DEFAULT_DATA.budget) as Budget
   const rampMonths = (d.ramp_months ?? DEFAULT_DATA.ramp_months) as number
   const projectionMonths = (d.projection_months ?? DEFAULT_DATA.projection_months) as number
-  const actuals = (d.actuals || { bank_balance: 0, months: [] }) as Actuals
+  // Migrate old actuals to ledger if needed
+  const rawLedger: Ledger = d.ledger
+    ? d.ledger as Ledger
+    : d.actuals
+      ? migrateActualsToLedger(d.actuals as Actuals)
+      : { bank_balance: 0, months: [] }
   const vat = (d.vat || { registered: true, period: 'quarterly', rates: [], periods: [] }) as VatData
   const taxesData = (d.taxes || { entity_type: 'sro', income_tax: { rate: 21, annual_estimate: 0, advances: [] }, social: { monthly: 0, advances: [] }, health: { monthly: 0, advances: [] }, other_taxes: [] }) as TaxData
   const receivables = (d.receivables || { invoices_issued: [], invoices_received: [] }) as ReceivablesData
+
+  // Auto-generate expected items for current + next 2 months
+  const ledger: Ledger = (() => {
+    const result = { ...rawLedger, months: rawLedger.months.map(m => ({ ...m, items: [...m.items] })) }
+    const startMonth = (d.business_start_month as string) || new Date().toISOString().slice(0, 7)
+    const now = new Date()
+    for (let i = 0; i < 3; i++) {
+      const dt = new Date(now.getFullYear(), now.getMonth() + i, 1)
+      const month = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`
+      let ml = result.months.find(m => m.month === month)
+      if (!ml) {
+        ml = { month, items: [], locked: false }
+        result.months.push(ml)
+      }
+      if (!ml.locked) {
+        const ramp = getRampFactorForMonth(month, startMonth, rampMonths)
+        const generated = generateExpectedItems(month, tiers, extras, fixedCosts, taxesData, vat, ramp)
+        ml.items = mergeExpectedWithExisting(generated, ml.items)
+      }
+    }
+    // Sync invoices
+    const synced = syncInvoicesToLedger(receivables, result)
+    synced.months.sort((a, b) => a.month.localeCompare(b.month))
+    return synced
+  })()
 
   // Calculate EBITDA for budget tab
   const rev = calcRevenue(tiers, extras)
@@ -292,11 +330,18 @@ function CfoPageInner() {
             onVariableChange={v => updateData('variable_cost_pct', v)}
           />
         )}
-        {tab === 'actual' && (
-          <ActualTab actuals={actuals} onActualsChange={v => updateData('actuals', v)} />
+        {tab === 'dashboard' && (
+          <DashboardTab
+            ledger={ledger} tiers={tiers} extras={extras} fixedCosts={fixedCosts}
+            variablePct={variablePct} budget={budget} receivables={receivables}
+            taxes={taxesData} vat={vat} onTabChange={handleTabChange}
+          />
+        )}
+        {tab === 'monthly' && (
+          <MonthlyPlanTab ledger={ledger} onLedgerChange={v => updateData('ledger', v)} />
         )}
         {tab === 'vat' && (
-          <VatTab vat={vat} actuals={actuals} capexVat={capexVat} onVatChange={v => updateData('vat', v)} />
+          <VatTab vat={vat} actuals={{ bank_balance: ledger.bank_balance, months: [] }} capexVat={capexVat} onVatChange={v => updateData('vat', v)} />
         )}
         {tab === 'taxes' && (
           <TaxesTab taxes={taxesData} onTaxesChange={v => updateData('taxes', v)} />
