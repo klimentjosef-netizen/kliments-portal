@@ -13,14 +13,22 @@ import CashflowTab from '@/components/cfo/CashflowTab'
 import BudgetTab from '@/components/cfo/BudgetTab'
 import RisksTab from '@/components/cfo/RisksTab'
 import QuestionsTab from '@/components/cfo/QuestionsTab'
-import { type Tier, type Extra, type CostItem, type Budget, calcRevenue, calcOpex } from '@/components/cfo/calcEngine'
+import ActualTab from '@/components/cfo/ActualTab'
+import VatTab from '@/components/cfo/VatTab'
+import TaxesTab from '@/components/cfo/TaxesTab'
+import ReceivablesTab from '@/components/cfo/ReceivablesTab'
+import { type Tier, type Extra, type CostItem, type Budget, type Actuals, type VatData, type TaxData, type ReceivablesData, calcRevenue, calcOpex } from '@/components/cfo/calcEngine'
 import AdminClientPicker from '@/components/AdminClientPicker'
 import type { Report } from '@/lib/types'
 import { exportCfoPdf } from '@/lib/pdfExport'
 
 const ALL_TABS = [
   { id: 'pricing', label: 'Cenotvorba' },
+  { id: 'actual', label: 'Skutečnost' },
   { id: 'cashflow', label: 'Cashflow' },
+  { id: 'vat', label: 'DPH' },
+  { id: 'taxes', label: 'Daně & Odvody' },
+  { id: 'receivables', label: 'Pohledávky' },
   { id: 'budget', label: 'Rozpočet' },
   { id: 'costs', label: 'Náklady' },
   { id: 'risks', label: 'Rizika & Plán' },
@@ -158,7 +166,8 @@ function CfoPageInner() {
   }
 
   // Merge defaults with stored data
-  const d = report ? { ...DEFAULT_DATA, ...report.data } : DEFAULT_DATA
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d: Record<string, any> = report ? { ...DEFAULT_DATA, ...report.data } : DEFAULT_DATA
   const tiers = (d.tiers || DEFAULT_DATA.tiers) as Tier[]
   const extras = (d.extras || DEFAULT_DATA.extras) as Extra[]
   const fixedCosts = (d.fixed_costs || DEFAULT_DATA.fixed_costs) as CostItem[]
@@ -166,11 +175,19 @@ function CfoPageInner() {
   const budget = (d.budget || DEFAULT_DATA.budget) as Budget
   const rampMonths = (d.ramp_months ?? DEFAULT_DATA.ramp_months) as number
   const projectionMonths = (d.projection_months ?? DEFAULT_DATA.projection_months) as number
+  const actuals = (d.actuals || { bank_balance: 0, months: [] }) as Actuals
+  const vat = (d.vat || { registered: true, period: 'quarterly', rates: [], periods: [] }) as VatData
+  const taxesData = (d.taxes || { entity_type: 'sro', income_tax: { rate: 21, annual_estimate: 0, advances: [] }, social: { monthly: 0, advances: [] }, health: { monthly: 0, advances: [] }, other_taxes: [] }) as TaxData
+  const receivables = (d.receivables || { invoices_issued: [], invoices_received: [] }) as ReceivablesData
 
   // Calculate EBITDA for budget tab
   const rev = calcRevenue(tiers, extras)
   const opex = calcOpex(fixedCosts, variablePct, rev.total)
   const monthlyEbitda = rev.total - opex.total
+
+  // CAPEX VAT for VatTab
+  const capexSpent = budget.capex_items.reduce((s, i) => s + i.spent, 0)
+  const capexVat = Math.round(capexSpent * 21 / 121)
 
   if (isAdminNoPick) return <AdminClientPicker serviceName="CFO na volné noze" pageUrl="/cfo" title="CFO na volné noze" />
 
@@ -268,6 +285,18 @@ function CfoPageInner() {
             onCostsChange={v => updateData('fixed_costs', v)}
             onVariableChange={v => updateData('variable_cost_pct', v)}
           />
+        )}
+        {tab === 'actual' && (
+          <ActualTab actuals={actuals} onActualsChange={v => updateData('actuals', v)} />
+        )}
+        {tab === 'vat' && (
+          <VatTab vat={vat} actuals={actuals} capexVat={capexVat} onVatChange={v => updateData('vat', v)} />
+        )}
+        {tab === 'taxes' && (
+          <TaxesTab taxes={taxesData} onTaxesChange={v => updateData('taxes', v)} />
+        )}
+        {tab === 'receivables' && (
+          <ReceivablesTab receivables={receivables} onReceivablesChange={v => updateData('receivables', v)} />
         )}
         {tab === 'risks' && <RisksTab data={d} onRisksChange={v => updateData('risks', v)} onStepsChange={v => updateData('steps', v)} />}
         {tab === 'questions' && <QuestionsTab data={d} onQuestionsChange={v => updateData('questions', v)} />}
