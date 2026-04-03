@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Topbar from '@/components/Topbar'
 import EmptyState from '@/components/EmptyState'
@@ -53,28 +54,53 @@ const DEFAULT_DATA = {
 }
 
 export default function CfoPage() {
+  return (
+    <Suspense fallback={<><Topbar title="CFO na volné noze" /><div className="p-9"><div className="animate-pulse h-40 bg-white rounded-[20px]" /></div></>}>
+      <CfoPageInner />
+    </Suspense>
+  )
+}
+
+function CfoPageInner() {
   const [report, setReport] = useState<Report | null>(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('pricing')
   const [saveStatus, setSaveStatus] = useState<string>('')
+  const [clientName, setClientName] = useState<string>('')
+  const [isAdminView, setIsAdminView] = useState(false)
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const supabase = createClient()
+  const searchParams = useSearchParams()
+  const clientParam = searchParams.get('client')
 
   // Load report
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
+
+      // Admin viewing a specific client
+      let targetId = user.id
+      if (clientParam) {
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+        if (profile?.role === 'admin') {
+          targetId = clientParam
+          setIsAdminView(true)
+          const { data: clientProfile } = await supabase.from('profiles').select('name').eq('id', clientParam).single()
+          if (clientProfile) setClientName(clientProfile.name)
+        }
+      }
+
       const { data } = await supabase
         .from('reports').select('*')
-        .eq('client_id', user.id).eq('type', 'cfo')
+        .eq('client_id', targetId).eq('type', 'cfo')
         .order('created_at', { ascending: false }).limit(1).single()
       if (data) setReport(data as Report)
       setLoading(false)
     }
     load()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [clientParam])
 
   // Auto-save with debounce
   const autoSave = useCallback(async (newData: Record<string, unknown>) => {
@@ -142,14 +168,22 @@ export default function CfoPage() {
 
   return (
     <>
-      <Topbar title="CFO na volné noze" />
+      <Topbar title={isAdminView ? `CFO — ${clientName}` : 'CFO na volné noze'} />
       <div className="p-9">
+        {/* Admin banner */}
+        {isAdminView && (
+          <div className="bg-rose/10 border border-rose/20 rounded-2xl px-5 py-3 mb-4 flex items-center justify-between">
+            <span className="text-[0.8rem] text-rose-deep">Prohlížíte dashboard klienta <strong>{clientName}</strong></span>
+            <a href="/portal/admin" className="text-[0.72rem] text-rose hover:text-rose-deep underline">← Zpět na klienty</a>
+          </div>
+        )}
+
         {/* Header */}
         <div className="bg-ink rounded-[20px] p-7 mb-6 flex justify-between items-start relative overflow-hidden">
           <div className="absolute right-[-10px] bottom-[-40px] font-serif italic text-[180px] text-white/[0.04] leading-none pointer-events-none">K</div>
           <div>
             <h2 className="font-serif text-xl text-sand font-light mb-1.5">{d.title || 'CFO na volné noze'}</h2>
-            <p className="text-[0.78rem] text-white/40">{d.subtitle || ''}</p>
+            <p className="text-[0.78rem] text-white/40">{d.subtitle || ''}{isAdminView && clientName ? ` · ${clientName}` : ''}</p>
           </div>
           <div className="flex items-center gap-3">
             {saveStatus && (
@@ -177,6 +211,7 @@ export default function CfoPage() {
             extras={extras}
             fixedCosts={fixedCosts}
             variablePct={variablePct}
+            budget={budget}
             onTiersChange={v => updateData('tiers', v)}
             onExtrasChange={v => updateData('extras', v)}
           />

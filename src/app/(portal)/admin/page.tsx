@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Topbar from '@/components/Topbar'
 import type { Profile } from '@/lib/types'
@@ -20,6 +21,7 @@ export default function AdminPage() {
   const [isAdmin, setIsAdmin] = useState(false)
 
   const supabase = createClient()
+  const router = useRouter()
 
   useEffect(() => {
     async function load() {
@@ -136,9 +138,11 @@ export default function AdminPage() {
                 </tr>
               </thead>
               <tbody>
-                {clients.map((c) => (
-                  <tr key={c.id} className="border-b border-black/[0.06] last:border-0 hover:bg-sand transition-colors">
-                    <td className="py-3 px-5 text-[0.82rem] text-ink">{c.name}</td>
+                {clients.filter(c => c.role === 'client').map((c) => (
+                  <tr key={c.id}
+                    onClick={() => router.push(`/cfo?client=${c.id}`)}
+                    className="border-b border-black/[0.06] last:border-0 hover:bg-sand transition-colors cursor-pointer">
+                    <td className="py-3 px-5 text-[0.82rem] text-ink font-medium">{c.name}</td>
                     <td className="py-3 px-5 text-[0.82rem] text-mid">{c.email}</td>
                     <td className="py-3 px-5 text-[0.82rem] text-mid">{c.service || '—'}</td>
                     <td className="py-3 px-5">

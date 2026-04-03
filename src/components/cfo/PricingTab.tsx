@@ -1,20 +1,24 @@
 'use client'
 
-import { type Tier, type Extra, type CostItem, calcRevenue, calcOpex, calcEbitda, fmt } from './calcEngine'
+import { type Tier, type Extra, type CostItem, type Budget, calcRevenue, calcOpex, calcEbitda, calcBreakeven, calcCapexRoi, fmt, fmtShort } from './calcEngine'
 
 interface PricingTabProps {
   tiers: Tier[]
   extras: Extra[]
   fixedCosts: CostItem[]
   variablePct: number
+  budget: Budget
   onTiersChange: (tiers: Tier[]) => void
   onExtrasChange: (extras: Extra[]) => void
 }
 
-export default function PricingTab({ tiers, extras, fixedCosts, variablePct, onTiersChange, onExtrasChange }: PricingTabProps) {
+export default function PricingTab({ tiers, extras, fixedCosts, variablePct, budget, onTiersChange, onExtrasChange }: PricingTabProps) {
   const rev = calcRevenue(tiers, extras)
   const opex = calcOpex(fixedCosts, variablePct, rev.total)
   const ebitda = calcEbitda(rev, opex)
+  const totalMembers = tiers.reduce((s, t) => s + t.members, 0)
+  const be = calcBreakeven(tiers, fixedCosts, variablePct)
+  const roi = calcCapexRoi(budget.capex_budget, ebitda)
 
   function updateTier(i: number, patch: Partial<Tier>) {
     const arr = tiers.map((t, j) => j === i ? { ...t, ...patch } : t)
@@ -66,6 +70,32 @@ export default function PricingTab({ tiers, extras, fixedCosts, variablePct, onT
 
   return (
     <div className="space-y-6">
+      {/* KPI summary */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-white rounded-[14px] p-4 border border-black/[0.06]">
+          <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid mb-1.5">Měsíční příjem</div>
+          <div className="font-serif text-xl font-light text-rose leading-none">{fmtShort(rev.total)}</div>
+          <div className="text-[0.68rem] mt-1 text-mid">{totalMembers} členů, avg {Math.round(be.avgPrice).toLocaleString('cs-CZ')} Kč</div>
+        </div>
+        <div className="bg-white rounded-[14px] p-4 border border-black/[0.06]">
+          <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid mb-1.5">EBITDA / měsíc</div>
+          <div className={`font-serif text-xl font-light leading-none ${ebitda >= 0 ? 'text-green' : 'text-rose-deep'}`}>
+            {ebitda >= 0 ? '+' : ''}{fmtShort(ebitda)}
+          </div>
+          <div className="text-[0.68rem] mt-1 text-mid">{ebitda >= 0 ? 'zisk' : 'ztráta'}</div>
+        </div>
+        <div className="bg-white rounded-[14px] p-4 border border-black/[0.06]">
+          <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid mb-1.5">Break-even</div>
+          <div className="font-serif text-xl font-light text-ink leading-none">{be.members < 999 ? `${be.members} členů` : '—'}</div>
+          <div className="text-[0.68rem] mt-1 text-mid">aktuálně {totalMembers} ({be.members < 999 ? Math.round(totalMembers / be.members * 100) : 0} %)</div>
+        </div>
+        <div className="bg-white rounded-[14px] p-4 border border-black/[0.06]">
+          <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid mb-1.5">Návratnost CAPEX</div>
+          <div className="font-serif text-xl font-light text-ink leading-none">{roi < 999 ? `${roi} měs` : '—'}</div>
+          <div className="text-[0.68rem] mt-1 text-mid">{roi > 36 ? '> 3 roky' : roi < 999 ? '< 3 roky' : 'nejdříve dosáhni zisku'}</div>
+        </div>
+      </div>
+
       {/* Tier builder */}
       <div className="flex justify-between items-center">
         <h3 className="font-serif text-base text-ink">Tarify</h3>
