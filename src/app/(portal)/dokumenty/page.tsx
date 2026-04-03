@@ -12,16 +12,18 @@ interface DocFile {
 }
 
 interface Folder {
-  name: string
+  slug: string
+  label: string
   files: DocFile[]
 }
 
-const DEFAULT_FOLDERS = [
-  'Účetní podklady',
-  'Faktury',
-  'Smlouvy',
-  'Daňové přiznání',
-  'Ostatní',
+// Storage paths use slugs (no diacritics), display names shown in UI
+const FOLDERS = [
+  { slug: 'ucetni-podklady', label: 'Účetní podklady' },
+  { slug: 'faktury', label: 'Faktury' },
+  { slug: 'smlouvy', label: 'Smlouvy' },
+  { slug: 'danove-priznani', label: 'Daňové přiznání' },
+  { slug: 'ostatni', label: 'Ostatní' },
 ]
 
 function formatSize(bytes: number): string {
@@ -38,7 +40,7 @@ export default function DokumentyPage() {
   const [folders, setFolders] = useState<Folder[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
-  const [activeFolder, setActiveFolder] = useState(DEFAULT_FOLDERS[0])
+  const [activeFolder, setActiveFolder] = useState(FOLDERS[0].slug)
   const [userId, setUserId] = useState<string>('')
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_isAdmin, setIsAdmin] = useState(false)
@@ -66,11 +68,12 @@ export default function DokumentyPage() {
   async function loadFiles(uid: string) {
     const folderData: Folder[] = []
 
-    for (const folderName of DEFAULT_FOLDERS) {
-      const path = `${uid}/${folderName}`
+    for (const folder of FOLDERS) {
+      const path = `${uid}/${folder.slug}`
       const { data } = await supabase.storage.from('documents').list(path, { sortBy: { column: 'created_at', order: 'desc' } })
       folderData.push({
-        name: folderName,
+        slug: folder.slug,
+        label: folder.label,
         files: (data || []).filter(f => f.name !== '.emptyFolderPlaceholder').map(f => ({
           name: f.name,
           size: f.metadata?.size || 0,
@@ -83,12 +86,14 @@ export default function DokumentyPage() {
     // Check for custom folders
     const { data: allItems } = await supabase.storage.from('documents').list(uid)
     if (allItems) {
+      const knownSlugs = FOLDERS.map(f => f.slug)
       for (const item of allItems) {
-        if (item.id && !DEFAULT_FOLDERS.includes(item.name) && !item.name.includes('.')) {
+        if (item.id && !knownSlugs.includes(item.name) && !item.name.includes('.')) {
           const path = `${uid}/${item.name}`
           const { data } = await supabase.storage.from('documents').list(path, { sortBy: { column: 'created_at', order: 'desc' } })
           folderData.push({
-            name: item.name,
+            slug: item.name,
+            label: item.name,
             files: (data || []).filter(f => f.name !== '.emptyFolderPlaceholder').map(f => ({
               name: f.name,
               size: f.metadata?.size || 0,
@@ -109,7 +114,8 @@ export default function DokumentyPage() {
 
     setUploading(true)
     for (const file of Array.from(files)) {
-      const path = `${userId}/${activeFolder}/${file.name}`
+      const safeName = file.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9._-]/g, '_')
+      const path = `${userId}/${activeFolder}/${safeName}`
       const { error } = await supabase.storage.from('documents').upload(path, file, { upsert: true })
       if (error) console.error('Upload error:', error.message)
     }
@@ -138,16 +144,16 @@ export default function DokumentyPage() {
 
   async function createFolder() {
     if (!newFolderName.trim() || !userId) return
-    // Create a placeholder file to create the folder
-    const path = `${userId}/${newFolderName.trim()}/.emptyFolderPlaceholder`
-    await supabase.storage.from('documents').upload(path, new Blob(['']), { upsert: true })
+    const slug = newFolderName.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase()
+    const path = `${userId}/${slug}/.emptyFolderPlaceholder`
+    await supabase.storage.from('documents').upload(path, new Blob(['']), { contentType: 'text/plain', upsert: true })
     await loadFiles(userId)
-    setActiveFolder(newFolderName.trim())
+    setActiveFolder(slug)
     setNewFolderName('')
     setShowNewFolder(false)
   }
 
-  const currentFolder = folders.find(f => f.name === activeFolder)
+  const currentFolder = folders.find(f => f.slug === activeFolder)
   const totalFiles = folders.reduce((s, f) => s + f.files.length, 0)
 
   if (loading) return (
@@ -190,11 +196,11 @@ export default function DokumentyPage() {
 
             <div className="space-y-1">
               {folders.map(f => (
-                <button key={f.name} onClick={() => setActiveFolder(f.name)}
+                <button key={f.slug} onClick={() => setActiveFolder(f.slug)}
                   className={`w-full text-left px-3 py-2 rounded-lg text-[0.8rem] transition-colors flex justify-between items-center ${
-                    activeFolder === f.name ? 'bg-rose/10 text-rose-deep font-medium' : 'text-mid hover:bg-sand hover:text-ink'
+                    activeFolder === f.slug ? 'bg-rose/10 text-rose-deep font-medium' : 'text-mid hover:bg-sand hover:text-ink'
                   }`}>
-                  <span className="truncate">📁 {f.name}</span>
+                  <span className="truncate">📁 {f.label}</span>
                   <span className="text-[0.65rem] text-mid">{f.files.length}</span>
                 </button>
               ))}
@@ -204,7 +210,7 @@ export default function DokumentyPage() {
           {/* File list */}
           <div className="bg-white rounded-[20px] p-6 border border-black/[0.06]">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="font-serif text-base text-ink">{activeFolder}</h3>
+              <h3 className="font-serif text-base text-ink">{currentFolder?.label || activeFolder}</h3>
               <div className="flex gap-2">
                 <input ref={fileInputRef} type="file" multiple onChange={handleUpload} className="hidden" />
                 <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
