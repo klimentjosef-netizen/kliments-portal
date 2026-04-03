@@ -1,18 +1,26 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Topbar from '@/components/Topbar'
 import EmptyState from '@/components/EmptyState'
 import SaveToast from '@/components/SaveToast'
+import AdminClientPicker from '@/components/AdminClientPicker'
 import type { Report } from '@/lib/types'
 
 interface Step { num: string; deadline: string; title: string; desc: string; done?: boolean; notes?: string }
 
 export default function ValuacePage() {
+  return (<Suspense fallback={<><Topbar title="Prodej za maximum" /><div className="p-4 lg:p-9"><div className="animate-pulse h-40 bg-white rounded-[20px]" /></div></>}><ValuacePageInner /></Suspense>)
+}
+function ValuacePageInner() {
+  const searchParams = useSearchParams()
+  const clientParam = searchParams.get('client')
   const [report, setReport] = useState<Report | null>(null)
   const [loading, setLoading] = useState(true)
   const [saveStatus, setSaveStatus] = useState('')
+  const [isAdminNoPick, setIsAdminNoPick] = useState(false)
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const supabase = createClient()
 
@@ -20,16 +28,21 @@ export default function ValuacePage() {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+      let targetId = user.id
+      if (profile?.role === 'admin') {
+        if (clientParam) { targetId = clientParam } else { setIsAdminNoPick(true); setLoading(false); return }
+      }
       const { data } = await supabase
         .from('reports').select('*')
-        .eq('client_id', user.id).eq('type', 'valuace')
+        .eq('client_id', targetId).eq('type', 'valuace')
         .order('created_at', { ascending: false }).limit(1).single()
       if (data) setReport(data as Report)
       setLoading(false)
     }
     load()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [clientParam])
 
   const autoSave = useCallback(async (newData: Record<string, unknown>) => {
     if (!report) return
@@ -52,6 +65,7 @@ export default function ValuacePage() {
 
   const d = report?.data || {}
 
+  if (isAdminNoPick) return <AdminClientPicker serviceName="Prodej za maximum" pageUrl="/valuace" title="Prodej za maximum" />
   if (loading) return <><Topbar title="Prodej za maximum" /><div className="p-4 lg:p-9"><div className="animate-pulse h-40 bg-white rounded-[20px]" /></div></>
   if (!report) return <><Topbar title="Prodej za maximum" /><div className="p-4 lg:p-9"><EmptyState service="Prodej za maximum" /></div></>
 

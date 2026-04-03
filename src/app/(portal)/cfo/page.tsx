@@ -14,6 +14,7 @@ import BudgetTab from '@/components/cfo/BudgetTab'
 import RisksTab from '@/components/cfo/RisksTab'
 import QuestionsTab from '@/components/cfo/QuestionsTab'
 import { type Tier, type Extra, type CostItem, type Budget, calcRevenue, calcOpex } from '@/components/cfo/calcEngine'
+import AdminClientPicker from '@/components/AdminClientPicker'
 import type { Report } from '@/lib/types'
 import { exportCfoPdf } from '@/lib/pdfExport'
 
@@ -75,6 +76,7 @@ function CfoPageInner() {
   const [saveStatus, setSaveStatus] = useState<string>('')
   const [clientName, setClientName] = useState<string>('')
   const [isAdminView, setIsAdminView] = useState(false)
+  const [isAdminNoPick, setIsAdminNoPick] = useState(false)
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const supabase = createClient()
   const clientParam = searchParams.get('client')
@@ -95,13 +97,17 @@ function CfoPageInner() {
 
       // Admin viewing a specific client
       let targetId = user.id
-      if (clientParam) {
-        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-        if (profile?.role === 'admin') {
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+      if (profile?.role === 'admin') {
+        if (clientParam) {
           targetId = clientParam
           setIsAdminView(true)
           const { data: clientProfile } = await supabase.from('profiles').select('name').eq('id', clientParam).single()
           if (clientProfile) setClientName(clientProfile.name)
+        } else {
+          setIsAdminNoPick(true)
+          setLoading(false)
+          return
         }
       }
 
@@ -158,6 +164,8 @@ function CfoPageInner() {
   const rev = calcRevenue(tiers, extras)
   const opex = calcOpex(fixedCosts, variablePct, rev.total)
   const monthlyEbitda = rev.total - opex.total
+
+  if (isAdminNoPick) return <AdminClientPicker serviceName="CFO na volné noze" pageUrl="/cfo" title="CFO na volné noze" />
 
   if (loading) return (
     <>

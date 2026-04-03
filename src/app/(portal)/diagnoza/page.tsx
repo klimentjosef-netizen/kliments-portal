@@ -1,18 +1,33 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Topbar from '@/components/Topbar'
 import EmptyState from '@/components/EmptyState'
 import SaveToast from '@/components/SaveToast'
+import AdminClientPicker from '@/components/AdminClientPicker'
 import type { Report } from '@/lib/types'
 
 interface Step { num: string; deadline: string; title: string; desc: string; done?: boolean; notes?: string }
 
 export default function DiagnozaPage() {
+  return (
+    <Suspense fallback={<><Topbar title="Finanční diagnóza" /><div className="p-4 lg:p-9"><div className="animate-pulse h-40 bg-white rounded-[20px]" /></div></>}>
+      <DiagnozaPageInner />
+    </Suspense>
+  )
+}
+
+function DiagnozaPageInner() {
+  const searchParams = useSearchParams()
+  const clientParam = searchParams.get('client')
   const [report, setReport] = useState<Report | null>(null)
   const [loading, setLoading] = useState(true)
   const [saveStatus, setSaveStatus] = useState('')
+  const [isAdminNoPick, setIsAdminNoPick] = useState(false)
+  const [isAdminView, setIsAdminView] = useState(false)
+  const [clientName, setClientName] = useState('')
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const supabase = createClient()
 
@@ -20,16 +35,28 @@ export default function DiagnozaPage() {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+      let targetId = user.id
+      if (profile?.role === 'admin') {
+        if (clientParam) {
+          targetId = clientParam
+          setIsAdminView(true)
+          const { data: cp } = await supabase.from('profiles').select('name').eq('id', clientParam).single()
+          if (cp) setClientName(cp.name)
+        } else {
+          setIsAdminNoPick(true); setLoading(false); return
+        }
+      }
       const { data } = await supabase
         .from('reports').select('*')
-        .eq('client_id', user.id).eq('type', 'diagnoza')
+        .eq('client_id', targetId).eq('type', 'diagnoza')
         .order('created_at', { ascending: false }).limit(1).single()
       if (data) setReport(data as Report)
       setLoading(false)
     }
     load()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [clientParam])
 
   const autoSave = useCallback(async (newData: Record<string, unknown>) => {
     if (!report) return
@@ -52,7 +79,8 @@ export default function DiagnozaPage() {
 
   const d = report?.data || {}
 
-  if (loading) return <><Topbar title="Finanční diagnóza" /><div className="p-4 lg:p-9"><div className="animate-pulse h-40 bg-white rounded-[20px]" /></div></>
+  if (isAdminNoPick) return <AdminClientPicker serviceName="Finanční diagnóza" pageUrl="/diagnoza" title="Finanční diagnóza" />
+  if (loading) return <><Topbar title={isAdminView ? `Diagnóza — ${clientName}` : 'Finanční diagnóza'} /><div className="p-4 lg:p-9"><div className="animate-pulse h-40 bg-white rounded-[20px]" /></div></>
   if (!report) return <><Topbar title="Finanční diagnóza" /><div className="p-4 lg:p-9"><EmptyState service="Finanční diagnóza" /></div></>
 
   const steps = (d.steps || []) as Step[]

@@ -74,9 +74,17 @@ export default function AdminPage() {
     setClients(prev => prev.map(c => c.id === clientId ? { ...c, active: !current } : c))
   }
 
-  async function updateService(clientId: string, service: string) {
-    await supabase.from('profiles').update({ service }).eq('id', clientId)
-    setClients(prev => prev.map(c => c.id === clientId ? { ...c, service } : c))
+  function getServices(service: string | null): string[] {
+    if (!service) return []
+    return service.split(',').map(s => s.trim()).filter(Boolean)
+  }
+
+  async function toggleService(clientId: string, currentService: string | null, svc: string) {
+    const current = getServices(currentService)
+    const updated = current.includes(svc) ? current.filter(s => s !== svc) : [...current, svc]
+    const newService = updated.join(', ')
+    await supabase.from('profiles').update({ service: newService || null }).eq('id', clientId)
+    setClients(prev => prev.map(c => c.id === clientId ? { ...c, service: newService || null } : c))
   }
 
   if (!isAdmin) return <><Topbar title="Admin" /><div className="p-4 lg:p-9 text-center text-mid">Přístup odepřen</div></>
@@ -115,11 +123,24 @@ export default function AdminPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="text-[0.62rem] tracking-[0.16em] uppercase text-mid block mb-1.5">Služba</label>
-                <select value={newService} onChange={(e) => setNewService(e.target.value)}
-                  className="w-full border-b-[1.5px] border-black/10 bg-transparent py-2.5 text-sm outline-none focus:border-rose transition-colors">
-                  {SERVICES.map(s => <option key={s}>{s}</option>)}
-                </select>
+                <label className="text-[0.62rem] tracking-[0.16em] uppercase text-mid block mb-1.5">Služby</label>
+                <div className="flex flex-wrap gap-1.5 py-2">
+                  {SERVICES.map(s => {
+                    const selected = newService.split(',').map(x => x.trim()).filter(Boolean).includes(s)
+                    return (
+                      <button key={s} type="button" onClick={() => {
+                        const current = newService.split(',').map(x => x.trim()).filter(Boolean)
+                        const updated = selected ? current.filter(x => x !== s) : [...current, s]
+                        setNewService(updated.join(', '))
+                      }}
+                        className={`px-2.5 py-1 rounded-full text-[0.65rem] font-medium transition-colors ${
+                          selected ? 'bg-rose text-white' : 'bg-black/[0.04] text-mid hover:bg-rose/10 hover:text-rose'
+                        }`}>
+                        {s}
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
               <div>
                 <label className="text-[0.62rem] tracking-[0.16em] uppercase text-mid block mb-1.5">Heslo</label>
@@ -157,14 +178,20 @@ export default function AdminPage() {
                     className="border-b border-black/[0.06] last:border-0 hover:bg-sand transition-colors cursor-pointer">
                     <td className="py-3 px-5 text-[0.82rem] text-ink font-medium">{c.name}</td>
                     <td className="py-3 px-5 text-[0.82rem] text-mid">{c.email}</td>
-                    <td className="py-3 px-5">
-                      <select
-                        value={c.service || ''}
-                        onChange={(e) => updateService(c.id, e.target.value)}
-                        className="bg-transparent text-[0.78rem] text-mid outline-none border-b border-transparent hover:border-rose focus:border-rose cursor-pointer"
-                      >
-                        {SERVICES.map(s => <option key={s}>{s}</option>)}
-                      </select>
+                    <td className="py-3 px-5" onClick={e => e.stopPropagation()}>
+                      <div className="flex flex-wrap gap-1">
+                        {SERVICES.map(s => {
+                          const active = getServices(c.service).includes(s)
+                          return (
+                            <button key={s} onClick={() => toggleService(c.id, c.service, s)}
+                              className={`px-2 py-0.5 rounded-full text-[0.58rem] font-medium transition-colors ${
+                                active ? 'bg-rose text-white' : 'bg-black/[0.04] text-mid hover:bg-rose/10 hover:text-rose'
+                              }`}>
+                              {s}
+                            </button>
+                          )
+                        })}
+                      </div>
                     </td>
                     <td className="py-3 px-5">
                       <button
