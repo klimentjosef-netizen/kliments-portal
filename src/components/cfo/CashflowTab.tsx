@@ -1,15 +1,13 @@
 'use client'
 
-import dynamic from 'next/dynamic'
 import {
   type Tier, type Extra, type CostItem, type Budget,
   calcRevenue, calcOpex, calcBreakeven, calcCapexRoi,
   calcScenarios, calcCashflowProjection, fmt, fmtShort,
 } from './calcEngine'
 import ProgressBar from './ProgressBar'
-
-const CashflowChart = dynamic(() => import('./CashflowChart'), { ssr: false })
-const DoughnutChart = dynamic(() => import('./DoughnutChart'), { ssr: false })
+import CashflowChart from './CashflowChart'
+import DoughnutChart from './DoughnutChart'
 
 interface CashflowTabProps {
   tiers: Tier[]
