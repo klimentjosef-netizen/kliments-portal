@@ -126,15 +126,15 @@ export default function PricingTab({ tiers, extras, fixedCosts, variablePct, bud
             <div className="space-y-3 mb-4">
               <div>
                 <label className="text-[0.58rem] tracking-[0.1em] uppercase text-mid">Cena (Kč/měsíc)</label>
-                <input type="number" value={t.price || ''} onChange={e => updateTier(i, { price: +e.target.value || 0 })} className={numCls} />
+                <input type="number" value={t.price || ''} min="0" onChange={e => updateTier(i, { price: Math.max(0, +e.target.value || 0) })} className={numCls} />
               </div>
               <div>
                 <label className="text-[0.58rem] tracking-[0.1em] uppercase text-mid">Počet členů</label>
-                <input type="number" value={t.members || ''} onChange={e => updateTier(i, { members: +e.target.value || 0 })} className={numCls} />
+                <input type="number" value={t.members || ''} min="0" onChange={e => updateTier(i, { members: Math.max(0, +e.target.value || 0) })} className={numCls} />
               </div>
               <div>
                 <label className="text-[0.58rem] tracking-[0.1em] uppercase text-mid">Kapacita (max)</label>
-                <input type="number" value={t.capacity || ''} onChange={e => updateTier(i, { capacity: +e.target.value || 0 })} className={numCls} />
+                <input type="number" value={t.capacity || ''} min="0" onChange={e => updateTier(i, { capacity: Math.max(0, +e.target.value || 0) })} className={numCls} />
               </div>
             </div>
 
@@ -177,8 +177,8 @@ export default function PricingTab({ tiers, extras, fixedCosts, variablePct, bud
         {extras.map((e, i) => (
           <div key={i} className="grid grid-cols-[1fr_80px_100px_60px_30px] gap-3 mb-2 items-end">
             <input value={e.name} onChange={ev => updateExtra(i, { name: ev.target.value })} placeholder="Název" className={inputCls} />
-            <input type="number" value={e.quantity || ''} onChange={ev => updateExtra(i, { quantity: +ev.target.value || 0 })} placeholder="Počet" className={numCls} />
-            <input type="number" value={e.unit_price || ''} onChange={ev => updateExtra(i, { unit_price: +ev.target.value || 0 })} placeholder="Kč/ks" className={numCls} />
+            <input type="number" value={e.quantity || ''} min="0" onChange={ev => updateExtra(i, { quantity: Math.max(0, +ev.target.value || 0) })} placeholder="Počet" className={numCls} />
+            <input type="number" value={e.unit_price || ''} min="0" onChange={ev => updateExtra(i, { unit_price: Math.max(0, +ev.target.value || 0) })} placeholder="Kč/ks" className={numCls} />
             <input value={e.unit} onChange={ev => updateExtra(i, { unit: ev.target.value })} placeholder="jed." className={inputCls} />
             <button onClick={() => removeExtra(i)} className="text-mid hover:text-rose-deep text-sm pb-1.5">✕</button>
           </div>

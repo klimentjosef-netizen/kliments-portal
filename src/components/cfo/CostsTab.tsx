@@ -41,7 +41,7 @@ export default function CostsTab({ fixedCosts, variablePct, onCostsChange, onVar
           {fixedCosts.map((c, i) => (
             <div key={i} className="grid grid-cols-[1fr_150px_30px] gap-3 items-end">
               <input value={c.name} onChange={e => updateCost(i, { name: e.target.value })} className={inputCls} />
-              <input type="number" value={c.amount || ''} onChange={e => updateCost(i, { amount: +e.target.value || 0 })} className={numCls} />
+              <input type="number" value={c.amount || ''} min="0" onChange={e => updateCost(i, { amount: Math.max(0, +e.target.value || 0) })} className={numCls} />
               <button onClick={() => removeCost(i)} className="text-mid hover:text-rose-deep text-sm pb-1.5">✕</button>
             </div>
           ))}
@@ -68,7 +68,7 @@ export default function CostsTab({ fixedCosts, variablePct, onCostsChange, onVar
               type="number"
               min="0" max="100" step="0.5"
               value={variablePct}
-              onChange={e => onVariableChange(+e.target.value || 0)}
+              onChange={e => onVariableChange(Math.max(0, Math.min(100, +e.target.value || 0)))}
               className="w-16 bg-transparent border-b border-black/10 py-1 text-sm text-right outline-none focus:border-rose"
             />
             <span className="text-sm text-mid">%</span>

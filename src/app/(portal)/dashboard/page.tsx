@@ -7,6 +7,7 @@ import StatCard from '@/components/StatCard'
 import EmptyState from '@/components/EmptyState'
 import type { Profile, Report } from '@/lib/types'
 import Link from 'next/link'
+import { type Tier, type Extra, type CostItem, type Budget, calcRevenue, calcOpex, calcBreakeven, calcCapexRoi, fmtShort } from '@/components/cfo/calcEngine'
 
 export default function DashboardPage() {
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -36,10 +37,26 @@ export default function DashboardPage() {
 
   const d = report?.data || {}
 
+  // Compute real values from calcEngine if tiers exist
+  const hasTiers = d.tiers && (d.tiers as Tier[]).length > 0
+  const tiers = (d.tiers || []) as Tier[]
+  const extras = (d.extras || []) as Extra[]
+  const fixedCosts = (d.fixed_costs || []) as CostItem[]
+  const variablePct = (d.variable_cost_pct ?? 5) as number
+  const budget = (d.budget || { total: 0, capex_budget: 0, reserve_budget: 0, capex_items: [], reserve_drawn: 0 }) as Budget
+
+  const rev = hasTiers ? calcRevenue(tiers, extras) : null
+  const opex = rev ? calcOpex(fixedCosts, variablePct, rev.total) : null
+  const ebitda = rev && opex ? rev.total - opex.total : null
+  const ebitdaMargin = rev && rev.total > 0 && ebitda !== null ? Math.round((ebitda / rev.total) * 100) : null
+  const breakeven = hasTiers ? calcBreakeven(tiers, fixedCosts, variablePct) : null
+  const totalMembers = tiers.reduce((sum, t) => sum + t.members, 0)
+  const capexRoi = ebitda !== null && ebitda > 0 && budget.capex_budget > 0 ? calcCapexRoi(budget.capex_budget, ebitda) : null
+
   return (
     <>
       <Topbar title="Dashboard" />
-      <div className="p-9">
+      <div className="p-4 lg:p-9">
         {/* Welcome */}
         <div className="bg-ink rounded-[20px] p-7 flex justify-between items-center mb-7 relative overflow-hidden">
           <div className="absolute w-72 h-72 rounded-full -right-16 -top-20"
@@ -59,7 +76,7 @@ export default function DashboardPage() {
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-4 gap-4 mb-7">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-7">
             {[...Array(4)].map((_, i) => (
               <div key={i} className="bg-white rounded-2xl p-5 border border-black/[0.06] animate-pulse">
                 <div className="h-3 bg-sand-pale rounded w-20 mb-3" />
@@ -69,63 +86,43 @@ export default function DashboardPage() {
             ))}
           </div>
         ) : !report ? (
-          <EmptyState />
+          <EmptyState service={profile?.service || undefined} />
         ) : (
           <>
-            {/* Stats */}
-            <div className="grid grid-cols-4 gap-4 mb-7">
+            {/* Stats – computed or fallback to legacy strings */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-7">
               <StatCard
-                label="Cashflow tento měsíc"
-                value={d.cashflow || '—'}
-                sub="Kč čistý CF"
-                trend={d.cashflow_trend}
-                trendUp={d.cashflow_trend_up}
+                label="Měsíční tržby"
+                value={rev ? fmtShort(rev.total) : (d.revenue || '—')}
+                sub={rev ? `z ${totalMembers} členů` : 'Kč celkem'}
+                trend={rev && extras.length > 0 ? `+ ${fmtShort(rev.extraRevenue)} doplňkové` : d.revenue_trend}
+                trendUp={rev ? (rev.total > 0) : d.revenue_trend_up}
               />
               <StatCard
-                label="Tržby"
-                value={d.revenue || '—'}
-                sub="Kč celkem"
-                trend={d.revenue_trend}
-                trendUp={d.revenue_trend_up}
+                label="EBITDA"
+                value={ebitda !== null ? fmtShort(ebitda) : (d.ebitda || '—')}
+                sub={ebitdaMargin !== null ? `${ebitdaMargin} % marže` : (d.ebitda_period || '')}
+                trend={ebitda !== null ? (ebitda >= 0 ? 'Ziskový' : 'Ztrátový') : d.ebitda_trend}
+                trendUp={ebitda !== null ? ebitda >= 0 : d.ebitda_trend_up}
               />
               <StatCard
-                label="EBITDA marže"
-                value={d.ebitda || '—'}
-                sub={d.ebitda_period || ''}
-                trend={d.ebitda_trend}
-                trendUp={d.ebitda_trend_up}
+                label="Break-even"
+                value={breakeven ? `${Math.ceil(breakeven.members)}` : '—'}
+                sub={breakeven ? `členů potřeba (ø ${fmtShort(breakeven.avgPrice)})` : ''}
+                trend={breakeven && totalMembers >= breakeven.members ? `Dosaženo (${totalMembers}/${Math.ceil(breakeven.members)})` : breakeven ? `${totalMembers}/${Math.ceil(breakeven.members)} členů` : undefined}
+                trendUp={breakeven ? totalMembers >= breakeven.members : false}
               />
               <StatCard
-                label="Pohledávky"
-                value={d.receivables || '—'}
-                sub="Kč po splatnosti"
-                trend={d.receivables_note}
-                trendUp={false}
+                label="Návratnost CAPEX"
+                value={capexRoi !== null ? `${Math.round(capexRoi)} měs.` : (d.receivables || '—')}
+                sub={budget.capex_budget > 0 ? `z ${fmtShort(budget.capex_budget)} investice` : (d.receivables_note || '')}
+                trend={capexRoi !== null && capexRoi <= 24 ? 'Do 2 let' : capexRoi !== null ? `${Math.round(capexRoi / 12)} let` : undefined}
+                trendUp={capexRoi !== null ? capexRoi <= 24 : false}
               />
             </div>
 
-            {/* Cashflow chart */}
-            {d.cashflow_months && (
-              <div className="bg-white rounded-[20px] p-6 border border-black/[0.06] mb-7">
-                <div className="flex justify-between items-center mb-5">
-                  <h3 className="font-serif text-base text-ink">Cashflow — posledních 6 měsíců</h3>
-                </div>
-                <div className="flex items-end gap-2 h-20">
-                  {(d.cashflow_months as { label: string; value: number }[]).map((m: { label: string; value: number }, i: number) => (
-                    <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                      <div
-                        className={`w-full rounded-t ${m.value >= 0 ? 'bg-rose' : 'bg-rose-pale'}`}
-                        style={{ height: `${Math.abs(m.value)}%` }}
-                      />
-                      <span className="text-[0.6rem] text-mid">{m.label}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Risks */}
-            {d.risks && (
+            {d.risks && (d.risks as { level: string; title: string; desc: string }[]).length > 0 && (
               <div className="bg-white rounded-[20px] p-6 border border-black/[0.06]">
                 <h3 className="font-serif text-base text-ink mb-4">Aktuální rizika</h3>
                 <div className="space-y-2.5">

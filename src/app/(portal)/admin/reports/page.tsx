@@ -73,7 +73,7 @@ export default function AdminReportsPage() {
   return (
     <>
       <Topbar title="Správa reportů" />
-      <div className="p-9">
+      <div className="p-4 lg:p-9">
         <div className="flex justify-between items-center mb-6">
           <h2 className="font-serif text-xl text-ink">Reporty klientů</h2>
           <button onClick={() => { setShowEditor(true); setEditingReport(null); setSelectedClient(''); setSelectedType(''); }}

@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Topbar from '@/components/Topbar'
 import EmptyState from '@/components/EmptyState'
+import SaveToast from '@/components/SaveToast'
 import CfoTabs from '@/components/cfo/CfoTabs'
 import PricingTab from '@/components/cfo/PricingTab'
 import CostsTab from '@/components/cfo/CostsTab'
@@ -14,6 +15,7 @@ import RisksTab from '@/components/cfo/RisksTab'
 import QuestionsTab from '@/components/cfo/QuestionsTab'
 import { type Tier, type Extra, type CostItem, type Budget, calcRevenue, calcOpex } from '@/components/cfo/calcEngine'
 import type { Report } from '@/lib/types'
+import { exportCfoPdf } from '@/lib/pdfExport'
 
 const ALL_TABS = [
   { id: 'pricing', label: 'Cenotvorba' },
@@ -23,6 +25,8 @@ const ALL_TABS = [
   { id: 'risks', label: 'Rizika & Plán' },
   { id: 'questions', label: 'Dotazy' },
 ]
+
+const TAB_IDS = ALL_TABS.map(t => t.id)
 
 // Default data for new reports
 const DEFAULT_DATA = {
@@ -55,23 +59,33 @@ const DEFAULT_DATA = {
 
 export default function CfoPage() {
   return (
-    <Suspense fallback={<><Topbar title="CFO na volné noze" /><div className="p-9"><div className="animate-pulse h-40 bg-white rounded-[20px]" /></div></>}>
+    <Suspense fallback={<><Topbar title="CFO na volné noze" /><div className="p-4 lg:p-9"><div className="animate-pulse h-40 bg-white rounded-[20px]" /></div></>}>
       <CfoPageInner />
     </Suspense>
   )
 }
 
 function CfoPageInner() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const initialTab = searchParams.get('tab')
   const [report, setReport] = useState<Report | null>(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState('pricing')
+  const [tab, setTab] = useState(initialTab && TAB_IDS.includes(initialTab) ? initialTab : 'pricing')
   const [saveStatus, setSaveStatus] = useState<string>('')
   const [clientName, setClientName] = useState<string>('')
   const [isAdminView, setIsAdminView] = useState(false)
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const supabase = createClient()
-  const searchParams = useSearchParams()
   const clientParam = searchParams.get('client')
+
+  // Persist tab in URL
+  function handleTabChange(newTab: string) {
+    setTab(newTab)
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('tab', newTab)
+    router.replace(`?${params.toString()}`, { scroll: false })
+  }
 
   // Load report
   useEffect(() => {
@@ -145,31 +159,25 @@ function CfoPageInner() {
   const opex = calcOpex(fixedCosts, variablePct, rev.total)
   const monthlyEbitda = rev.total - opex.total
 
-  // Visible tabs
-  const visibleTabs = ALL_TABS.filter(t => {
-    if (t.id === 'risks') return d.risks && (d.risks as unknown[]).length > 0
-    if (t.id === 'questions') return d.questions && (d.questions as unknown[]).length > 0
-    return true
-  })
-
   if (loading) return (
     <>
       <Topbar title="CFO na volné noze" />
-      <div className="p-9"><div className="animate-pulse h-40 bg-white rounded-[20px]" /></div>
+      <div className="p-4 lg:p-9"><div className="animate-pulse h-40 bg-white rounded-[20px]" /></div>
     </>
   )
 
   if (!report) return (
     <>
       <Topbar title="CFO na volné noze" />
-      <div className="p-9"><EmptyState /></div>
+      <div className="p-4 lg:p-9"><EmptyState /></div>
     </>
   )
 
   return (
     <>
       <Topbar title={isAdminView ? `CFO — ${clientName}` : 'CFO na volné noze'} />
-      <div className="p-9">
+      <SaveToast status={saveStatus} />
+      <div className="p-4 lg:p-9">
         {/* Admin banner */}
         {isAdminView && (
           <div className="bg-rose/10 border border-rose/20 rounded-2xl px-5 py-3 mb-4 flex items-center justify-between">
@@ -185,12 +193,13 @@ function CfoPageInner() {
             <h2 className="font-serif text-xl text-sand font-light mb-1.5">{d.title || 'CFO na volné noze'}</h2>
             <p className="text-[0.78rem] text-white/40">{d.subtitle || ''}{isAdminView && clientName ? ` · ${clientName}` : ''}</p>
           </div>
-          <div className="flex items-center gap-3">
-            {saveStatus && (
-              <span className={`text-[0.68rem] ${saveStatus.startsWith('✓') ? 'text-green' : saveStatus.startsWith('Chyba') ? 'text-rose-pale' : 'text-white/40'}`}>
-                {saveStatus}
-              </span>
-            )}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => exportCfoPdf('cfo-content', d.title || 'CFO na volné noze')}
+              className="px-4 py-2 rounded-full text-[0.68rem] tracking-[0.1em] uppercase font-medium bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-colors"
+            >
+              Export PDF
+            </button>
             <span className={`px-5 py-2 rounded-full text-[0.68rem] tracking-[0.1em] uppercase font-medium ${
               d.status === 'paused' ? 'bg-amber text-white' :
               d.status === 'completed' ? 'bg-mid text-white' :
@@ -202,9 +211,10 @@ function CfoPageInner() {
         </div>
 
         {/* Tabs */}
-        <CfoTabs tabs={visibleTabs} active={tab} onChange={setTab} />
+        <CfoTabs tabs={ALL_TABS} active={tab} onChange={handleTabChange} />
 
         {/* Tab content */}
+        <div id="cfo-content">
         {tab === 'pricing' && (
           <PricingTab
             tiers={tiers}
@@ -225,6 +235,8 @@ function CfoPageInner() {
             budget={budget}
             rampMonths={rampMonths}
             projectionMonths={projectionMonths}
+            onRampMonthsChange={v => updateData('ramp_months', v)}
+            onProjectionMonthsChange={v => updateData('projection_months', v)}
           />
         )}
         {tab === 'budget' && (
@@ -242,8 +254,9 @@ function CfoPageInner() {
             onVariableChange={v => updateData('variable_cost_pct', v)}
           />
         )}
-        {tab === 'risks' && <RisksTab data={d} />}
-        {tab === 'questions' && <QuestionsTab data={d} />}
+        {tab === 'risks' && <RisksTab data={d} onRisksChange={v => updateData('risks', v)} onStepsChange={v => updateData('steps', v)} />}
+        {tab === 'questions' && <QuestionsTab data={d} onQuestionsChange={v => updateData('questions', v)} />}
+        </div>
       </div>
     </>
   )

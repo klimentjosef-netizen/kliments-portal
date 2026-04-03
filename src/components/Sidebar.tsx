@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { getRoutesForService } from '@/lib/services'
 import type { Profile } from '@/lib/types'
 
 const NAV_ITEMS = [
@@ -15,7 +16,7 @@ const NAV_ITEMS = [
   { label: 'Zprávy', href: '/zpravy', icon: '💬', badge: true },
 ]
 
-export default function Sidebar({ profile, onNavigate }: { profile: Profile | null; onNavigate?: () => void }) {
+export default function Sidebar({ profile, onNavigate, unreadCount = 0 }: { profile: Profile | null; onNavigate?: () => void; unreadCount?: number }) {
   const pathname = usePathname()
   const router = useRouter()
 
@@ -25,6 +26,11 @@ export default function Sidebar({ profile, onNavigate }: { profile: Profile | nu
     router.push('/login')
     router.refresh()
   }
+
+  // Admin sees everything, clients see only their service routes
+  const isAdmin = profile?.role === 'admin'
+  const allowedRoutes = isAdmin ? NAV_ITEMS.map(i => i.href) : getRoutesForService(profile?.service)
+  const visibleItems = NAV_ITEMS.filter(item => allowedRoutes.includes(item.href))
 
   return (
     <aside className="w-60 min-h-screen bg-ink fixed left-0 top-0 bottom-0 z-50 flex flex-col">
@@ -42,14 +48,14 @@ export default function Sidebar({ profile, onNavigate }: { profile: Profile | nu
         </div>
         <div className="overflow-hidden">
           <div className="text-[0.82rem] font-medium text-sand truncate">{profile?.name || 'Načítám...'}</div>
-          <div className="text-[0.68rem] text-white/25 tracking-wider">{profile?.role === 'admin' ? 'Admin' : 'Klient'}</div>
+          <div className="text-[0.68rem] text-white/25 tracking-wider">{isAdmin ? 'Admin' : 'Klient'}</div>
         </div>
       </div>
 
       {/* Nav */}
       <nav className="flex-1 py-4 overflow-y-auto">
         <div className="text-[0.58rem] tracking-[0.2em] uppercase text-white/20 px-6 py-2">Přehled</div>
-        {NAV_ITEMS.map((item) => {
+        {visibleItems.map((item) => {
           const active = pathname === item.href
           return (
             <Link
@@ -65,11 +71,16 @@ export default function Sidebar({ profile, onNavigate }: { profile: Profile | nu
               {active && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-rose rounded-r" />}
               <span className="text-sm">{item.icon}</span>
               {item.label}
+              {item.badge && unreadCount > 0 && (
+                <span className="ml-auto bg-rose text-white text-[0.58rem] font-semibold w-5 h-5 rounded-full flex items-center justify-center">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
             </Link>
           )
         })}
 
-        {profile?.role === 'admin' && (
+        {isAdmin && (
           <>
             <div className="text-[0.58rem] tracking-[0.2em] uppercase text-white/20 px-6 py-2 mt-4">Admin</div>
             <Link

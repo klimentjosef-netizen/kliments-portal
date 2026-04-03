@@ -69,7 +69,7 @@ export default function ZpravyPage() {
   async function sendMessage() {
     if (!newMsg.trim() || !userId || !adminId) return
 
-    const receiverId = userId === adminId ? adminId : adminId // client always sends to admin
+    const receiverId = adminId // client always sends to admin
     await supabase.from('messages').insert({
       sender_id: userId,
       receiver_id: receiverId,
@@ -77,20 +77,32 @@ export default function ZpravyPage() {
       read: false,
     })
 
+    // Notify recipient
+    fetch('/portal/api/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'new_message',
+        recipientId: receiverId,
+        title: 'Nová zpráva',
+        body: newMsg.trim().slice(0, 100),
+      }),
+    }).catch(() => {}) // fire and forget
+
     setNewMsg('')
   }
 
   return (
     <>
       <Topbar title="Zprávy" />
-      <div className="p-9 flex flex-col" style={{ height: 'calc(100vh - 64px)' }}>
+      <div className="p-4 lg:p-9 flex flex-col" style={{ height: 'calc(100vh - 64px)' }}>
         <div className="bg-white rounded-[20px] border border-black/[0.06] flex-1 flex flex-col overflow-hidden">
           {/* Header */}
           <div className="px-6 py-4 border-b border-black/[0.06] flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-rose flex items-center justify-center text-white text-sm font-medium">JK</div>
             <div>
               <div className="text-[0.88rem] font-medium text-ink">Josef Kliment</div>
-              <div className="text-[0.7rem] text-green">Online</div>
+              <div className="text-[0.7rem] text-mid">Váš finanční poradce</div>
             </div>
           </div>
 
