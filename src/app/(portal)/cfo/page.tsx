@@ -92,6 +92,13 @@ function CfoPageInner() {
   // Load report
   useEffect(() => {
     async function load() {
+      // Reset states
+      setLoading(true)
+      setIsAdminNoPick(false)
+      setIsAdminView(false)
+      setClientName('')
+      setReport(null)
+
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 

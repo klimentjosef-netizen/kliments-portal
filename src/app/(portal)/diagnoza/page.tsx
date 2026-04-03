@@ -33,6 +33,7 @@ function DiagnozaPageInner() {
 
   useEffect(() => {
     async function load() {
+      setLoading(true); setIsAdminNoPick(false); setIsAdminView(false); setClientName(''); setReport(null)
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
       const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
