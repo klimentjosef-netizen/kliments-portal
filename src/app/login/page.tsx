@@ -60,7 +60,7 @@ export default function LoginPage() {
           Kliments<span className="text-rose text-4xl leading-none -mb-1">.</span>
         </div>
         <p className="text-sm text-mid mb-9">
-          {resetMode ? 'Obnovení hesla' : 'Klientský portál · Finanční poradenství'}
+          {resetMode ? 'Obnovení hesla' : 'Klientský portál · Finanční řízení'}
         </p>
 
         {resetSent ? (

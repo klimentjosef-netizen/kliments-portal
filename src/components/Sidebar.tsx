@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { label: 'Prodej za maximum', href: '/valuace', icon: '⭐' },
   { label: 'Příprava na investora', href: '/investor', icon: '📋' },
   { label: 'Mentoring', href: '/mentoring', icon: '👤' },
+  { label: 'Dokumenty', href: '/dokumenty', icon: '📁' },
   { label: 'Zprávy', href: '/zpravy', icon: '💬', badge: true },
 ]
 

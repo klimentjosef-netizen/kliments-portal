@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Kliments · Klientský portál",
-  description: "Finanční poradenství · Josef Kliment",
+  description: "Finanční řízení · Josef Kliment",
 };
 
 export default function RootLayout({
