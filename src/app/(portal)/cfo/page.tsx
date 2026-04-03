@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef, Suspense } from 'react'
+import { useEffect, useState, useRef, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Topbar from '@/components/Topbar'
@@ -86,6 +86,7 @@ function CfoPageInner() {
   const [isAdminView, setIsAdminView] = useState(false)
   const [isAdminNoPick, setIsAdminNoPick] = useState(false)
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const reportIdRef = useRef<string>('')
   const supabase = createClient()
   const clientParam = searchParams.get('client')
 
@@ -130,39 +131,44 @@ function CfoPageInner() {
         .from('reports').select('*')
         .eq('client_id', targetId).eq('type', 'cfo')
         .order('created_at', { ascending: false }).limit(1).single()
-      if (data) setReport(data as Report)
+      if (data) {
+        setReport(data as Report)
+        reportIdRef.current = (data as Report).id
+      }
       setLoading(false)
     }
     load()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientParam])
 
-  // Auto-save with debounce
-  const autoSave = useCallback(async (newData: Record<string, unknown>) => {
-    if (!report) return
+  // Auto-save with debounce (uses ref for stable report ID)
+  function saveToDb(newData: Record<string, unknown>) {
+    const id = reportIdRef.current
+    if (!id) return
     setSaveStatus('Ukládám...')
     if (saveTimeout.current) clearTimeout(saveTimeout.current)
     saveTimeout.current = setTimeout(async () => {
-      const { error } = await supabase
+      const sb = createClient()
+      const { error } = await sb
         .from('reports')
         .update({ data: newData })
-        .eq('id', report.id)
+        .eq('id', id)
       if (error) {
+        console.error('Save error:', error)
         setSaveStatus('Chyba ukládání')
         setTimeout(() => setSaveStatus(''), 3000)
       } else {
         setSaveStatus('✓ Uloženo ' + new Date().toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' }))
       }
     }, 800)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [report])
+  }
 
   // Update helper
   function updateData(key: string, value: unknown) {
     if (!report) return
     const newData = { ...report.data, [key]: value }
     setReport({ ...report, data: newData })
-    autoSave(newData)
+    saveToDb(newData)
   }
 
   // Merge defaults with stored data
