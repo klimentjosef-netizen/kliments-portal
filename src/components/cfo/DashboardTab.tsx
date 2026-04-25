@@ -30,13 +30,9 @@ interface DashboardTabProps {
 const CZ_SHORT = ['Led', 'Uno', 'Bre', 'Dub', 'Kve', 'Cvn', 'Cvc', 'Srp', 'Zar', 'Rij', 'Lis', 'Pro']
 const CZ_MONTHS = ['ledna', 'unora', 'brezna', 'dubna', 'kvetna', 'cervna', 'cervence', 'srpna', 'zari', 'rijna', 'listopadu', 'prosince']
 
-function formatDateCZ(dateStr: string): string {
-  const [y, m, d] = dateStr.split('-').map(Number)
-  return `${d}. ${CZ_MONTHS[m - 1]} ${y}`
-}
-
 export default function DashboardTab({
   ledger, tiers, extras, fixedCosts, variablePct, budget,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   receivables, taxes, vat, profile, recommendations, timeline,
   onTabChange, onProfileChange,
 }: DashboardTabProps) {

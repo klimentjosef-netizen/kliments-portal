@@ -1031,8 +1031,7 @@ export function getCzechTaxCalendar(
   today: string = new Date().toISOString().slice(0, 10),
 ): TaxDeadline[] {
   const deadlines: TaxDeadline[] = []
-  const [ty, tm, td] = today.split('-').map(Number)
-  const todayDate = new Date(ty, tm - 1, td)
+  const [ty, tm] = today.split('-').map(Number)
 
   for (let i = 0; i < monthsAhead; i++) {
     const d = new Date(ty, tm - 1 + i, 1)
@@ -1342,7 +1341,6 @@ export function calcWhatIf(
   const rev = calcRevenue(tiers, extras)
   const opex = calcOpex(fixedCosts, variablePct, rev.total)
   const currentEbitda = rev.total - opex.total
-  const currentBe = calcBreakeven(tiers, fixedCosts, variablePct)
   const totalMembers = tiers.reduce((s, t) => s + t.members, 0)
 
   // Apply what-if
