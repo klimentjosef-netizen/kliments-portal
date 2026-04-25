@@ -576,8 +576,9 @@ export function calcHybridCashflow(
   budget: Budget,
   projectionMonths: number = 24,
   rampMonths: number = 17,
+  startOffset: number = 0,
 ): Array<CashflowMonth & { isActual: boolean }> {
-  const projected = calcCashflowProjection(tiers, extras, fixedCosts, variablePct, budget, projectionMonths, rampMonths)
+  const projected = calcCashflowProjection(tiers, extras, fixedCosts, variablePct, budget, projectionMonths, rampMonths, undefined, startOffset)
 
   return projected.map(p => {
     // Check if we have actual data for this month
@@ -705,11 +706,12 @@ export function calcScenarios(
 
 // ── Ramp-up curve ──
 
-export function getRampCurve(months: number, rampMonths: number = 17): number[] {
+export function getRampCurve(months: number, rampMonths: number = 17, startOffset: number = 0): number[] {
   return Array.from({ length: months }, (_, i) => {
-    if (i >= rampMonths) return 1
+    const j = i + startOffset
+    if (j >= rampMonths) return 1
     // S-curve: slow start, faster middle, slow finish
-    const t = i / rampMonths
+    const t = j / rampMonths
     return Math.round((3 * t * t - 2 * t * t * t) * 100) / 100
   })
 }
@@ -724,10 +726,11 @@ export function calcCashflowProjection(
   budget: Budget,
   projectionMonths: number = 24,
   rampMonths: number = 17,
-  startLabel?: string
+  startLabel?: string,
+  startOffset: number = 0
 ): CashflowMonth[] {
   const rev = calcRevenue(tiers, extras)
-  const ramp = getRampCurve(projectionMonths, rampMonths)
+  const ramp = getRampCurve(projectionMonths, rampMonths, startOffset)
   const months: CashflowMonth[] = []
   let cumulative = -(budget.capex_budget)
 

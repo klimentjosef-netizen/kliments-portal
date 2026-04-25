@@ -72,6 +72,7 @@ const DEFAULT_DATA = {
   steps: [],
   questions: [],
   summary: '',
+  business_start_month: '',
 }
 
 export default function CfoPage() {
@@ -199,12 +200,22 @@ function CfoPageInner() {
   const taxesData = (d.taxes || { entity_type: 'sro', income_tax: { rate: 21, annual_estimate: 0, advances: [] }, social: { monthly: 0, advances: [] }, health: { monthly: 0, advances: [] }, other_taxes: [] }) as TaxData
   const receivables = (d.receivables || { invoices_issued: [], invoices_received: [] }) as ReceivablesData
 
-  // Auto-generate expected items for current + next 2 months
+  // Compute elapsed months from business start for ramp offset
+  const businessStartMonth = (d.business_start_month as string) || ''
+  const hasRunningBusiness = tiers.some(t => t.members > 0 && t.price > 0)
+  const elapsedMonths = (() => {
+    if (!businessStartMonth) return hasRunningBusiness ? rampMonths : 0
+    const [sy, sm] = businessStartMonth.split('-').map(Number)
+    const now = new Date()
+    return (now.getFullYear() - sy) * 12 + (now.getMonth() + 1 - sm)
+  })()
+
+  // Auto-generate expected items for current + next 5 months
   const ledger: Ledger = (() => {
     const result = { ...rawLedger, months: rawLedger.months.map(m => ({ ...m, items: [...m.items] })) }
-    const startMonth = (d.business_start_month as string) || new Date().toISOString().slice(0, 7)
+    const startMonth = businessStartMonth || new Date().toISOString().slice(0, 7)
     const now = new Date()
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 6; i++) {
       const dt = new Date(now.getFullYear(), now.getMonth() + i, 1)
       const month = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`
       let ml = result.months.find(m => m.month === month)
@@ -213,7 +224,7 @@ function CfoPageInner() {
         result.months.push(ml)
       }
       if (!ml.locked) {
-        const ramp = getRampFactorForMonth(month, startMonth, rampMonths)
+        const ramp = hasRunningBusiness && !businessStartMonth ? 1.0 : getRampFactorForMonth(month, startMonth, rampMonths)
         const generated = generateExpectedItems(month, tiers, extras, fixedCosts, taxesData, vat, ramp)
         ml.items = mergeExpectedWithExisting(generated, ml.items)
       }
@@ -311,8 +322,12 @@ function CfoPageInner() {
             budget={budget}
             rampMonths={rampMonths}
             projectionMonths={projectionMonths}
+            startOffset={elapsedMonths}
+            businessStartMonth={businessStartMonth}
+            ledger={ledger}
             onRampMonthsChange={v => updateData('ramp_months', v)}
             onProjectionMonthsChange={v => updateData('projection_months', v)}
+            onBusinessStartMonthChange={v => updateData('business_start_month', v)}
           />
         )}
         {tab === 'budget' && (

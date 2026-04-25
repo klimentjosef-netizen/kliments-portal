@@ -283,8 +283,9 @@ function CfoForm({ data, onChange }: { data: Record<string, any>; onChange: (k: 
         <Field label="Název" value={data.title || ''} onChange={v => onChange('title', v)} />
         <Field label="Podtitul" value={data.subtitle || ''} onChange={v => onChange('subtitle', v)} />
       </div>
-      <div className="grid grid-cols-3 gap-3 mt-4">
+      <div className="grid grid-cols-4 gap-3 mt-4">
         <Field label="Variabilní náklady (%)" value={String(data.variable_cost_pct ?? 5)} onChange={v => onChange('variable_cost_pct', Number(v) || 0)} />
+        <Field label="Zahájení podnikání" value={String(data.business_start_month ?? '')} onChange={v => onChange('business_start_month', v)} />
         <Field label="Ramp-up měsíců" value={String(data.ramp_months ?? 17)} onChange={v => onChange('ramp_months', Number(v) || 17)} />
         <Field label="Projekce měsíců" value={String(data.projection_months ?? 24)} onChange={v => onChange('projection_months', Number(v) || 24)} />
       </div>

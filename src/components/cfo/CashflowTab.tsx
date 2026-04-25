@@ -1,9 +1,9 @@
 'use client'
 
 import {
-  type Tier, type Extra, type CostItem, type Budget,
+  type Tier, type Extra, type CostItem, type Budget, type Ledger,
   calcRevenue, calcOpex, calcBreakeven, calcCapexRoi,
-  calcScenarios, calcCashflowProjection, fmt, fmtShort,
+  calcScenarios, calcHybridCashflow, fmt, fmtShort,
 } from './calcEngine'
 import ProgressBar from './ProgressBar'
 import CashflowChart from './CashflowChart'
@@ -17,11 +17,15 @@ interface CashflowTabProps {
   budget: Budget
   rampMonths: number
   projectionMonths: number
+  startOffset: number
+  businessStartMonth: string
+  ledger: Ledger
   onRampMonthsChange?: (v: number) => void
   onProjectionMonthsChange?: (v: number) => void
+  onBusinessStartMonthChange?: (v: string) => void
 }
 
-export default function CashflowTab({ tiers, extras, fixedCosts, variablePct, budget, rampMonths, projectionMonths, onRampMonthsChange, onProjectionMonthsChange }: CashflowTabProps) {
+export default function CashflowTab({ tiers, extras, fixedCosts, variablePct, budget, rampMonths, projectionMonths, startOffset, businessStartMonth, ledger, onRampMonthsChange, onProjectionMonthsChange, onBusinessStartMonthChange }: CashflowTabProps) {
   const rev = calcRevenue(tiers, extras)
   const opex = calcOpex(fixedCosts, variablePct, rev.total)
   const ebitda = rev.total - opex.total
@@ -30,7 +34,7 @@ export default function CashflowTab({ tiers, extras, fixedCosts, variablePct, bu
   const totalMembers = tiers.reduce((s, t) => s + t.members, 0)
   const bePct = be.members < 999 ? Math.min(100, Math.round(totalMembers / be.members * 100)) : 0
 
-  const projection = calcCashflowProjection(tiers, extras, fixedCosts, variablePct, budget, projectionMonths, rampMonths)
+  const projection = calcHybridCashflow(ledger, tiers, extras, fixedCosts, variablePct, budget, projectionMonths, rampMonths, startOffset)
   const scenarios = calcScenarios(tiers, extras, fixedCosts, variablePct, [5, 10, 15, 20, 30, 40, 50])
 
   // Revenue mix for doughnut
@@ -79,12 +83,23 @@ export default function CashflowTab({ tiers, extras, fixedCosts, variablePct, bu
         <div className="text-[0.68rem] text-mid mt-2">{bePct} % break-even</div>
       </div>
 
-      {/* Cashflow projection chart */}
       {/* Ramp & projection settings */}
-      {(onRampMonthsChange || onProjectionMonthsChange) && (
+      {(onRampMonthsChange || onProjectionMonthsChange || onBusinessStartMonthChange) && (
         <div className="bg-white rounded-[20px] p-6 border border-black/[0.06]">
           <h3 className="font-serif text-base text-ink mb-3">Nastavení projekce</h3>
-          <div className="flex gap-6">
+          <div className="flex flex-wrap gap-6">
+            <div>
+              <label className="text-[0.58rem] tracking-[0.1em] uppercase text-mid block mb-1">Zahájení podnikání</label>
+              <input
+                type="month"
+                value={businessStartMonth}
+                onChange={e => onBusinessStartMonthChange?.(e.target.value)}
+                className="w-40 bg-transparent border-b border-black/10 py-1.5 text-sm outline-none focus:border-rose transition-colors"
+              />
+              {!businessStartMonth && (
+                <div className="text-[0.6rem] text-mid/60 mt-1">Nenastaveno. Ramp se nepočítá.</div>
+              )}
+            </div>
             <div>
               <label className="text-[0.58rem] tracking-[0.1em] uppercase text-mid block mb-1">Ramp-up (měsíce)</label>
               <input
@@ -163,8 +178,10 @@ export default function CashflowTab({ tiers, extras, fixedCosts, variablePct, bu
             </thead>
             <tbody>
               {projection.map((m, i) => (
-                <tr key={i} className="border-t border-black/[0.04]">
-                  <td className="py-2 text-ink font-medium">{m.label}</td>
+                <tr key={i} className={`border-t border-black/[0.04] ${m.isActual ? 'bg-green/[0.04]' : ''}`}>
+                  <td className="py-2 text-ink font-medium">
+                    {m.label}{m.isActual ? ' \u25cf' : ''}
+                  </td>
                   <td className="py-2 text-right text-mid">{m.revenue.toLocaleString('cs-CZ')} Kč</td>
                   <td className="py-2 text-right text-mid">{m.costs.toLocaleString('cs-CZ')} Kč</td>
                   <td className={`py-2 text-right font-medium ${m.ebitda >= 0 ? 'text-green' : 'text-rose-deep'}`}>
