@@ -11,7 +11,8 @@ interface VatTabProps {
 }
 
 export default function VatTab({ vat, ledger, capexVat, profile, onVatChange }: VatTabProps) {
-  const showVat = profile.vat_payer || !!profile.vat_transition_date
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _showVat = profile.vat_payer || !!profile.vat_transition_date
   // Calculate VAT from ledger items (Czech VAT: based on invoice date, not payment)
   const vatCalc = calcVatFromLedger(ledger)
   const totalOutput = vatCalc.output
