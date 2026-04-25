@@ -983,7 +983,464 @@ export function fmt(n: number): string {
 }
 
 export function fmtShort(n: number): string {
-  if (Math.abs(n) >= 1_000_000) return (n / 1_000_000).toFixed(1).replace('.0', '') + 'M Kč'
-  if (Math.abs(n) >= 1_000) return Math.round(n / 1_000) + 'k Kč'
-  return n.toLocaleString('cs-CZ') + ' Kč'
+  if (Math.abs(n) >= 1_000_000) return (n / 1_000_000).toFixed(1).replace('.0', '') + 'M Kc'
+  if (Math.abs(n) >= 1_000) return Math.round(n / 1_000) + 'k Kc'
+  return n.toLocaleString('cs-CZ') + ' Kc'
+}
+
+// ══════════════════════════════════════════════
+// ── Business Profile ──
+// ══════════════════════════════════════════════
+
+export interface BusinessProfile {
+  entity_type: 'sro' | 'osvc' | 'as'
+  vat_payer: boolean
+  vat_transition_date: string | null
+  founding_date: string
+  fiscal_year_start: number
+  complexity: 'simple' | 'detailed'
+}
+
+export const DEFAULT_BUSINESS_PROFILE: BusinessProfile = {
+  entity_type: 'sro',
+  vat_payer: false,
+  vat_transition_date: null,
+  founding_date: '',
+  fiscal_year_start: 1,
+  complexity: 'simple',
+}
+
+// ══════════════════════════════════════════════
+// ── Czech Tax Calendar ──
+// ══════════════════════════════════════════════
+
+export interface TaxDeadline {
+  date: string        // YYYY-MM-DD
+  label: string
+  amount: number      // estimated, negative = pay
+  category: 'dph' | 'dan_prijmu' | 'socialni' | 'zdravotni' | 'admin'
+  urgent: boolean
+}
+
+export function getCzechTaxCalendar(
+  profile: BusinessProfile,
+  taxes: TaxData,
+  vat: VatData,
+  ledger: Ledger,
+  monthsAhead: number = 6,
+  today: string = new Date().toISOString().slice(0, 10),
+): TaxDeadline[] {
+  const deadlines: TaxDeadline[] = []
+  const [ty, tm, td] = today.split('-').map(Number)
+  const todayDate = new Date(ty, tm - 1, td)
+
+  for (let i = 0; i < monthsAhead; i++) {
+    const d = new Date(ty, tm - 1 + i, 1)
+    const year = d.getFullYear()
+    const month = d.getMonth() + 1 // 1-12
+
+    // DPH: 25. nasledujiciho mesice (mesicni) nebo 25. po konci Q (ctvrtletni)
+    if (profile.vat_payer || (profile.vat_transition_date && profile.vat_transition_date <= `${year}-${String(month).padStart(2, '0')}`)) {
+      const isQuarterly = vat.period === 'quarterly'
+      const isDueMonth = isQuarterly ? (month % 3 === 1) : true // Q: Jan, Apr, Jul, Oct
+      if (isDueMonth) {
+        const dueDate = `${year}-${String(month).padStart(2, '0')}-25`
+        const vatCalc = calcVatFromLedger(ledger)
+        deadlines.push({
+          date: dueDate,
+          label: isQuarterly ? `DPH za Q${Math.ceil((month - 1) / 3)}` : `DPH za ${month - 1}/${year}`,
+          amount: -Math.abs(vatCalc.liability),
+          category: 'dph',
+          urgent: daysUntil(dueDate, today) <= 7,
+        })
+      }
+    }
+
+    // Dan z prijmu: ctvrtletni zalohy 15.3, 15.6, 15.9, 15.12
+    if ([3, 6, 9, 12].includes(month)) {
+      const dueDate = `${year}-${String(month).padStart(2, '0')}-15`
+      const quarterlyAmount = taxes.income_tax.annual_estimate / 4
+      if (quarterlyAmount > 0) {
+        deadlines.push({
+          date: dueDate,
+          label: `Zaloha dan z prijmu Q${month / 3}`,
+          amount: -Math.round(quarterlyAmount),
+          category: 'dan_prijmu',
+          urgent: daysUntil(dueDate, today) <= 7,
+        })
+      }
+    }
+
+    // Socialni pojisteni: 20. nasledujiciho mesice (OSVC)
+    if (profile.entity_type === 'osvc' && taxes.social.monthly > 0) {
+      const dueDate = `${year}-${String(month).padStart(2, '0')}-20`
+      deadlines.push({
+        date: dueDate,
+        label: `Socialni pojisteni`,
+        amount: -taxes.social.monthly,
+        category: 'socialni',
+        urgent: daysUntil(dueDate, today) <= 7,
+      })
+    }
+
+    // Zdravotni pojisteni: 8. nasledujiciho mesice (OSVC)
+    if (profile.entity_type === 'osvc' && taxes.health.monthly > 0) {
+      const dueDate = `${year}-${String(month).padStart(2, '0')}-08`
+      deadlines.push({
+        date: dueDate,
+        label: `Zdravotni pojisteni`,
+        amount: -taxes.health.monthly,
+        category: 'zdravotni',
+        urgent: daysUntil(dueDate, today) <= 7,
+      })
+    }
+
+    // Rocni povinnosti (duben/kveten)
+    if (month === 4) {
+      deadlines.push({
+        date: `${year}-04-01`,
+        label: `Danove priznani (papir)`,
+        amount: 0,
+        category: 'admin',
+        urgent: daysUntil(`${year}-04-01`, today) <= 14,
+      })
+      deadlines.push({
+        date: `${year}-04-30`,
+        label: `Prehled OSSZ`,
+        amount: 0,
+        category: 'admin',
+        urgent: daysUntil(`${year}-04-30`, today) <= 14,
+      })
+    }
+    if (month === 5) {
+      deadlines.push({
+        date: `${year}-05-02`,
+        label: `Danove priznani (elektronicky)`,
+        amount: 0,
+        category: 'admin',
+        urgent: daysUntil(`${year}-05-02`, today) <= 14,
+      })
+      deadlines.push({
+        date: `${year}-05-03`,
+        label: `Prehled zdravotni pojistovna`,
+        amount: 0,
+        category: 'admin',
+        urgent: daysUntil(`${year}-05-03`, today) <= 14,
+      })
+    }
+  }
+
+  // Filter to future only and sort
+  return deadlines
+    .filter(d => d.date >= today)
+    .sort((a, b) => a.date.localeCompare(b.date))
+}
+
+function daysUntil(dateStr: string, today: string): number {
+  const d = new Date(dateStr)
+  const t = new Date(today)
+  return Math.ceil((d.getTime() - t.getTime()) / 86400000)
+}
+
+// ══════════════════════════════════════════════
+// ── Smart Recommendations ──
+// ══════════════════════════════════════════════
+
+export interface Recommendation {
+  id: string
+  priority: 'urgent' | 'important' | 'tip'
+  title: string
+  detail: string
+  impact: string
+  actionTab?: string
+}
+
+export function calcRecommendations(
+  ledger: Ledger,
+  tiers: Tier[],
+  extras: Extra[],
+  fixedCosts: CostItem[],
+  variablePct: number,
+  budget: Budget,
+  receivables: ReceivablesData,
+  taxes: TaxData,
+  vat: VatData,
+  profile: BusinessProfile,
+  today: string = new Date().toISOString().slice(0, 10),
+): Recommendation[] {
+  if (!ledger || !tiers || !fixedCosts) return []
+  const recs: Recommendation[] = []
+  const rev = calcRevenue(tiers, extras)
+  const opex = calcOpex(fixedCosts, variablePct, rev.total)
+  const ebitda = rev.total - opex.total
+  const be = calcBreakeven(tiers, fixedCosts, variablePct)
+  const totalMembers = tiers.reduce((s, t) => s + t.members, 0)
+  const cashPos = calcCashPosition(ledger.bank_balance, ledger, 6)
+
+  // URGENT: Cashflow goes negative soon
+  const negIdx = cashPos.findIndex(m => m.closing < 0)
+  if (negIdx >= 0 && negIdx < 3) {
+    const deficit = Math.abs(cashPos[negIdx].closing)
+    const membersNeeded = be.avgPrice > 0 ? Math.ceil(deficit / be.avgPrice) : 0
+    recs.push({
+      id: 'cf_negative_soon',
+      priority: 'urgent',
+      title: `Cashflow bude zaporny za ${negIdx + 1} mesic${negIdx === 0 ? '' : negIdx < 4 ? 'e' : 'u'}`,
+      detail: `Chybi ${fmt(deficit)}. Moznosti: pridat ${membersNeeded} clenu, snizit naklady o ${fmt(deficit)}, nebo cerpat z rezervy.`,
+      impact: fmt(-deficit),
+      actionTab: 'monthly',
+    })
+  }
+
+  // URGENT: Overdue invoices
+  const todayMs = new Date(today).getTime()
+  const overdue = receivables.invoices_issued.filter(i =>
+    i.status !== 'paid' && i.due_date && new Date(i.due_date).getTime() < todayMs
+  )
+  if (overdue.length > 0) {
+    const total = overdue.reduce((s, i) => s + i.total, 0)
+    recs.push({
+      id: 'overdue_invoices',
+      priority: 'urgent',
+      title: `${overdue.length} faktur po splatnosti`,
+      detail: `Celkem ${fmt(total)} neuhrazeno. Kontaktujte dluznika a zvazce upominku.`,
+      impact: fmt(total),
+      actionTab: 'receivables',
+    })
+  }
+
+  // IMPORTANT: Break-even gap
+  if (totalMembers > 0 && totalMembers < be.members) {
+    const gap = be.members - totalMembers
+    const potentialRevenue = gap * be.avgPrice
+    recs.push({
+      id: 'breakeven_gap',
+      priority: 'important',
+      title: `Chybi ${gap} zakazniku do break-even`,
+      detail: `Aktualne ${totalMembers} z ${be.members} potrebnych. Zkuste oslovit firemni klienty nebo zvysit ceny.`,
+      impact: `+${fmt(Math.round(potentialRevenue))}/mes`,
+      actionTab: 'pricing',
+    })
+  }
+
+  // IMPORTANT: Revenue below plan
+  const currentMonth = today.slice(0, 7)
+  const currentML = ledger.months.find(m => m.month === currentMonth)
+  if (currentML) {
+    const stats = calcLedgerMonth(currentML.items)
+    if (stats.expected_income > 0 && stats.actual_income < stats.expected_income * 0.7) {
+      const pct = Math.round((1 - stats.actual_income / stats.expected_income) * 100)
+      recs.push({
+        id: 'revenue_below_plan',
+        priority: 'important',
+        title: `Trzby ${pct}% pod planem`,
+        detail: `Ocekavano ${fmt(stats.expected_income)}, skutecnost ${fmt(stats.actual_income)}. Overite, ze vsechny platby dosly.`,
+        impact: fmt(stats.actual_income - stats.expected_income),
+        actionTab: 'monthly',
+      })
+    }
+  }
+
+  // IMPORTANT: Reserve running low
+  if (ebitda < 0) {
+    const reserveRemaining = budget.reserve_budget - budget.reserve_drawn
+    const absEbitda = Math.abs(ebitda)
+    if (absEbitda > 0 && reserveRemaining > 0) {
+      const runway = Math.floor(reserveRemaining / absEbitda)
+      if (runway < 6) {
+        recs.push({
+          id: 'reserve_low',
+          priority: 'important',
+          title: `Rezerva vydrzi jen ${runway} mesicu`,
+          detail: `Mesicni ztrata ${fmt(absEbitda)}, zbyvajici rezerva ${fmt(reserveRemaining)}. Snizce naklady nebo zvyste prijmy.`,
+          impact: `${runway} mes runway`,
+          actionTab: 'budget',
+        })
+      }
+    }
+  }
+
+  // TIP: VAT registration benefit
+  if (!profile.vat_payer && budget.capex_budget > 0) {
+    const capexSpent = budget.capex_items.reduce((s, i) => s + i.spent, 0)
+    const vatRefund = Math.round(capexSpent * 21 / 121)
+    if (vatRefund > 10000) {
+      recs.push({
+        id: 'vat_registration',
+        priority: 'tip',
+        title: `Registrace k DPH = vraceni ${fmt(vatRefund)}`,
+        detail: `Z vasich CAPEX investic (${fmt(capexSpent)}) muzete ziskat zpet DPH ${fmt(vatRefund)}. Zvazce dobrovolnou registraci.`,
+        impact: `+${fmt(vatRefund)}`,
+        actionTab: 'vat',
+      })
+    }
+  }
+
+  // TIP: Price increase impact
+  if (rev.total > 0 && totalMembers > 0) {
+    const fivePctIncrease = Math.round(rev.tierRevenue * 0.05)
+    if (fivePctIncrease > 1000) {
+      recs.push({
+        id: 'price_increase',
+        priority: 'tip',
+        title: `Zvyseni cen o 5% = +${fmt(fivePctIncrease)}/mes`,
+        detail: `Male zvyseni cen prinese ${fmt(fivePctIncrease)} mesicne navic, tj. ${fmt(fivePctIncrease * 12)} rocne.`,
+        impact: `+${fmt(fivePctIncrease)}/mes`,
+        actionTab: 'pricing',
+      })
+    }
+  }
+
+  // TIP: Cost reduction opportunity
+  const highCosts = fixedCosts.filter(c => c.amount > opex.total * 0.25)
+  for (const c of highCosts) {
+    const pct = Math.round(c.amount / opex.total * 100)
+    recs.push({
+      id: `high_cost_${c.name}`,
+      priority: 'tip',
+      title: `${c.name} tvori ${pct}% vsech nakladu`,
+      detail: `Snizeni o 10% usetri ${fmt(Math.round(c.amount * 0.1))}/mesic. Zvazce vyjednavani nebo alternativy.`,
+      impact: `-${fmt(Math.round(c.amount * 0.1))}/mes`,
+      actionTab: 'costs',
+    })
+  }
+
+  return recs
+}
+
+// ══════════════════════════════════════════════
+// ── What-If Calculator ──
+// ══════════════════════════════════════════════
+
+export interface WhatIfResult {
+  currentEbitda: number
+  newEbitda: number
+  ebitdaDelta: number
+  currentRunway: number | null
+  newRunway: number | null
+  cashAfter: number
+  canAfford: boolean
+  breakEvenAfter: { members: number; avgPrice: number }
+}
+
+export function calcWhatIf(
+  tiers: Tier[],
+  extras: Extra[],
+  fixedCosts: CostItem[],
+  variablePct: number,
+  budget: Budget,
+  bankBalance: number,
+  whatIf: {
+    addMembers?: number
+    priceChangePct?: number
+    costReduction?: number
+    oneTimeExpense?: number
+    loseMembers?: number
+  },
+): WhatIfResult {
+  // Current state
+  const rev = calcRevenue(tiers, extras)
+  const opex = calcOpex(fixedCosts, variablePct, rev.total)
+  const currentEbitda = rev.total - opex.total
+  const currentBe = calcBreakeven(tiers, fixedCosts, variablePct)
+  const totalMembers = tiers.reduce((s, t) => s + t.members, 0)
+
+  // Apply what-if
+  const memberDelta = (whatIf.addMembers || 0) - (whatIf.loseMembers || 0)
+  const priceMult = 1 + (whatIf.priceChangePct || 0) / 100
+  const costReduction = whatIf.costReduction || 0
+  const oneTime = whatIf.oneTimeExpense || 0
+
+  // Simulate new tiers
+  const newTiers = tiers.map(t => {
+    const share = totalMembers > 0 ? t.members / totalMembers : 1 / tiers.length
+    const addedToTier = Math.round(memberDelta * share)
+    return {
+      ...t,
+      members: Math.max(0, t.members + addedToTier),
+      price: Math.round(t.price * priceMult),
+    }
+  })
+  const newCosts = fixedCosts.map(c => ({ ...c, amount: Math.max(0, c.amount - Math.round(costReduction * c.amount / fixedCosts.reduce((s, x) => s + x.amount, 0))) }))
+
+  const newRev = calcRevenue(newTiers, extras)
+  const newOpex = calcOpex(newCosts, variablePct, newRev.total)
+  const newEbitda = newRev.total - newOpex.total
+  const newBe = calcBreakeven(newTiers, newCosts, variablePct)
+  const cashAfter = bankBalance - oneTime
+
+  // Runway
+  const reserveRemaining = budget.reserve_budget - budget.reserve_drawn
+  const currentRunway = currentEbitda < 0 ? Math.floor(reserveRemaining / Math.abs(currentEbitda)) : null
+  const newRunway = newEbitda < 0 ? Math.floor((reserveRemaining - oneTime) / Math.abs(newEbitda)) : null
+
+  // Can afford? = cash stays positive for 3 months
+  const canAfford = cashAfter > 0 && (cashAfter + newEbitda * 3) > 0
+
+  return {
+    currentEbitda,
+    newEbitda,
+    ebitdaDelta: newEbitda - currentEbitda,
+    currentRunway,
+    newRunway,
+    cashAfter,
+    canAfford,
+    breakEvenAfter: newBe,
+  }
+}
+
+// ══════════════════════════════════════════════
+// ── Timeline helpers ──
+// ══════════════════════════════════════════════
+
+export interface TimelineItem {
+  date: string
+  label: string
+  amount: number
+  category: string
+  isDeadline: boolean
+  daysUntil: number
+}
+
+export function getUpcomingTimeline(
+  ledger: Ledger,
+  deadlines: TaxDeadline[],
+  today: string = new Date().toISOString().slice(0, 10),
+  limit: number = 15,
+): TimelineItem[] {
+  const items: TimelineItem[] = []
+
+  // Add tax deadlines
+  for (const d of deadlines) {
+    items.push({
+      date: d.date,
+      label: d.label,
+      amount: d.amount,
+      category: d.category,
+      isDeadline: true,
+      daysUntil: daysUntil(d.date, today),
+    })
+  }
+
+  // Add upcoming ledger items (expected, not yet confirmed)
+  const currentMonth = today.slice(0, 7)
+  for (const m of ledger.months) {
+    if (m.month < currentMonth) continue
+    for (const item of m.items) {
+      if (item.status !== 'expected') continue
+      items.push({
+        date: item.date,
+        label: item.description,
+        amount: item.amount_expected,
+        category: item.category,
+        isDeadline: false,
+        daysUntil: daysUntil(item.date, today),
+      })
+    }
+  }
+
+  return items
+    .filter(i => i.daysUntil >= 0)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(0, limit)
 }

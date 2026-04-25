@@ -1,10 +1,12 @@
 'use client'
 
+import { useState } from 'react'
 import {
   type Ledger, type Tier, type Extra, type CostItem, type Budget,
   type ReceivablesData, type TaxData, type VatData,
-  calcLedgerMonth, calcAlerts, calcCashPosition, calcBreakeven,
-  calcRevenue, calcOpex, fmt, fmtShort,
+  type BusinessProfile, type Recommendation, type TimelineItem,
+  calcLedgerMonth, calcCashPosition, calcBreakeven,
+  calcRevenue, calcOpex, calcWhatIf, fmt, fmtShort,
 } from './calcEngine'
 import ActualVsPlanChart from './ActualVsPlanChart'
 
@@ -18,14 +20,29 @@ interface DashboardTabProps {
   receivables: ReceivablesData
   taxes: TaxData
   vat: VatData
+  profile: BusinessProfile
+  recommendations: Recommendation[]
+  timeline: TimelineItem[]
   onTabChange: (tab: string) => void
+  onProfileChange: (profile: BusinessProfile) => void
+}
+
+const CZ_SHORT = ['Led', 'Uno', 'Bre', 'Dub', 'Kve', 'Cvn', 'Cvc', 'Srp', 'Zar', 'Rij', 'Lis', 'Pro']
+const CZ_MONTHS = ['ledna', 'unora', 'brezna', 'dubna', 'kvetna', 'cervna', 'cervence', 'srpna', 'zari', 'rijna', 'listopadu', 'prosince']
+
+function formatDateCZ(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return `${d}. ${CZ_MONTHS[m - 1]} ${y}`
 }
 
 export default function DashboardTab({
   ledger, tiers, extras, fixedCosts, variablePct, budget,
-  receivables, taxes, vat, onTabChange,
+  receivables, taxes, vat, profile, recommendations, timeline,
+  onTabChange, onProfileChange,
 }: DashboardTabProps) {
-  const alerts = calcAlerts(ledger, tiers, fixedCosts, variablePct, budget, receivables, taxes, vat)
+  const [whatIfAmount, setWhatIfAmount] = useState(0)
+  const isSimple = profile.complexity === 'simple'
+
   const cashPos = calcCashPosition(ledger.bank_balance, ledger, 6)
   const be = calcBreakeven(tiers, fixedCosts, variablePct)
   const totalMembers = tiers.reduce((s, t) => s + t.members, 0)
@@ -33,13 +50,17 @@ export default function DashboardTab({
   const opex = calcOpex(fixedCosts, variablePct, rev.total)
   const monthlyEbitda = rev.total - opex.total
 
-  // Current month stats
   const currentMonth = new Date().toISOString().slice(0, 7)
   const currentML = ledger.months.find(m => m.month === currentMonth)
   const currentStats = currentML ? calcLedgerMonth(currentML.items) : null
 
-  // Prepare chart data from ledger months
-  const CZ_SHORT = ['Led', 'Úno', 'Bře', 'Dub', 'Kvě', 'Čvn', 'Čvc', 'Srp', 'Zář', 'Říj', 'Lis', 'Pro']
+  // What-if calculation
+  const whatIfResult = whatIfAmount > 0 ? calcWhatIf(
+    tiers, extras, fixedCosts, variablePct, budget, ledger.bank_balance,
+    { oneTimeExpense: whatIfAmount }
+  ) : null
+
+  // Chart data
   const chartMonths = ledger.months.slice(-6).map(m => {
     const stats = calcLedgerMonth(m.items)
     const [y, mo] = m.month.split('-').map(Number)
@@ -52,154 +73,234 @@ export default function DashboardTab({
     }
   })
 
-  // Upcoming payments (next 5 expected outflows)
-  const upcoming: Array<{ description: string; amount: number; date: string }> = []
-  for (const m of ledger.months) {
-    for (const item of m.items) {
-      if (item.status === 'expected' && item.amount_expected < 0) {
-        upcoming.push({ description: item.description, amount: item.amount_expected, date: item.date })
-      }
-    }
-  }
-  upcoming.sort((a, b) => a.date.localeCompare(b.date))
-  const next5 = upcoming.slice(0, 5)
+  // Today
+  const today = new Date()
+  const todayStr = `${today.getDate()}. ${CZ_MONTHS[today.getMonth()]} ${today.getFullYear()}`
 
-  // Overdue invoices
-  const overdue = receivables.invoices_issued.filter(i => i.status === 'overdue' || (i.status !== 'paid' && i.due_date && new Date(i.due_date) < new Date()))
-  const overdueTotal = overdue.reduce((s, i) => s + i.total, 0)
+  // Next deadline from timeline
+  const nextDeadline = timeline.find(t => t.isDeadline && t.amount < 0)
+
+  // Priority colors
+  const priorityStyles = {
+    urgent: 'bg-rose/8 border-rose/20 text-rose-deep',
+    important: 'bg-amber/8 border-amber/20 text-amber',
+    tip: 'bg-green/8 border-green/20 text-green',
+  }
+  const priorityLabels = { urgent: 'Dulezite', important: 'Doporuceni', tip: 'Tip' }
 
   return (
     <div className="space-y-6">
-      {/* Alerts */}
-      {alerts.length > 0 && (
+      {/* Complexity toggle */}
+      <div className="flex justify-end">
+        <div className="flex bg-white rounded-full border border-black/[0.06] p-0.5">
+          <button
+            onClick={() => onProfileChange({ ...profile, complexity: 'simple' })}
+            className={`px-4 py-1.5 rounded-full text-[0.68rem] transition-colors ${isSimple ? 'bg-ink text-white' : 'text-mid hover:text-ink'}`}>
+            Jednoduche
+          </button>
+          <button
+            onClick={() => onProfileChange({ ...profile, complexity: 'detailed' })}
+            className={`px-4 py-1.5 rounded-full text-[0.68rem] transition-colors ${!isSimple ? 'bg-ink text-white' : 'text-mid hover:text-ink'}`}>
+            Detailni
+          </button>
+        </div>
+      </div>
+
+      {/* TODAY STATUS */}
+      <div className="bg-ink rounded-[20px] p-7 relative overflow-hidden">
+        <div className="absolute right-[-10px] bottom-[-40px] font-serif italic text-[180px] text-white/[0.04] leading-none pointer-events-none">K</div>
+        <div className="text-[0.62rem] tracking-[0.12em] uppercase text-white/40 mb-2">{todayStr}</div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div>
+            <div className="text-[0.6rem] tracking-[0.1em] uppercase text-white/40 mb-1">
+              {isSimple ? 'Na uctu' : 'Stav uctu'}
+            </div>
+            <div className="font-serif text-2xl text-sand font-light">{fmtShort(ledger.bank_balance)}</div>
+          </div>
+          <div>
+            <div className="text-[0.6rem] tracking-[0.1em] uppercase text-white/40 mb-1">
+              {isSimple ? 'Tento mesic' : 'CF tento mesic'}
+            </div>
+            <div className={`font-serif text-2xl font-light ${(currentStats?.expected_net ?? 0) >= 0 ? 'text-green' : 'text-rose-pale'}`}>
+              {currentStats ? `${currentStats.expected_net >= 0 ? '+' : ''}${fmtShort(currentStats.expected_net)}` : '...'}
+            </div>
+          </div>
+          <div>
+            <div className="text-[0.6rem] tracking-[0.1em] uppercase text-white/40 mb-1">
+              {isSimple ? 'Co zbude' : 'EBITDA/mesic'}
+            </div>
+            <div className={`font-serif text-2xl font-light ${monthlyEbitda >= 0 ? 'text-green' : 'text-rose-pale'}`}>
+              {monthlyEbitda >= 0 ? '+' : ''}{fmtShort(monthlyEbitda)}
+            </div>
+          </div>
+          {nextDeadline && (
+            <div>
+              <div className="text-[0.6rem] tracking-[0.1em] uppercase text-white/40 mb-1">Dalsi platba</div>
+              <div className="font-serif text-2xl text-rose-pale font-light">{fmtShort(Math.abs(nextDeadline.amount))}</div>
+              <div className="text-[0.62rem] text-white/40 mt-0.5">
+                {nextDeadline.daysUntil === 0 ? 'dnes!' : nextDeadline.daysUntil === 1 ? 'zitra' : `za ${nextDeadline.daysUntil} dni`}
+                {' '}. {nextDeadline.label}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* RECOMMENDATIONS */}
+      {recommendations.length > 0 && (
         <div className="space-y-2">
-          {alerts.map(alert => (
-            <div key={alert.id}
-              onClick={() => alert.tab && onTabChange(alert.tab)}
-              className={`p-4 rounded-2xl border cursor-pointer transition-colors ${
-                alert.severity === 'critical' ? 'bg-[#fdf0f0] border-rose/20 hover:border-rose/40' :
-                alert.severity === 'warning' ? 'bg-[#fff8f0] border-amber/20 hover:border-amber/40' :
-                'bg-[#eef6f1] border-green/20 hover:border-green/40'
-              }`}>
+          <h3 className="text-[0.62rem] tracking-[0.12em] uppercase text-mid font-medium">Doporuceni</h3>
+          {recommendations.slice(0, 5).map(rec => (
+            <div key={rec.id}
+              onClick={() => rec.actionTab && onTabChange(rec.actionTab)}
+              className={`p-4 rounded-2xl border cursor-pointer transition-all hover:shadow-sm ${priorityStyles[rec.priority]}`}>
               <div className="flex items-start gap-3">
-                <span className={`text-[0.58rem] tracking-[0.1em] font-semibold px-2 py-0.5 rounded flex-shrink-0 ${
-                  alert.severity === 'critical' ? 'bg-rose/20 text-rose-deep' :
-                  alert.severity === 'warning' ? 'bg-amber/20 text-amber' :
+                <span className={`text-[0.55rem] tracking-[0.08em] font-semibold px-2 py-0.5 rounded flex-shrink-0 ${
+                  rec.priority === 'urgent' ? 'bg-rose/20 text-rose-deep' :
+                  rec.priority === 'important' ? 'bg-amber/20 text-amber' :
                   'bg-green/20 text-green'
                 }`}>
-                  {alert.severity === 'critical' ? 'KRITICKÉ' : alert.severity === 'warning' ? 'UPOZORNĚNÍ' : 'INFO'}
+                  {priorityLabels[rec.priority]}
                 </span>
-                <div>
-                  <div className="text-[0.82rem] font-medium text-ink">{alert.message}</div>
-                  {alert.detail && <div className="text-[0.72rem] text-mid mt-0.5">{alert.detail}</div>}
+                <div className="flex-1 min-w-0">
+                  <div className="text-[0.82rem] font-medium text-ink">{rec.title}</div>
+                  <div className="text-[0.72rem] text-mid mt-0.5">{rec.detail}</div>
                 </div>
+                <div className="text-[0.78rem] font-medium flex-shrink-0">{rec.impact}</div>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* KPI cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-white rounded-[14px] p-4 border border-black/[0.06]">
-          <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid mb-1.5">Stav účtu</div>
-          <div className="font-serif text-xl font-light text-ink leading-none">{fmtShort(ledger.bank_balance)}</div>
-          <div className="text-[0.68rem] mt-1 text-mid">aktuální zůstatek</div>
+      {/* TIMELINE: Upcoming deadlines & payments */}
+      {timeline.length > 0 && (
+        <div className="bg-white rounded-[20px] p-6 border border-black/[0.06]">
+          <h3 className="font-serif text-base text-ink mb-4">Blizici se terminy</h3>
+          <div className="space-y-1.5">
+            {timeline.slice(0, 10).map((item, i) => {
+              const isUrgent = item.daysUntil <= 3
+              const isThisWeek = item.daysUntil <= 7
+              return (
+                <div key={i} className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
+                  isUrgent ? 'bg-rose/[0.06]' : isThisWeek ? 'bg-amber/[0.04]' : 'bg-sand-pale'
+                }`}>
+                  <div className="w-16 flex-shrink-0">
+                    <div className={`text-[0.72rem] font-medium ${isUrgent ? 'text-rose-deep' : 'text-ink'}`}>
+                      {item.date.split('-')[2]}.{item.date.split('-')[1]}.
+                    </div>
+                    <div className="text-[0.58rem] text-mid">
+                      {item.daysUntil === 0 ? 'dnes' : item.daysUntil === 1 ? 'zitra' : `za ${item.daysUntil}d`}
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[0.8rem] text-ink truncate">{item.label}</div>
+                  </div>
+                  <div className={`text-[0.82rem] font-medium flex-shrink-0 ${item.amount >= 0 ? 'text-green' : 'text-rose-deep'}`}>
+                    {item.amount !== 0 ? fmt(item.amount) : ''}
+                  </div>
+                  {item.isDeadline && (
+                    <span className="text-[0.5rem] tracking-[0.08em] uppercase font-semibold px-1.5 py-0.5 rounded bg-amber/15 text-amber flex-shrink-0">Termin</span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </div>
-        <div className="bg-white rounded-[14px] p-4 border border-black/[0.06]">
-          <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid mb-1.5">CF tento měsíc</div>
-          <div className={`font-serif text-xl font-light leading-none ${(currentStats?.actual_net ?? 0) >= 0 ? 'text-green' : 'text-rose-deep'}`}>
-            {currentStats ? fmtShort(currentStats.actual_net) : '···'}
-          </div>
-          <div className="text-[0.68rem] mt-1 text-mid">
-            {currentStats ? `${currentStats.variance_pct >= 0 ? '+' : ''}${currentStats.variance_pct}% vs plán` : 'žádná data'}
-          </div>
+      )}
+
+      {/* WHAT-IF CALCULATOR */}
+      <div className="bg-white rounded-[20px] p-6 border border-black/[0.06]">
+        <h3 className="font-serif text-base text-ink mb-1">{isSimple ? 'Muzu si dovolit...?' : 'Simulace investice'}</h3>
+        <p className="text-[0.72rem] text-mid mb-4">{isSimple ? 'Zadejte castku a uvidite, co se stane.' : 'Jednora zovy vydaj a jeho dopad na cashflow.'}</p>
+        <div className="flex items-center gap-4 mb-4">
+          <input
+            type="number"
+            value={whatIfAmount || ''}
+            onChange={e => setWhatIfAmount(Math.max(0, +e.target.value || 0))}
+            placeholder="Kolik chcete utratit?"
+            className="flex-1 bg-transparent border-b-2 border-black/10 py-2 text-lg font-serif outline-none focus:border-rose transition-colors"
+          />
+          <span className="text-mid text-sm">Kc</span>
         </div>
-        <div className="bg-white rounded-[14px] p-4 border border-black/[0.06]">
-          <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid mb-1.5">Break-even</div>
-          <div className="font-serif text-xl font-light text-ink leading-none">
-            {totalMembers} / {be.members < 999 ? be.members : '?'}
+
+        {whatIfResult && whatIfAmount > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="bg-sand-pale rounded-xl p-3">
+              <div className="text-[0.58rem] tracking-[0.1em] uppercase text-mid mb-1">{isSimple ? 'Na uctu potom' : 'Zustatek po'}</div>
+              <div className={`font-serif text-lg font-light ${whatIfResult.cashAfter >= 0 ? 'text-ink' : 'text-rose-deep'}`}>
+                {fmtShort(whatIfResult.cashAfter)}
+              </div>
+            </div>
+            <div className="bg-sand-pale rounded-xl p-3">
+              <div className="text-[0.58rem] tracking-[0.1em] uppercase text-mid mb-1">{isSimple ? 'Mesicni zisk' : 'EBITDA/mes'}</div>
+              <div className={`font-serif text-lg font-light ${whatIfResult.newEbitda >= 0 ? 'text-green' : 'text-rose-deep'}`}>
+                {whatIfResult.newEbitda >= 0 ? '+' : ''}{fmtShort(whatIfResult.newEbitda)}
+              </div>
+            </div>
+            <div className="bg-sand-pale rounded-xl p-3">
+              <div className="text-[0.58rem] tracking-[0.1em] uppercase text-mid mb-1">Runway</div>
+              <div className="font-serif text-lg font-light text-ink">
+                {whatIfResult.newRunway !== null ? `${whatIfResult.newRunway} mes` : 'ok'}
+              </div>
+            </div>
+            <div className={`rounded-xl p-3 ${whatIfResult.canAfford ? 'bg-green/10' : 'bg-rose/10'}`}>
+              <div className="text-[0.58rem] tracking-[0.1em] uppercase text-mid mb-1">Vysledek</div>
+              <div className={`font-serif text-lg font-light ${whatIfResult.canAfford ? 'text-green' : 'text-rose-deep'}`}>
+                {whatIfResult.canAfford ? 'Muzete' : 'Riziko'}
+              </div>
+            </div>
           </div>
-          <div className="text-[0.68rem] mt-1 text-mid">
-            {be.members < 999 ? `${Math.round(totalMembers / be.members * 100)}% cíle` : '···'}
-          </div>
-        </div>
-        <div className="bg-white rounded-[14px] p-4 border border-black/[0.06]">
-          <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid mb-1.5">Plánovaná EBITDA</div>
-          <div className={`font-serif text-xl font-light leading-none ${monthlyEbitda >= 0 ? 'text-green' : 'text-rose-deep'}`}>
-            {fmtShort(monthlyEbitda)}
-          </div>
-          <div className="text-[0.68rem] mt-1 text-mid">/měsíc</div>
-        </div>
+        )}
       </div>
 
-      {/* Actual vs Plan chart */}
-      {chartMonths.length > 0 && (
+      {/* KPI CARDS - detailed only */}
+      {!isSimple && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="bg-white rounded-[14px] p-4 border border-black/[0.06]">
+            <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid mb-1.5">Break-even</div>
+            <div className="font-serif text-xl font-light text-ink leading-none">
+              {totalMembers} / {be.members < 999 ? be.members : '?'}
+            </div>
+            <div className="text-[0.68rem] mt-1 text-mid">
+              {be.members < 999 && totalMembers > 0 ? `${Math.round(totalMembers / be.members * 100)}% cile` : ''}
+            </div>
+          </div>
+          <div className="bg-white rounded-[14px] p-4 border border-black/[0.06]">
+            <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid mb-1.5">Mesicni prijem</div>
+            <div className="font-serif text-xl font-light text-green leading-none">{fmtShort(rev.total)}</div>
+          </div>
+          <div className="bg-white rounded-[14px] p-4 border border-black/[0.06]">
+            <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid mb-1.5">Mesicni naklady</div>
+            <div className="font-serif text-xl font-light text-rose-deep leading-none">{fmtShort(opex.total)}</div>
+          </div>
+          <div className="bg-white rounded-[14px] p-4 border border-black/[0.06]">
+            <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid mb-1.5">Projekce 3 mes</div>
+            <div className={`font-serif text-xl font-light leading-none ${(cashPos[2]?.closing ?? 0) >= 0 ? 'text-green' : 'text-rose-deep'}`}>
+              {cashPos[2] ? fmtShort(cashPos[2].closing) : '...'}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CHART */}
+      {chartMonths.length > 0 && !isSimple && (
         <ActualVsPlanChart months={chartMonths} />
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Upcoming payments */}
+      {/* CASH POSITION TABLE - detailed only */}
+      {!isSimple && cashPos.length > 0 && (
         <div className="bg-white rounded-[20px] p-6 border border-black/[0.06]">
-          <h3 className="font-serif text-base text-ink mb-4">Nadcházející platby</h3>
-          {next5.length === 0 ? (
-            <p className="text-[0.8rem] text-mid">Žádné nadcházející platby.</p>
-          ) : (
-            <div className="space-y-2">
-              {next5.map((p, i) => (
-                <div key={i} className="flex justify-between items-center py-2 border-b border-black/[0.04] last:border-0">
-                  <div>
-                    <div className="text-[0.8rem] text-ink">{p.description}</div>
-                    <div className="text-[0.65rem] text-mid">{new Date(p.date).toLocaleDateString('cs-CZ')}</div>
-                  </div>
-                  <div className="text-[0.82rem] font-medium text-rose-deep">{fmt(p.amount)}</div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Quick stats */}
-        <div className="bg-white rounded-[20px] p-6 border border-black/[0.06]">
-          <h3 className="font-serif text-base text-ink mb-4">Přehled</h3>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-[0.8rem] text-mid">Pohledávky po splatnosti</span>
-              <span className={`text-[0.82rem] font-medium ${overdueTotal > 0 ? 'text-rose-deep' : 'text-green'}`}>
-                {overdueTotal > 0 ? `${overdue.length}× ${fmt(overdueTotal)}` : 'Žádné'}
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-[0.8rem] text-mid">Projekce za 3 měsíce</span>
-              <span className={`text-[0.82rem] font-medium ${(cashPos[2]?.closing ?? 0) >= 0 ? 'text-green' : 'text-rose-deep'}`}>
-                {cashPos[2] ? fmtShort(cashPos[2].closing) : '···'}
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-[0.8rem] text-mid">Plánovaný měsíční příjem</span>
-              <span className="text-[0.82rem] font-medium text-ink">{fmtShort(rev.total)}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-[0.8rem] text-mid">Plánované měsíční náklady</span>
-              <span className="text-[0.82rem] font-medium text-ink">{fmtShort(opex.total)}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Cash position forecast */}
-      {cashPos.length > 0 && (
-        <div className="bg-white rounded-[20px] p-6 border border-black/[0.06]">
-          <h3 className="font-serif text-base text-ink mb-4">Projekce cash pozice (6 měsíců)</h3>
+          <h3 className="font-serif text-base text-ink mb-4">Projekce cash pozice (6 mesicu)</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-[0.75rem]">
               <thead>
                 <tr className="text-[0.6rem] tracking-[0.1em] uppercase text-mid">
-                  <th className="text-left pb-2 font-medium">Měsíc</th>
-                  <th className="text-right pb-2 font-medium">Počáteční</th>
-                  <th className="text-right pb-2 font-medium">Příjmy</th>
-                  <th className="text-right pb-2 font-medium">Výdaje</th>
-                  <th className="text-right pb-2 font-medium">Konečný</th>
+                  <th className="text-left pb-2 font-medium">Mesic</th>
+                  <th className="text-right pb-2 font-medium">Pocatecni</th>
+                  <th className="text-right pb-2 font-medium">Prijmy</th>
+                  <th className="text-right pb-2 font-medium">Vydaje</th>
+                  <th className="text-right pb-2 font-medium">Konecny</th>
                 </tr>
               </thead>
               <tbody>

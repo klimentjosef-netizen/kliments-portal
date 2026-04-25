@@ -21,9 +21,11 @@ import ReceivablesTab from '@/components/cfo/ReceivablesTab'
 import {
   type Tier, type Extra, type CostItem, type Budget, type Ledger,
   type VatData, type TaxData, type ReceivablesData, type Actuals,
+  type BusinessProfile, DEFAULT_BUSINESS_PROFILE,
   calcRevenue, calcOpex,
   migrateActualsToLedger, generateExpectedItems, mergeExpectedWithExisting,
   syncInvoicesToLedger, getRampFactorForMonth,
+  getCzechTaxCalendar, calcRecommendations, getUpcomingTimeline,
 } from '@/components/cfo/calcEngine'
 import AdminClientPicker from '@/components/AdminClientPicker'
 import type { Report } from '@/lib/types'
@@ -73,6 +75,7 @@ const DEFAULT_DATA = {
   questions: [],
   summary: '',
   business_start_month: '',
+  business_profile: DEFAULT_BUSINESS_PROFILE,
 }
 
 export default function CfoPage() {
@@ -244,6 +247,14 @@ function CfoPageInner() {
   const capexSpent = budget.capex_items.reduce((s, i) => s + i.spent, 0)
   const capexVat = Math.round(capexSpent * 21 / 121)
 
+  // Business profile
+  const profile = (d.business_profile || DEFAULT_BUSINESS_PROFILE) as BusinessProfile
+
+  // Smart advisor data
+  const taxDeadlines = getCzechTaxCalendar(profile, taxesData, vat, ledger)
+  const recommendations = calcRecommendations(ledger, tiers, extras, fixedCosts, variablePct, budget, receivables, taxesData, vat, profile)
+  const timeline = getUpcomingTimeline(ledger, taxDeadlines)
+
   if (isAdminNoPick) return <AdminClientPicker serviceName="CFO na volné noze" pageUrl="/cfo" title="CFO na volné noze" />
 
   if (loading) return (
@@ -349,7 +360,10 @@ function CfoPageInner() {
           <DashboardTab
             ledger={ledger} tiers={tiers} extras={extras} fixedCosts={fixedCosts}
             variablePct={variablePct} budget={budget} receivables={receivables}
-            taxes={taxesData} vat={vat} onTabChange={handleTabChange}
+            taxes={taxesData} vat={vat} profile={profile}
+            recommendations={recommendations} timeline={timeline}
+            onTabChange={handleTabChange}
+            onProfileChange={v => updateData('business_profile', v)}
           />
         )}
         {tab === 'monthly' && (
