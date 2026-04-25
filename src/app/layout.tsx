@@ -4,6 +4,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Kliments · Klientský portál",
   description: "Finanční řízení · Josef Kliment",
+  icons: {
+    icon: '/portal/favicon.svg',
+  },
 };
 
 export default function RootLayout({
