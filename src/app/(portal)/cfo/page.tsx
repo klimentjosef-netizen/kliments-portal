@@ -336,6 +336,8 @@ function CfoPageInner() {
             startOffset={elapsedMonths}
             businessStartMonth={businessStartMonth}
             ledger={ledger}
+            complexity={profile.complexity}
+            bankBalance={ledger.bank_balance}
             onRampMonthsChange={v => updateData('ramp_months', v)}
             onProjectionMonthsChange={v => updateData('projection_months', v)}
             onBusinessStartMonthChange={v => updateData('business_start_month', v)}
@@ -367,13 +369,13 @@ function CfoPageInner() {
           />
         )}
         {tab === 'monthly' && (
-          <MonthlyPlanTab ledger={ledger} onLedgerChange={v => updateData('ledger', v)} />
+          <MonthlyPlanTab ledger={ledger} taxDeadlines={taxDeadlines} complexity={profile.complexity} onLedgerChange={v => updateData('ledger', v)} />
         )}
         {tab === 'vat' && (
-          <VatTab vat={vat} ledger={ledger} capexVat={capexVat} onVatChange={v => updateData('vat', v)} />
+          <VatTab vat={vat} ledger={ledger} capexVat={capexVat} profile={profile} onVatChange={v => updateData('vat', v)} />
         )}
         {tab === 'taxes' && (
-          <TaxesTab taxes={taxesData} onTaxesChange={v => updateData('taxes', v)} />
+          <TaxesTab taxes={taxesData} taxDeadlines={taxDeadlines} complexity={profile.complexity} onTaxesChange={v => updateData('taxes', v)} />
         )}
         {tab === 'receivables' && (
           <ReceivablesTab receivables={receivables} onReceivablesChange={v => updateData('receivables', v)} />

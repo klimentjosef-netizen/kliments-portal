@@ -1,15 +1,17 @@
 'use client'
 
-import { type VatData, type VatPeriod, type VatRate, type Ledger, calcVatFromLedger, fmt, fmtShort } from './calcEngine'
+import { type VatData, type VatPeriod, type VatRate, type Ledger, type BusinessProfile, calcVatFromLedger, fmt, fmtShort } from './calcEngine'
 
 interface VatTabProps {
   vat: VatData
   ledger: Ledger
-  capexVat: number // 21% z CAPEX spent
+  capexVat: number
+  profile: BusinessProfile
   onVatChange: (vat: VatData) => void
 }
 
-export default function VatTab({ vat, ledger, capexVat, onVatChange }: VatTabProps) {
+export default function VatTab({ vat, ledger, capexVat, profile, onVatChange }: VatTabProps) {
+  const showVat = profile.vat_payer || !!profile.vat_transition_date
   // Calculate VAT from ledger items (Czech VAT: based on invoice date, not payment)
   const vatCalc = calcVatFromLedger(ledger)
   const totalOutput = vatCalc.output

@@ -3,11 +3,13 @@
 import { useState } from 'react'
 import {
   type Ledger, type MonthLedger, type LedgerItem, type ItemStatus,
-  type TransactionCategory, calcLedgerMonth, genId, fmt, fmtShort,
+  type TransactionCategory, type TaxDeadline, calcLedgerMonth, genId, fmt, fmtShort,
 } from './calcEngine'
 
 interface MonthlyPlanTabProps {
   ledger: Ledger
+  taxDeadlines: TaxDeadline[]
+  complexity: 'simple' | 'detailed'
   onLedgerChange: (ledger: Ledger) => void
 }
 
@@ -28,14 +30,18 @@ function shiftMonth(m: string, delta: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
-export default function MonthlyPlanTab({ ledger, onLedgerChange }: MonthlyPlanTabProps) {
+export default function MonthlyPlanTab({ ledger, taxDeadlines, complexity, onLedgerChange }: MonthlyPlanTabProps) {
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth())
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const isSimple = complexity === 'simple'
 
   const currentML = ledger.months.find(m => m.month === selectedMonth)
   const items = currentML?.items || []
   const isLocked = currentML?.locked ?? false
   const stats = calcLedgerMonth(items)
+
+  // Tax deadlines for selected month
+  const monthDeadlines = taxDeadlines.filter(d => d.date.startsWith(selectedMonth))
 
   // Split into income and expense
   const incomeItems = items.filter(i => i.amount_expected > 0 || (i.amount_expected === 0 && i.category === 'revenue'))
@@ -241,17 +247,17 @@ export default function MonthlyPlanTab({ ledger, onLedgerChange }: MonthlyPlanTa
       {/* Bank balance + month summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="bg-white rounded-[14px] p-4 border border-black/[0.06]">
-          <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid mb-1.5">Stav uctu</div>
+          <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid mb-1.5">{isSimple ? 'Na uctu' : 'Stav uctu'}</div>
           <input type="number" value={ledger.bank_balance || ''}
             onChange={e => updateBankBalance(+e.target.value || 0)}
             className="font-serif text-lg font-light text-ink leading-none bg-transparent outline-none border-b border-transparent focus:border-rose w-full" />
         </div>
         <div className="bg-white rounded-[14px] p-4 border border-black/[0.06]">
-          <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid mb-1.5">Ocekavane prijmy</div>
+          <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid mb-1.5">{isSimple ? 'Prijde' : 'Ocekavane prijmy'}</div>
           <div className="font-serif text-lg font-light text-green leading-none">{fmtShort(stats.expected_income)}</div>
         </div>
         <div className="bg-white rounded-[14px] p-4 border border-black/[0.06]">
-          <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid mb-1.5">Ocekavane vydaje</div>
+          <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid mb-1.5">{isSimple ? 'Odejde' : 'Ocekavane vydaje'}</div>
           <div className="font-serif text-lg font-light text-rose-deep leading-none">{fmtShort(stats.expected_expense)}</div>
         </div>
         <div className="bg-white rounded-[14px] p-4 border border-black/[0.06]">
@@ -273,6 +279,36 @@ export default function MonthlyPlanTab({ ledger, onLedgerChange }: MonthlyPlanTa
         <button onClick={() => setSelectedMonth(shiftMonth(selectedMonth, 1))}
           className="px-3 py-1.5 rounded-lg text-mid hover:text-ink hover:bg-sand transition-colors text-sm">Dalsi &rarr;</button>
       </div>
+
+      {/* DEADLINE WARNINGS */}
+      {monthDeadlines.length > 0 && (
+        <div className="bg-amber/[0.06] rounded-[20px] p-5 border border-amber/15">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-2 h-2 rounded-full bg-amber" />
+            <h3 className="text-[0.68rem] tracking-[0.1em] uppercase text-amber font-medium">Terminy tento mesic</h3>
+          </div>
+          <div className="space-y-1.5">
+            {monthDeadlines.map((d, i) => (
+              <div key={i} className={`flex items-center justify-between p-2.5 rounded-lg ${d.urgent ? 'bg-rose/[0.08]' : 'bg-white/60'}`}>
+                <div className="flex items-center gap-3">
+                  <span className={`text-[0.72rem] font-medium ${d.urgent ? 'text-rose-deep' : 'text-ink'}`}>
+                    {d.date.split('-')[2]}.{d.date.split('-')[1]}.
+                  </span>
+                  <span className="text-[0.8rem] text-ink">{d.label}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {d.amount !== 0 && (
+                    <span className="text-[0.8rem] font-medium text-rose-deep">{fmt(d.amount)}</span>
+                  )}
+                  {d.urgent && (
+                    <span className="text-[0.5rem] tracking-[0.08em] uppercase font-semibold px-1.5 py-0.5 rounded bg-rose/20 text-rose-deep">Brzy</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* INCOME section */}
       <div className="bg-white rounded-[20px] p-6 border border-black/[0.06]">

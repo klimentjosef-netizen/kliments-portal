@@ -1,9 +1,11 @@
 'use client'
 
-import { type TaxData, type TaxAdvance, fmt, fmtShort } from './calcEngine'
+import { type TaxData, type TaxAdvance, type TaxDeadline, fmt, fmtShort } from './calcEngine'
 
 interface TaxesTabProps {
   taxes: TaxData
+  taxDeadlines: TaxDeadline[]
+  complexity: 'simple' | 'detailed'
   onTaxesChange: (taxes: TaxData) => void
 }
 
@@ -15,7 +17,9 @@ function statusColor(due: string, paid: boolean): string {
   return 'bg-white text-mid border-black/[0.06]'
 }
 
-export default function TaxesTab({ taxes, onTaxesChange }: TaxesTabProps) {
+export default function TaxesTab({ taxes, taxDeadlines, complexity, onTaxesChange }: TaxesTabProps) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const isSimple = complexity === 'simple'
   const totalMonthly = (taxes.income_tax.annual_estimate / 12) + taxes.social.monthly + taxes.health.monthly
   const totalAnnual = taxes.income_tax.annual_estimate + taxes.social.monthly * 12 + taxes.health.monthly * 12
 
@@ -62,8 +66,34 @@ export default function TaxesTab({ taxes, onTaxesChange }: TaxesTabProps) {
 
   const inputCls = 'bg-transparent border-b border-black/10 py-1.5 text-sm outline-none focus:border-rose transition-colors'
 
+  // Filter tax-related deadlines
+  const taxCalendar = taxDeadlines.filter(d => d.category !== 'dph')
+
   return (
     <div className="space-y-6">
+      {/* Czech tax calendar - auto-generated deadlines */}
+      {taxCalendar.length > 0 && (
+        <div className="bg-amber/[0.04] rounded-[20px] p-6 border border-amber/10">
+          <h3 className="text-[0.62rem] tracking-[0.12em] uppercase text-amber font-medium mb-3">Automaticky cesky danovy kalendar</h3>
+          <div className="space-y-1.5">
+            {taxCalendar.slice(0, 8).map((d, i) => (
+              <div key={i} className={`flex items-center justify-between p-2.5 rounded-lg ${d.urgent ? 'bg-rose/[0.06]' : 'bg-white/60'}`}>
+                <div className="flex items-center gap-3">
+                  <span className={`text-[0.72rem] font-medium w-12 ${d.urgent ? 'text-rose-deep' : 'text-ink'}`}>
+                    {d.date.split('-')[2]}.{d.date.split('-')[1]}.
+                  </span>
+                  <span className="text-[0.8rem] text-ink">{d.label}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {d.amount !== 0 && <span className="text-[0.8rem] font-medium text-rose-deep">{fmtShort(Math.abs(d.amount))}</span>}
+                  {d.urgent && <span className="text-[0.5rem] tracking-[0.08em] uppercase font-semibold px-1.5 py-0.5 rounded bg-rose/20 text-rose-deep">Brzy</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="bg-white rounded-[14px] p-4 border border-black/[0.06]">

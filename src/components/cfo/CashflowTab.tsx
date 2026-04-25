@@ -1,9 +1,10 @@
 'use client'
 
+import { useState } from 'react'
 import {
   type Tier, type Extra, type CostItem, type Budget, type Ledger,
   calcRevenue, calcOpex, calcBreakeven, calcCapexRoi,
-  calcScenarios, calcHybridCashflow, fmt, fmtShort,
+  calcScenarios, calcHybridCashflow, calcWhatIf, fmt, fmtShort,
 } from './calcEngine'
 import ProgressBar from './ProgressBar'
 import CashflowChart from './CashflowChart'
@@ -20,12 +21,19 @@ interface CashflowTabProps {
   startOffset: number
   businessStartMonth: string
   ledger: Ledger
+  complexity: 'simple' | 'detailed'
+  bankBalance: number
   onRampMonthsChange?: (v: number) => void
   onProjectionMonthsChange?: (v: number) => void
   onBusinessStartMonthChange?: (v: string) => void
 }
 
-export default function CashflowTab({ tiers, extras, fixedCosts, variablePct, budget, rampMonths, projectionMonths, startOffset, businessStartMonth, ledger, onRampMonthsChange, onProjectionMonthsChange, onBusinessStartMonthChange }: CashflowTabProps) {
+export default function CashflowTab({ tiers, extras, fixedCosts, variablePct, budget, rampMonths, projectionMonths, startOffset, businessStartMonth, ledger, complexity, bankBalance, onRampMonthsChange, onProjectionMonthsChange, onBusinessStartMonthChange }: CashflowTabProps) {
+  const [wiMembers, setWiMembers] = useState(0)
+  const [wiPrice, setWiPrice] = useState(0)
+  const [wiCost, setWiCost] = useState(0)
+  const [wiLose, setWiLose] = useState(0)
+  const isSimple = complexity === 'simple'
   const rev = calcRevenue(tiers, extras)
   const opex = calcOpex(fixedCosts, variablePct, rev.total)
   const ebitda = rev.total - opex.total
@@ -130,35 +138,105 @@ export default function CashflowTab({ tiers, extras, fixedCosts, variablePct, bu
         <CashflowChart months={projection} title={`Cashflow: ${projectionMonths}M projekce`} />
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Scenario table */}
-        <div className="bg-white rounded-[20px] p-6 border border-black/[0.06]">
-          <h3 className="font-serif text-base text-ink mb-4">Scénáře</h3>
-          <table className="w-full text-[0.8rem]">
-            <thead>
-              <tr className="text-[0.6rem] tracking-[0.1em] uppercase text-mid">
-                <th className="text-left pb-2 font-medium">Scénář</th>
-                <th className="text-right pb-2 font-medium">EBITDA/měs</th>
-              </tr>
-            </thead>
-            <tbody>
-              {scenarios.map((s, i) => (
-                <tr key={i} className={`border-t border-black/[0.04] ${s.members === totalMembers ? 'bg-sand-pale' : ''}`}>
-                  <td className="py-2 text-ink font-medium">
-                    {s.members === totalMembers ? '► ' : ''}{s.members} členů
-                  </td>
-                  <td className={`py-2 text-right font-medium ${s.ebitda >= 0 ? 'text-green' : 'text-rose-deep'}`}>
-                    {s.ebitda >= 0 ? '+' : ''}{fmt(s.ebitda)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* WHAT-IF SIMULATOR */}
+      <div className="bg-white rounded-[20px] p-6 border border-black/[0.06]">
+        <h3 className="font-serif text-base text-ink mb-1">{isSimple ? 'Co kdyz...?' : 'Simulator scenaru'}</h3>
+        <p className="text-[0.72rem] text-mid mb-4">Pohybujte hodnotami a sledujte dopad na {isSimple ? 'zisk' : 'EBITDA'}.</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+          <div>
+            <label className="text-[0.58rem] tracking-[0.1em] uppercase text-green block mb-1">Pridat clenu</label>
+            <input type="range" min={0} max={30} value={wiMembers} onChange={e => setWiMembers(+e.target.value)}
+              className="w-full accent-green" />
+            <div className="text-right text-[0.75rem] text-green font-medium">+{wiMembers}</div>
+          </div>
+          <div>
+            <label className="text-[0.58rem] tracking-[0.1em] uppercase text-rose-deep block mb-1">Ztratit clenu</label>
+            <input type="range" min={0} max={Math.min(totalMembers, 20)} value={wiLose} onChange={e => setWiLose(+e.target.value)}
+              className="w-full accent-rose" />
+            <div className="text-right text-[0.75rem] text-rose-deep font-medium">-{wiLose}</div>
+          </div>
+          <div>
+            <label className="text-[0.58rem] tracking-[0.1em] uppercase text-mid block mb-1">Zmena cen (%)</label>
+            <input type="range" min={-20} max={20} value={wiPrice} onChange={e => setWiPrice(+e.target.value)}
+              className="w-full" />
+            <div className="text-right text-[0.75rem] text-ink font-medium">{wiPrice > 0 ? '+' : ''}{wiPrice}%</div>
+          </div>
+          <div>
+            <label className="text-[0.58rem] tracking-[0.1em] uppercase text-mid block mb-1">Snizeni nakladu (Kc)</label>
+            <input type="range" min={0} max={Math.round(fixedCosts.reduce((s, c) => s + c.amount, 0) * 0.5)} step={1000} value={wiCost} onChange={e => setWiCost(+e.target.value)}
+              className="w-full" />
+            <div className="text-right text-[0.75rem] text-ink font-medium">{wiCost > 0 ? `-${fmtShort(wiCost)}` : '0'}</div>
+          </div>
         </div>
+
+        {(() => {
+          const hasChange = wiMembers > 0 || wiLose > 0 || wiPrice !== 0 || wiCost > 0
+          if (!hasChange) return null
+          const result = calcWhatIf(tiers, extras, fixedCosts, variablePct, budget, bankBalance, {
+            addMembers: wiMembers, loseMembers: wiLose, priceChangePct: wiPrice, costReduction: wiCost,
+          })
+          return (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4 border-t border-black/[0.06]">
+              <div className="bg-sand-pale rounded-xl p-3">
+                <div className="text-[0.58rem] tracking-[0.1em] uppercase text-mid mb-1">{isSimple ? 'Nyni' : 'Aktualni EBITDA'}</div>
+                <div className={`font-serif text-lg font-light ${result.currentEbitda >= 0 ? 'text-green' : 'text-rose-deep'}`}>
+                  {fmtShort(result.currentEbitda)}
+                </div>
+              </div>
+              <div className="bg-sand-pale rounded-xl p-3">
+                <div className="text-[0.58rem] tracking-[0.1em] uppercase text-mid mb-1">{isSimple ? 'Po zmene' : 'Nova EBITDA'}</div>
+                <div className={`font-serif text-lg font-light ${result.newEbitda >= 0 ? 'text-green' : 'text-rose-deep'}`}>
+                  {fmtShort(result.newEbitda)}
+                </div>
+              </div>
+              <div className={`rounded-xl p-3 ${result.ebitdaDelta >= 0 ? 'bg-green/10' : 'bg-rose/10'}`}>
+                <div className="text-[0.58rem] tracking-[0.1em] uppercase text-mid mb-1">Rozdil</div>
+                <div className={`font-serif text-lg font-light ${result.ebitdaDelta >= 0 ? 'text-green' : 'text-rose-deep'}`}>
+                  {result.ebitdaDelta >= 0 ? '+' : ''}{fmtShort(result.ebitdaDelta)}
+                </div>
+              </div>
+              <div className="bg-sand-pale rounded-xl p-3">
+                <div className="text-[0.58rem] tracking-[0.1em] uppercase text-mid mb-1">Break-even</div>
+                <div className="font-serif text-lg font-light text-ink">
+                  {result.breakEvenAfter.members < 999 ? `${result.breakEvenAfter.members} clenu` : '...'}
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Scenario table - detailed only */}
+        {!isSimple && (
+          <div className="bg-white rounded-[20px] p-6 border border-black/[0.06]">
+            <h3 className="font-serif text-base text-ink mb-4">Scenare</h3>
+            <table className="w-full text-[0.8rem]">
+              <thead>
+                <tr className="text-[0.6rem] tracking-[0.1em] uppercase text-mid">
+                  <th className="text-left pb-2 font-medium">Scenar</th>
+                  <th className="text-right pb-2 font-medium">EBITDA/mes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {scenarios.map((s, i) => (
+                  <tr key={i} className={`border-t border-black/[0.04] ${s.members === totalMembers ? 'bg-sand-pale' : ''}`}>
+                    <td className="py-2 text-ink font-medium">
+                      {s.members === totalMembers ? '> ' : ''}{s.members} clenu
+                    </td>
+                    <td className={`py-2 text-right font-medium ${s.ebitda >= 0 ? 'text-green' : 'text-rose-deep'}`}>
+                      {s.ebitda >= 0 ? '+' : ''}{fmt(s.ebitda)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* Revenue mix */}
         {revMix.length > 0 && (
-          <DoughnutChart items={revMix} title="Složení příjmů" />
+          <DoughnutChart items={revMix} title={isSimple ? 'Odkud prijmy jdou' : 'Slozeni prijmu'} />
         )}
       </div>
 
