@@ -203,6 +203,9 @@ function CfoPageInner() {
   const taxesData = (d.taxes || { entity_type: 'sro', income_tax: { rate: 21, annual_estimate: 0, advances: [] }, social: { monthly: 0, advances: [] }, health: { monthly: 0, advances: [] }, other_taxes: [] }) as TaxData
   const receivables = (d.receivables || { invoices_issued: [], invoices_received: [] }) as ReceivablesData
 
+  // Business profile
+  const profile = (d.business_profile || DEFAULT_BUSINESS_PROFILE) as BusinessProfile
+
   // Compute elapsed months from business start for ramp offset
   const businessStartMonth = (d.business_start_month as string) || ''
   const hasRunningBusiness = tiers.some(t => t.members > 0 && t.price > 0)
@@ -228,7 +231,7 @@ function CfoPageInner() {
       }
       if (!ml.locked) {
         const ramp = hasRunningBusiness && !businessStartMonth ? 1.0 : getRampFactorForMonth(month, startMonth, rampMonths)
-        const generated = generateExpectedItems(month, tiers, extras, fixedCosts, taxesData, vat, ramp)
+        const generated = generateExpectedItems(month, tiers, extras, fixedCosts, taxesData, vat, ramp, profile.entity_type)
         ml.items = mergeExpectedWithExisting(generated, ml.items)
       }
     }
@@ -246,9 +249,6 @@ function CfoPageInner() {
   // CAPEX VAT for VatTab
   const capexSpent = budget.capex_items.reduce((s, i) => s + i.spent, 0)
   const capexVat = Math.round(capexSpent * 21 / 121)
-
-  // Business profile
-  const profile = (d.business_profile || DEFAULT_BUSINESS_PROFILE) as BusinessProfile
 
   // Smart advisor data
   const taxDeadlines = getCzechTaxCalendar(profile, taxesData, vat, ledger)
@@ -308,8 +308,58 @@ function CfoPageInner() {
           </div>
         </div>
 
+        {/* Business profile bar */}
+        <div className="bg-white rounded-2xl p-4 mb-4 border border-black/[0.06] flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <label className="text-[0.58rem] tracking-[0.1em] uppercase text-mid">Forma</label>
+            <select
+              value={profile.entity_type}
+              onChange={e => updateData('business_profile', { ...profile, entity_type: e.target.value })}
+              className="bg-sand-pale rounded-lg px-3 py-1.5 text-[0.78rem] text-ink border-none outline-none focus:ring-1 focus:ring-rose"
+            >
+              <option value="sro">s.r.o.</option>
+              <option value="osvc">OSVC</option>
+              <option value="as">a.s.</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-[0.58rem] tracking-[0.1em] uppercase text-mid">Platce DPH</label>
+            <button
+              onClick={() => updateData('business_profile', { ...profile, vat_payer: !profile.vat_payer })}
+              className={`px-3 py-1.5 rounded-lg text-[0.78rem] font-medium transition-colors ${
+                profile.vat_payer ? 'bg-green/15 text-green' : 'bg-black/5 text-mid'
+              }`}
+            >
+              {profile.vat_payer ? 'Ano' : 'Ne'}
+            </button>
+          </div>
+          {!profile.vat_payer && (
+            <div className="flex items-center gap-2">
+              <label className="text-[0.58rem] tracking-[0.1em] uppercase text-mid">Prechod na DPH</label>
+              <input
+                type="month"
+                value={profile.vat_transition_date || ''}
+                onChange={e => updateData('business_profile', { ...profile, vat_transition_date: e.target.value || null })}
+                className="bg-sand-pale rounded-lg px-3 py-1.5 text-[0.78rem] text-ink border-none outline-none focus:ring-1 focus:ring-rose"
+              />
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <label className="text-[0.58rem] tracking-[0.1em] uppercase text-mid">Zalozeni</label>
+            <input
+              type="month"
+              value={profile.founding_date || ''}
+              onChange={e => updateData('business_profile', { ...profile, founding_date: e.target.value })}
+              className="bg-sand-pale rounded-lg px-3 py-1.5 text-[0.78rem] text-ink border-none outline-none focus:ring-1 focus:ring-rose"
+            />
+          </div>
+        </div>
+
         {/* Tabs */}
-        <CfoTabs tabs={ALL_TABS} active={tab} onChange={handleTabChange} />
+        <CfoTabs tabs={ALL_TABS.filter(t => {
+          if (t.id === 'vat' && !profile.vat_payer && !profile.vat_transition_date) return false
+          return true
+        })} active={tab} onChange={handleTabChange} />
 
         {/* Tab content */}
         <div id="cfo-content">

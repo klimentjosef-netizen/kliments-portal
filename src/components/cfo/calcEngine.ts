@@ -107,6 +107,7 @@ export function generateExpectedItems(
   taxes: TaxData,
   vat: VatData,
   rampFactor: number = 1,
+  entityType: string = 'sro',
 ): LedgerItem[] {
   const items: LedgerItem[] = []
   const firstOfMonth = `${month}-01`
@@ -165,8 +166,8 @@ export function generateExpectedItems(
     })
   }
 
-  // Social insurance
-  if (taxes.social.monthly > 0) {
+  // Social insurance (OSVC only)
+  if (entityType === 'osvc' && taxes.social.monthly > 0) {
     items.push({
       id: genId(),
       date: firstOfMonth,
@@ -179,8 +180,8 @@ export function generateExpectedItems(
     })
   }
 
-  // Health insurance
-  if (taxes.health.monthly > 0) {
+  // Health insurance (OSVC only)
+  if (entityType === 'osvc' && taxes.health.monthly > 0) {
     items.push({
       id: genId(),
       date: firstOfMonth,
