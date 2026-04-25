@@ -244,20 +244,22 @@ export function mergeExpectedWithExisting(generated: LedgerItem[], existing: Led
   const result = [...existing]
 
   for (const gen of generated) {
-    // Find matching existing item by source + source_id
+    // Match by source + source_id + description for reliable identification
     const match = result.find(e =>
-      e.source === gen.source && e.source_id === gen.source_id
+      e.source === gen.source &&
+      e.source_id === gen.source_id &&
+      (e.source_id != null || e.description === gen.description)
     )
 
     if (match) {
-      // Only update if still in expected status (user hasn't acted)
-      if (match.status === 'expected') {
+      // Only update if expected AND amount hasn't been manually changed
+      if (match.status === 'expected' && match.amount_expected === match.amount_actual) {
         match.amount_expected = gen.amount_expected
         match.description = gen.description
         match.vat_rate = gen.vat_rate
         match.vat_amount = gen.vat_amount
       }
-      // If confirmed/paid/skipped, leave it alone
+      // If confirmed/paid/skipped or manually edited, leave it alone
     } else {
       // New item, add it
       result.push(gen)
@@ -333,9 +335,11 @@ export function calcCashPosition(
     if (ml) {
       for (const item of ml.items) {
         if (item.status === 'skipped') continue
-        const amt = item.status === 'paid' || item.status === 'confirmed' ? item.amount_actual : item.amount_expected
+        const amt = item.status === 'paid' || item.status === 'confirmed'
+          ? item.amount_actual
+          : item.amount_expected
         if (amt > 0) expected_in += amt
-        else expected_out += Math.abs(amt)
+        else if (amt < 0) expected_out += Math.abs(amt)
       }
     }
 
@@ -354,7 +358,7 @@ export function syncInvoicesToLedger(receivables: ReceivablesData, ledger: Ledge
 
   // Sync paid issued invoices → revenue in ledger
   for (const inv of receivables.invoices_issued) {
-    if (inv.status !== 'paid' || !inv.paid_date) continue
+    if (inv.status !== 'paid' || !inv.paid_date || inv.paid_date.length < 7) continue
     const month = inv.paid_date.slice(0, 7)
     let ml = updated.months.find(m => m.month === month)
     if (!ml) {
@@ -416,10 +420,12 @@ export function calcVatFromLedger(ledger: Ledger): { output: number; input: numb
   let output = 0, input = 0
   for (const m of ledger.months) {
     for (const item of m.items) {
-      if (item.status !== 'confirmed' && item.status !== 'paid') continue
+      if (item.status === 'skipped') continue
       const vat = item.vat_amount ?? 0
-      if (item.amount_actual > 0) output += vat
-      else input += vat
+      // Use actual amount for paid/confirmed, expected for expected (Czech VAT based on invoice date)
+      const amt = item.status === 'paid' || item.status === 'confirmed' ? item.amount_actual : item.amount_expected
+      if (amt > 0) output += vat
+      else if (amt < 0) input += vat
     }
   }
   return { output, input, liability: output - input }
@@ -451,14 +457,16 @@ export function calcAlerts(
   vat: VatData,
   today: string = new Date().toISOString().slice(0, 10),
 ): Alert[] {
+  if (!ledger || !tiers || !fixedCosts || !budget || !receivables || !taxes || !vat) return []
   const alerts: Alert[] = []
   const todayMs = new Date(today).getTime()
 
   // 1. Cash position negative
   const cashPos = calcCashPosition(ledger.bank_balance, ledger, 6)
-  const negMonth = cashPos.find(m => m.closing < 0)
-  if (negMonth) {
-    const monthsUntil = cashPos.indexOf(negMonth) + 1
+  const negIdx = cashPos.findIndex(m => m.closing < 0)
+  if (negIdx >= 0) {
+    const negMonth = cashPos[negIdx]
+    const monthsUntil = negIdx + 1
     alerts.push({
       id: 'cash_negative',
       severity: 'critical',
@@ -498,7 +506,7 @@ export function calcAlerts(
   // 4. Break-even not reached
   const be = calcBreakeven(tiers, fixedCosts, variablePct)
   const totalMembers = tiers.reduce((s, t) => s + t.members, 0)
-  if (be.members < 999 && totalMembers < be.members) {
+  if (totalMembers > 0 && totalMembers < be.members) {
     alerts.push({
       id: 'breakeven_gap',
       severity: 'info',
@@ -548,10 +556,10 @@ export function calcAlerts(
   // 7. Reserve running low
   const opex = calcOpex(fixedCosts, variablePct, calcRevenue(tiers, []).total)
   const monthlyEbitda = calcRevenue(tiers, []).total - opex.total
-  if (monthlyEbitda < 0) {
+  if (monthlyEbitda < 0 && Math.abs(monthlyEbitda) > 0) {
     const reserveRemaining = budget.reserve_budget - budget.reserve_drawn
     const runway = Math.floor(reserveRemaining / Math.abs(monthlyEbitda))
-    if (runway < 3 && runway >= 0) {
+    if (runway < 3 && runway >= 0 && isFinite(runway)) {
       alerts.push({
         id: 'reserve_low',
         severity: 'critical',
@@ -580,12 +588,14 @@ export function calcHybridCashflow(
 ): Array<CashflowMonth & { isActual: boolean }> {
   const projected = calcCashflowProjection(tiers, extras, fixedCosts, variablePct, budget, projectionMonths, rampMonths, undefined, startOffset)
 
+  const CZ = ['Led', 'Úno', 'Bře', 'Dub', 'Kvě', 'Čvn', 'Čvc', 'Srp', 'Zář', 'Říj', 'Lis', 'Pro']
   return projected.map(p => {
-    // Check if we have actual data for this month
+    // Match by parsing both sides to year+month numbers
     const ml = ledger.months.find(m => {
-      const CZ = ['Led', 'Úno', 'Bře', 'Dub', 'Kvě', 'Čvn', 'Čvc', 'Srp', 'Zář', 'Říj', 'Lis', 'Pro']
       const [y, mo] = m.month.split('-').map(Number)
-      return p.label === `${CZ[mo - 1]} ${String(y).slice(-2)}`
+      if (!y || !mo) return false
+      const label = `${CZ[mo - 1]} ${String(y).slice(-2)}`
+      return p.label === label
     })
 
     if (ml && ml.items.some(i => i.status === 'confirmed' || i.status === 'paid')) {
@@ -621,15 +631,15 @@ export function getRampFactorForMonth(month: string, startMonth: string, rampMon
 export function calcRevenue(tiers: Tier[], extras: Extra[]): Revenue {
   const tierBreakdown = tiers.map(t => ({
     name: t.name,
-    members: t.members,
-    price: t.price,
-    revenue: t.price * t.members,
+    members: Math.max(0, t.members),
+    price: Math.max(0, t.price),
+    revenue: Math.max(0, t.price) * Math.max(0, t.members),
   }))
   const extraBreakdown = extras.map(e => ({
     name: e.name,
-    quantity: e.quantity,
-    unit_price: e.unit_price,
-    revenue: e.quantity * e.unit_price,
+    quantity: Math.max(0, e.quantity),
+    unit_price: Math.max(0, e.unit_price),
+    revenue: Math.max(0, e.quantity) * Math.max(0, e.unit_price),
   }))
   const tierRevenue = tierBreakdown.reduce((s, t) => s + t.revenue, 0)
   const extraRevenue = extraBreakdown.reduce((s, e) => s + e.revenue, 0)
@@ -669,8 +679,9 @@ export function calcBreakeven(
   const avgPrice = totalMembers > 0 ? totalTierRev / totalMembers : 0
   const fixedOpex = fixedCosts.reduce((s, c) => s + c.amount, 0)
 
-  const members = avgPrice > 0
-    ? Math.ceil(fixedOpex / (avgPrice * (1 - variablePct / 100)))
+  const margin = avgPrice * (1 - Math.min(variablePct, 99) / 100)
+  const members = avgPrice > 0 && margin > 0
+    ? Math.ceil(fixedOpex / margin)
     : 999
 
   return { members, avgPrice }

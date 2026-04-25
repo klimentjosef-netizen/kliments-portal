@@ -10,8 +10,10 @@ interface BudgetTabProps {
 }
 
 export default function BudgetTab({ budget, monthlyEbitda, onBudgetChange }: BudgetTabProps) {
+  const capexPlanned = budget.capex_items.reduce((s, i) => s + i.planned, 0)
   const capexSpent = budget.capex_items.reduce((s, i) => s + i.spent, 0)
   const capexRemaining = budget.capex_budget - capexSpent
+  const capexDiff = capexPlanned - budget.capex_budget
   const reserveRemaining = budget.reserve_budget - budget.reserve_drawn
   const totalSpent = capexSpent + budget.reserve_drawn
   const totalRemaining = budget.total - totalSpent
@@ -91,9 +93,22 @@ export default function BudgetTab({ budget, monthlyEbitda, onBudgetChange }: Bud
             ))}
           </div>
 
-          <div className="flex justify-between items-center pt-3 mt-3 border-t border-black/[0.06]">
-            <span className="text-[0.8rem] text-ink font-medium">Zbývá k investici</span>
-            <span className={`text-[0.8rem] font-medium ${capexRemaining >= 0 ? 'text-green' : 'text-rose-deep'}`}>{fmt(capexRemaining)}</span>
+          <div className="pt-3 mt-3 border-t border-black/[0.06] space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-[0.8rem] text-mid">Součet plánovaných</span>
+              <span className={`text-[0.8rem] font-medium ${capexDiff === 0 ? 'text-green' : 'text-amber'}`}>{fmt(capexPlanned)}</span>
+            </div>
+            {capexDiff !== 0 && (
+              <div className="bg-amber/10 border border-amber/20 rounded-lg px-3 py-2 text-[0.75rem] text-amber">
+                {capexDiff > 0
+                  ? `Plánované výdaje přesahují rozpočet o ${fmt(capexDiff)}`
+                  : `V plánu chybí ${fmt(Math.abs(capexDiff))} do rozpočtu`}
+              </div>
+            )}
+            <div className="flex justify-between items-center">
+              <span className="text-[0.8rem] text-ink font-medium">Zbývá k investici</span>
+              <span className={`text-[0.8rem] font-medium ${capexRemaining >= 0 ? 'text-green' : 'text-rose-deep'}`}>{fmt(capexRemaining)}</span>
+            </div>
           </div>
         </div>
 

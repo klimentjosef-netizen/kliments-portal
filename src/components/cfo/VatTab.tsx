@@ -1,18 +1,17 @@
 'use client'
 
-import { type VatData, type VatPeriod, type VatRate, type Actuals, calcVatFromActuals, fmt, fmtShort } from './calcEngine'
+import { type VatData, type VatPeriod, type VatRate, type Ledger, calcVatFromLedger, fmt, fmtShort } from './calcEngine'
 
 interface VatTabProps {
   vat: VatData
-  actuals: Actuals
+  ledger: Ledger
   capexVat: number // 21% z CAPEX spent
   onVatChange: (vat: VatData) => void
 }
 
-export default function VatTab({ vat, actuals, capexVat, onVatChange }: VatTabProps) {
-  // Calculate VAT from all actual transactions
-  const allItems = actuals.months.flatMap(m => m.items)
-  const vatCalc = calcVatFromActuals(allItems)
+export default function VatTab({ vat, ledger, capexVat, onVatChange }: VatTabProps) {
+  // Calculate VAT from ledger items (Czech VAT: based on invoice date, not payment)
+  const vatCalc = calcVatFromLedger(ledger)
   const totalOutput = vatCalc.output
   const totalInput = vatCalc.input + capexVat
   const liability = totalOutput - totalInput

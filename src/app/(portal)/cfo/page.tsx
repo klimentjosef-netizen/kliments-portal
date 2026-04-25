@@ -356,7 +356,7 @@ function CfoPageInner() {
           <MonthlyPlanTab ledger={ledger} onLedgerChange={v => updateData('ledger', v)} />
         )}
         {tab === 'vat' && (
-          <VatTab vat={vat} actuals={{ bank_balance: ledger.bank_balance, months: [] }} capexVat={capexVat} onVatChange={v => updateData('vat', v)} />
+          <VatTab vat={vat} ledger={ledger} capexVat={capexVat} onVatChange={v => updateData('vat', v)} />
         )}
         {tab === 'taxes' && (
           <TaxesTab taxes={taxesData} onTaxesChange={v => updateData('taxes', v)} />
