@@ -1,7 +1,20 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { createServerSupabase } from '@/lib/supabase/server'
 
 export async function POST(req: NextRequest) {
+  // Auth gate: jen admin smí vytvořit klienta
+  const userClient = createServerSupabase()
+  const { data: { user } } = await userClient.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  const { data: profile } = await userClient
+    .from('profiles').select('role').eq('id', user.id).single()
+  if (profile?.role !== 'admin') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
   const { email, name, password, service } = await req.json()
 
   if (!email || !name || !password) {

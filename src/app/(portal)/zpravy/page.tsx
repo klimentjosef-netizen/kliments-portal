@@ -87,7 +87,7 @@ export default function ZpravyPage() {
         title: 'Nová zpráva',
         body: newMsg.trim().slice(0, 100),
       }),
-    }).catch(() => {}) // fire and forget
+    }).catch(err => console.error('[zpravy] notify failed:', err))
 
     setNewMsg('')
   }

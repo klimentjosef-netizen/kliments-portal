@@ -26,17 +26,38 @@ export async function updateSession(request: NextRequest) {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
+  const pathname = request.nextUrl.pathname
 
-  if (!user && !request.nextUrl.pathname.startsWith('/login')) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    return NextResponse.redirect(url)
+  // Nepřihlášený → na login (kromě samotného /login a /reset-password)
+  if (!user) {
+    const isPublic = pathname.startsWith('/login') || pathname.startsWith('/reset-password')
+    if (!isPublic) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      return NextResponse.redirect(url)
+    }
+    return supabaseResponse
   }
 
-  if (user && request.nextUrl.pathname === '/login') {
+  // Přihlášený na /login → na dashboard
+  if (pathname === '/login') {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)
+  }
+
+  // Server-side ochrana admin sekce (frontend check sám nestačí)
+  if (pathname.startsWith('/admin')) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+    if (profile?.role !== 'admin') {
+      const url = request.nextUrl.clone()
+      url.pathname = '/dashboard'
+      return NextResponse.redirect(url)
+    }
   }
 
   return supabaseResponse

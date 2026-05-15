@@ -34,7 +34,7 @@ export default function Sidebar({ profile, onNavigate, unreadCount = 0 }: { prof
   const visibleItems = NAV_ITEMS.filter(item => allowedRoutes.includes(item.href))
 
   return (
-    <aside className="w-60 min-h-screen bg-ink fixed left-0 top-0 bottom-0 z-50 flex flex-col">
+    <aside className="w-60 h-screen lg:sticky lg:top-0 bg-ink flex flex-col">
       {/* Logo */}
       <div className="px-6 py-7 border-b border-white/[0.07]">
         <span className="font-serif text-xl text-sand">
