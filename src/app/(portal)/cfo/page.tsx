@@ -201,7 +201,11 @@ function CfoPageInner() {
       : { bank_balance: 0, months: [] }
   const vat = (d.vat || { registered: true, period: 'quarterly', rates: [], periods: [] }) as VatData
   const taxesData = (d.taxes || { entity_type: 'sro', income_tax: { rate: 21, annual_estimate: 0, advances: [] }, social: { monthly: 0, advances: [] }, health: { monthly: 0, advances: [] }, other_taxes: [] }) as TaxData
-  const receivables = (d.receivables || { invoices_issued: [], invoices_received: [] }) as ReceivablesData
+  const rcvRaw = (d.receivables || {}) as Partial<ReceivablesData>
+  const receivables: ReceivablesData = {
+    invoices_issued: Array.isArray(rcvRaw.invoices_issued) ? rcvRaw.invoices_issued : [],
+    invoices_received: Array.isArray(rcvRaw.invoices_received) ? rcvRaw.invoices_received : [],
+  }
 
   // Business profile
   const profile = (d.business_profile || DEFAULT_BUSINESS_PROFILE) as BusinessProfile
