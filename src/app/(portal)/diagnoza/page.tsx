@@ -7,6 +7,8 @@ import Topbar from '@/components/Topbar'
 import EmptyState from '@/components/EmptyState'
 import SaveToast from '@/components/SaveToast'
 import AdminClientPicker from '@/components/AdminClientPicker'
+import BlockRenderer from '@/components/blocks/BlockRenderer'
+import type { Block } from '@/components/blocks/types'
 import type { Report } from '@/lib/types'
 
 interface Step { num: string; deadline: string; title: string; desc: string; done?: boolean; notes?: string }
@@ -84,6 +86,12 @@ function DiagnozaPageInner() {
   if (loading) return <><Topbar title={isAdminView ? `Diagnóza · ${clientName}` : 'Finanční diagnóza'} /><div className="p-4 lg:p-9"><div className="animate-pulse h-40 bg-white rounded-[20px]" /></div></>
   if (!report) return <><Topbar title="Finanční diagnóza" /><div className="p-4 lg:p-9"><EmptyState service="Finanční diagnóza" /></div></>
 
+  // Pokud report obsahuje pole bloku, vyrenderujeme je pres BlockRenderer.
+  // Pokud ne, padame na klasicky hardcoded layout nize. Tim je migrace
+  // postupna — admin muze pridat data.blocks ke kdejake reportu a tim
+  // prepsat default rendering.
+  const customBlocks = Array.isArray(d.blocks) ? (d.blocks as Block[]) : null
+
   const steps = (d.steps || []) as Step[]
 
   function toggleStep(i: number) {
@@ -101,6 +109,12 @@ function DiagnozaPageInner() {
       <Topbar title="Finanční diagnóza" />
       <SaveToast status={saveStatus} />
       <div className="p-4 lg:p-9">
+        {customBlocks ? (
+          /* Custom blok layout: admin nadefinoval data.blocks → BlockRenderer
+             prebije default UI. Tim lze pro tohoto klienta dashboardu na miru. */
+          <BlockRenderer blocks={customBlocks} />
+        ) : (
+        <>
         {/* Header */}
         <div className="bg-ink rounded-[20px] p-7 mb-6 flex justify-between items-start relative overflow-hidden">
           <div className="absolute right-[-10px] bottom-[-40px] font-serif italic text-[180px] text-white/[0.04] leading-none pointer-events-none">K</div>
@@ -196,6 +210,8 @@ function DiagnozaPageInner() {
               ))}
             </div>
           </>
+        )}
+        </>
         )}
       </div>
     </>
