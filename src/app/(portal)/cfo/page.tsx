@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/client'
 import Topbar from '@/components/Topbar'
 import EmptyState from '@/components/EmptyState'
 import SaveToast from '@/components/SaveToast'
+import BlockRenderer from '@/components/blocks/BlockRenderer'
+import type { Block } from '@/components/blocks/types'
 import CfoTabs from '@/components/cfo/CfoTabs'
 import DashboardTab from '@/components/cfo/DashboardTab'
 import MonthlyPlanTab from '@/components/cfo/MonthlyPlanTab'
@@ -285,6 +287,15 @@ function CfoPageInner() {
           <div className="bg-rose/10 border border-rose/20 rounded-2xl px-5 py-3 mb-4 flex items-center justify-between">
             <span className="text-[0.8rem] text-rose-deep">Prohlížíte dashboard klienta <strong>{clientName}</strong></span>
             <a href="/portal/admin" className="text-[0.72rem] text-rose hover:text-rose-deep underline">← Zpět na klienty</a>
+          </div>
+        )}
+
+        {/* Pripojeny block-based dashboard pro tohoto klienta (admin nadefinoval
+            data.blocks). Zobrazuje se NAD klasickym CFO UI - operativni casti
+            (Mesicni plan / Cashflow / DPH atd.) zustavaji dostupne pod nim. */}
+        {Array.isArray(d.blocks) && d.blocks.length > 0 && (
+          <div className="mb-8">
+            <BlockRenderer blocks={d.blocks as Block[]} />
           </div>
         )}
 
