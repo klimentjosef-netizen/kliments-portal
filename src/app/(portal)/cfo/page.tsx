@@ -17,6 +17,7 @@ import CashflowTab from '@/components/cfo/CashflowTab'
 import BudgetTab from '@/components/cfo/BudgetTab'
 import RisksTab from '@/components/cfo/RisksTab'
 import QuestionsTab from '@/components/cfo/QuestionsTab'
+import ImportTab from '@/components/cfo/ImportTab'
 import VatTab from '@/components/cfo/VatTab'
 import TaxesTab from '@/components/cfo/TaxesTab'
 import ReceivablesTab from '@/components/cfo/ReceivablesTab'
@@ -45,6 +46,7 @@ const ALL_TABS = [
   { id: 'budget', label: 'Rozpočet' },
   { id: 'risks', label: 'Rizika & Plán' },
   { id: 'questions', label: 'Dotazy' },
+  { id: 'import', label: 'Import dat' },
 ]
 
 const TAB_IDS = ALL_TABS.map(t => t.id)
@@ -447,6 +449,14 @@ function CfoPageInner() {
         )}
         {tab === 'risks' && <RisksTab data={d} onRisksChange={v => updateData('risks', v)} onStepsChange={v => updateData('steps', v)} />}
         {tab === 'questions' && <QuestionsTab data={d} onQuestionsChange={v => updateData('questions', v)} />}
+        {tab === 'import' && (
+          <ImportTab
+            ledger={ledger}
+            receivables={receivables}
+            onLedgerChange={v => updateData('ledger', v)}
+            onReceivablesChange={v => updateData('receivables', v)}
+          />
+        )}
         </div>
       </div>
     </>
