@@ -87,6 +87,30 @@ export default function AdminPage() {
     setClients(prev => prev.map(c => c.id === clientId ? { ...c, service: newService || null } : c))
   }
 
+  async function deleteClient(clientId: string, clientName: string) {
+    const confirmed = window.confirm(
+      `Opravdu smazat klienta "${clientName}"?\n\n` +
+      `Tato akce smaže:\n` +
+      `• účet (přihlášení do portálu)\n` +
+      `• profil v databázi\n` +
+      `• všechny reporty klienta\n\n` +
+      `Akci nelze vrátit.`
+    )
+    if (!confirmed) return
+
+    const res = await fetch('/portal/api/delete-client', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientId }),
+    })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok || !json.ok) {
+      alert('Mazání selhalo: ' + (json.error || 'neznámá chyba'))
+      return
+    }
+    setClients(prev => prev.filter(c => c.id !== clientId))
+  }
+
   if (!isAdmin) return <><Topbar title="Admin" /><div className="p-4 lg:p-9 text-center text-mid">Přístup odepřen</div></>
 
   return (
@@ -169,6 +193,7 @@ export default function AdminPage() {
                   <th className="text-[0.62rem] tracking-[0.12em] uppercase text-mid py-3 px-5 text-left font-medium">E-mail</th>
                   <th className="text-[0.62rem] tracking-[0.12em] uppercase text-mid py-3 px-5 text-left font-medium">Služba</th>
                   <th className="text-[0.62rem] tracking-[0.12em] uppercase text-mid py-3 px-5 text-left font-medium">Status</th>
+                  <th className="text-[0.62rem] tracking-[0.12em] uppercase text-mid py-3 px-5 text-right font-medium"></th>
                 </tr>
               </thead>
               <tbody>
@@ -201,6 +226,15 @@ export default function AdminPage() {
                         }`}
                       >
                         {c.active ? 'Aktivní' : 'Neaktivní'}
+                      </button>
+                    </td>
+                    <td className="py-3 px-5 text-right" onClick={e => e.stopPropagation()}>
+                      <button
+                        onClick={() => deleteClient(c.id, c.name)}
+                        title="Smazat klienta (účet, profil, reporty)"
+                        className="text-[0.6rem] tracking-[0.12em] uppercase text-mid hover:text-rose-deep px-2 py-1 rounded transition-colors"
+                      >
+                        Smazat
                       </button>
                     </td>
                   </tr>

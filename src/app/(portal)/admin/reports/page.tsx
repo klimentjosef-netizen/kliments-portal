@@ -171,8 +171,12 @@ function ReportForm({ type, initialData, onSave, saving, disabled }: {
   disabled: boolean
 }) {
   const [json, setJson] = useState(JSON.stringify(initialData, null, 2))
-  const [mode, setMode] = useState<'form' | 'json'>('form')
+  const [blocksJson, setBlocksJson] = useState(
+    JSON.stringify(Array.isArray(initialData.blocks) ? initialData.blocks : [], null, 2)
+  )
+  const [mode, setMode] = useState<'form' | 'blocks' | 'json'>('form')
   const [formData, setFormData] = useState(initialData)
+  const [blocksError, setBlocksError] = useState('')
 
   const updateField = (key: string, value: unknown) => {
     setFormData(prev => ({ ...prev, [key]: value }))
@@ -181,29 +185,87 @@ function ReportForm({ type, initialData, onSave, saving, disabled }: {
   function handleSave() {
     if (mode === 'json') {
       try { onSave(JSON.parse(json)) } catch { alert('Neplatný JSON') }
-    } else {
-      onSave(formData)
+      return
     }
+    if (mode === 'blocks') {
+      try {
+        const parsed = JSON.parse(blocksJson)
+        if (!Array.isArray(parsed)) throw new Error('Bloky musí být pole')
+        onSave({ ...formData, blocks: parsed })
+        setBlocksError('')
+      } catch (e) {
+        setBlocksError(e instanceof Error ? e.message : 'Neplatný JSON')
+      }
+      return
+    }
+    onSave(formData)
   }
 
   return (
     <div>
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-2 mb-4 flex-wrap">
         <button onClick={() => setMode('form')}
           className={`px-4 py-1.5 rounded-full text-[0.72rem] ${mode === 'form' ? 'bg-rose text-white' : 'border border-black/10 text-mid'}`}>
           Formulář
         </button>
+        <button onClick={() => {
+          setMode('blocks')
+          setBlocksJson(JSON.stringify(Array.isArray(formData.blocks) ? formData.blocks : [], null, 2))
+        }}
+          className={`px-4 py-1.5 rounded-full text-[0.72rem] ${mode === 'blocks' ? 'bg-rose text-white' : 'border border-black/10 text-mid'}`}>
+          Bloky (vlastní layout)
+        </button>
         <button onClick={() => { setMode('json'); setJson(JSON.stringify(formData, null, 2)); }}
           className={`px-4 py-1.5 rounded-full text-[0.72rem] ${mode === 'json' ? 'bg-rose text-white' : 'border border-black/10 text-mid'}`}>
-          JSON editor
+          Celý JSON
         </button>
       </div>
 
-      {mode === 'json' ? (
+      {mode === 'json' && (
         <textarea value={json} onChange={e => setJson(e.target.value)}
           className="w-full h-80 font-mono text-xs p-4 border border-black/10 rounded-xl bg-sand outline-none focus:border-rose"
           spellCheck={false} />
-      ) : (
+      )}
+
+      {mode === 'blocks' && (
+        <div>
+          <p className="text-[0.78rem] text-mid mb-3">
+            Pole bloků pro vlastní layout dashboardu. Pokud je prázdné, použije se výchozí layout pro daný typ.
+            Dokumentace a typy bloků najdeš v <code className="text-rose">src/components/blocks/README.md</code>.
+          </p>
+          <textarea value={blocksJson} onChange={e => setBlocksJson(e.target.value)}
+            className="w-full h-80 font-mono text-xs p-4 border border-black/10 rounded-xl bg-sand outline-none focus:border-rose"
+            placeholder='[\n  {"type":"heading","level":2,"text":"Přehled"},\n  {"type":"kpi-grid","columns":4,"items":[...]}\n]'
+            spellCheck={false} />
+          {blocksError && <p className="text-[0.78rem] text-rose-deep mt-2">⚠ {blocksError}</p>}
+          <details className="mt-3 text-[0.78rem]">
+            <summary className="cursor-pointer text-rose font-medium">Ukázka (klikni pro rozbalit)</summary>
+            <pre className="mt-2 p-3 bg-sand rounded-lg overflow-x-auto text-[0.7rem] font-mono">{`[
+  { "type": "heading", "level": 2, "eyebrow": "Q1 2026", "text": "Finanční přehled" },
+  {
+    "type": "kpi-grid",
+    "columns": 4,
+    "items": [
+      { "label": "Roční obrat", "value": "1,2 M Kč", "sub": "stabilní" },
+      { "label": "Marže", "value": "18 %", "trend": "up", "intent": "success" },
+      { "label": "Zaměstnanci", "value": 3 },
+      { "label": "Rezerva", "value": "0,8 měs.", "intent": "critical" }
+    ]
+  },
+  {
+    "type": "risk-list",
+    "title": "Aktuální rizika",
+    "items": [
+      { "level": "critical", "title": "Cashflow runway pod 1 měsíc" },
+      { "level": "medium", "title": "Závislost na jednom dodavateli" }
+    ]
+  }
+]`}</pre>
+          </details>
+        </div>
+      )}
+
+      {mode === 'form' && (
         <div className="space-y-4">
           {type === 'diagnoza' && <DiagnozaForm data={formData} onChange={updateField} />}
           {type === 'cfo' && <CfoForm data={formData} onChange={updateField} />}
