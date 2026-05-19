@@ -1,17 +1,36 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageInner />
+    </Suspense>
+  )
+}
+
+function LoginPageInner() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [resetMode, setResetMode] = useState(false)
   const [resetSent, setResetSent] = useState(false)
+  const [isDemo, setIsDemo] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // Demo autofill: ?demo=alpha prefill Alpha Atelier creds
+  useEffect(() => {
+    if (searchParams.get('demo') === 'alpha') {
+      setEmail('info@alphaatelier.cz')
+      setPassword('Alpha2026Demo!')
+      setIsDemo(true)
+    }
+  }, [searchParams])
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
@@ -59,9 +78,18 @@ export default function LoginPage() {
         <div className="font-serif text-3xl text-ink mb-2 flex items-center gap-0.5">
           Kliments<span className="text-rose text-4xl leading-none -mb-1">.</span>
         </div>
-        <p className="text-sm text-mid mb-9">
+        <p className="text-sm text-mid mb-6">
           {resetMode ? 'Obnovení hesla' : 'Klientský portál · Finanční řízení'}
         </p>
+
+        {isDemo && !resetMode && (
+          <div className="mb-6 rounded-xl bg-rose-blush/50 border border-rose-pale px-4 py-3">
+            <p className="text-[0.72rem] text-rose-deep font-medium mb-1">🔍 Demo režim · Alpha Atelier</p>
+            <p className="text-[0.72rem] text-mid leading-relaxed">
+              Údaje jsou předvyplněné, stačí kliknout „Přihlásit se". Demo data se každý měsíc resetují, nic nerozbijete.
+            </p>
+          </div>
+        )}
 
         {resetSent ? (
           <div className="text-center py-4">
