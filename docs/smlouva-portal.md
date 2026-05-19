@@ -148,7 +148,7 @@ e-mail: autoservis@techcars.cz
 
 ## PŘÍLOHY
 
-- Příloha č. 1: Specifikace rozsahu služby CFO na volné noze
+- Příloha č. 1: Specifikace rozsahu služby CFO na volné noze — viz `smlouva-priloha-1-specifikace-cfo.md`
 - Příloha č. 2: Smlouva o mlčenlivosti (NDA) — viz `nda.md`
 
 ---
