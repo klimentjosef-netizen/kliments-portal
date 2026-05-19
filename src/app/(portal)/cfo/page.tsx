@@ -33,6 +33,7 @@ import {
 import AdminClientPicker from '@/components/AdminClientPicker'
 import type { Report } from '@/lib/types'
 import { exportCfoPdf } from '@/lib/pdfExport'
+import { exportCfoExcel } from '@/lib/excelExport'
 
 const ALL_TABS = [
   { id: 'dashboard', label: 'Přehled' },
@@ -308,7 +309,25 @@ function CfoPageInner() {
             <h2 className="font-serif text-xl text-sand font-light mb-1.5">{d.title || 'CFO na volné noze'}</h2>
             <p className="text-[0.78rem] text-white/40">{d.subtitle || ''}{isAdminView && clientName ? ` · ${clientName}` : ''}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => {
+                const stamp = new Date().toISOString().slice(0, 10)
+                const name = (clientName || d.subtitle || 'kliments').toString().replace(/[^a-z0-9čšřžýáíéúůďťň-]+/gi, '-').toLowerCase()
+                exportCfoExcel({
+                  filename: `cfo-${name}-${stamp}.xlsx`,
+                  clientName: clientName || undefined,
+                  ledger,
+                  receivables,
+                  tiers,
+                  fixedCosts,
+                  variablePct: variablePct,
+                })
+              }}
+              className="px-4 py-2 rounded-full text-[0.68rem] tracking-[0.1em] uppercase font-medium bg-white/15 text-white/80 hover:bg-white/25 hover:text-white transition-colors"
+            >
+              Export Excel
+            </button>
             <button
               onClick={() => exportCfoPdf('cfo-content', d.title || 'CFO na volné noze')}
               className="px-4 py-2 rounded-full text-[0.68rem] tracking-[0.1em] uppercase font-medium bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-colors"

@@ -13,6 +13,7 @@ import TableBlock from './TableBlock'
 import StrengthsWeaknessesBlock from './StrengthsWeaknessesBlock'
 import CashflowChartBlock from './CashflowChartBlock'
 import CalloutBlock from './CalloutBlock'
+import YoyComparisonBlock from './YoyComparisonBlock'
 
 /**
  * Block grid renderuje pole `Block[]` do 12-sloupcoveho gridu.
@@ -49,6 +50,7 @@ function renderBlock(block: Block, index: number) {
     case 'strengths-weaknesses': return <StrengthsWeaknessesBlock {...block} key={key} />
     case 'cashflow-chart':       return <CashflowChartBlock {...block} key={key} />
     case 'callout':              return <CalloutBlock {...block} key={key} />
+    case 'yoy-comparison':       return <YoyComparisonBlock {...block} key={key} />
     default: {
       // Exhaustiveness check: pokud pridas novy typ do union ale neimplementujes
       // ho zde, TS sem prirakne chybu, ze block ma typ never.

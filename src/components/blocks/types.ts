@@ -126,6 +126,29 @@ export type CalloutBlock = BlockBase & {
   intent?: 'info' | 'success' | 'warning' | 'critical'
 }
 
+export type YoyRow = {
+  /** Label radku (napr. "Trzby", "EBITDA marze") */
+  label: string
+  /** Hodnoty pro jednotlive roky ve stejnem poradi jako `years` */
+  values: (number | null)[]
+  /** Formatovani — currency (Kc), percent, number (raw) */
+  format?: 'currency' | 'percent' | 'number'
+  /** Highlight tohoto radku (napr. EBITDA, klicovy ukazatel) */
+  highlight?: boolean
+  /** "vyssi je lepe" pro YoY trend (default true) */
+  higherIsBetter?: boolean
+}
+
+export type YoyComparisonBlock = BlockBase & {
+  type: 'yoy-comparison'
+  title?: string
+  /** Pole roku (napr. [2024, 2025, 2026]). Posledni je nejnovejsi. */
+  years: number[]
+  rows: YoyRow[]
+  /** Volitelna poznamka pod tabulkou */
+  note?: string
+}
+
 /**
  * Sjednoceny union vsech bloku. Pridanim variantky sem se rozsiri cely
  * system; TS pomuze odhalit chybejici implementaci v renderu.
@@ -142,5 +165,6 @@ export type Block =
   | StrengthsWeaknessesBlock
   | CashflowChartBlock
   | CalloutBlock
+  | YoyComparisonBlock
 
 export type BlockType = Block['type']

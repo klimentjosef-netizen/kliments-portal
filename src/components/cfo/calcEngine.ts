@@ -1443,3 +1443,70 @@ export function getUpcomingTimeline(
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, limit)
 }
+
+// ══════════════════════════════════════════════
+// ── Year aggregation (pro YoY srovnani) ──
+// ══════════════════════════════════════════════
+
+export interface YearAggregate {
+  year: number
+  revenue: number
+  costs: number
+  taxes: number
+  vat: number
+  capex: number
+  social: number
+  health: number
+  other: number
+  ebitda: number     // revenue - costs (bez dani / dph / capex)
+  net_cashflow: number // vse sumovane (+ revenue, - vse ostatni)
+  months_with_data: number
+}
+
+/**
+ * Vrati souhrn ledger transakci za dany rok. Filtruje podle prefixu "YYYY"
+ * v month klici. EBITDA = revenue - costs (variabilni + fixed). Daň/DPH/CAPEX
+ * jsou samostatne polozky (= cashflow OUT), takze do EBITDA neletají.
+ */
+export function calcYearAggregate(ledger: Ledger, year: number): YearAggregate {
+  const yearStr = year.toString()
+  const agg: YearAggregate = {
+    year,
+    revenue: 0, costs: 0, taxes: 0, vat: 0,
+    capex: 0, social: 0, health: 0, other: 0,
+    ebitda: 0, net_cashflow: 0, months_with_data: 0,
+  }
+
+  for (const m of ledger.months) {
+    if (!m.month.startsWith(yearStr)) continue
+    if (m.items.length === 0) continue
+    agg.months_with_data += 1
+
+    for (const item of m.items) {
+      // Sumujeme jen co je opravdu zaplaceno (status paid) nebo potvrzeno.
+      if (item.status !== 'paid' && item.status !== 'confirmed') continue
+      const amt = Math.abs(item.amount_actual || item.amount_expected || 0)
+      switch (item.category) {
+        case 'revenue': agg.revenue += amt; break
+        case 'cost':    agg.costs   += amt; break
+        case 'tax':     agg.taxes   += amt; break
+        case 'vat':     agg.vat     += amt; break
+        case 'capex':   agg.capex   += amt; break
+        case 'social':  agg.social  += amt; break
+        case 'health':  agg.health  += amt; break
+        case 'other':   agg.other   += amt; break
+      }
+    }
+  }
+
+  agg.ebitda = agg.revenue - agg.costs
+  agg.net_cashflow = agg.revenue - (agg.costs + agg.taxes + agg.vat + agg.capex + agg.social + agg.health + agg.other)
+  return agg
+}
+
+/**
+ * Vrati pole agregaci pro vice let (vhodne pro YoY tabulku).
+ */
+export function calcYearsAggregate(ledger: Ledger, years: number[]): YearAggregate[] {
+  return years.map(y => calcYearAggregate(ledger, y))
+}
