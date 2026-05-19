@@ -102,6 +102,7 @@ function CfoPageInner() {
   const [clientName, setClientName] = useState<string>('')
   const [isAdminView, setIsAdminView] = useState(false)
   const [isAdminNoPick, setIsAdminNoPick] = useState(false)
+  const [selectedYear, setSelectedYear] = useState<string>('all')
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const reportIdRef = useRef<string>('')
   const supabase = createClient()
@@ -292,6 +293,46 @@ function CfoPageInner() {
             <a href="/portal/admin" className="text-[0.72rem] text-rose hover:text-rose-deep underline">← Zpět na klienty</a>
           </div>
         )}
+
+        {/* Year selector — zobrazi se pouze pokud ledger obsahuje data z vice let.
+            Filtruje block-based dashboard nize. CFO taby zustavaji full-ledger
+            pro plnou funkcnost. */}
+        {(() => {
+          const years = Array.from(new Set(
+            ledger.months
+              .filter(m => m.items.length > 0)
+              .map(m => parseInt(m.month.slice(0, 4), 10))
+              .filter(y => !isNaN(y))
+          )).sort()
+          if (years.length < 2) return null
+          return (
+            <div className="flex items-center gap-2 flex-wrap mb-4">
+              <span className="text-[0.62rem] tracking-[0.16em] uppercase text-mid font-medium mr-2">Rok</span>
+              <button
+                onClick={() => setSelectedYear('all')}
+                className={`px-3 py-1.5 rounded-full text-[0.72rem] tracking-[0.04em] font-medium transition-colors ${
+                  selectedYear === 'all' ? 'bg-rose text-white' : 'bg-white border border-black/[0.08] text-mid hover:border-rose-pale'
+                }`}
+              >
+                Vše
+              </button>
+              {years.map(y => (
+                <button
+                  key={y}
+                  onClick={() => setSelectedYear(String(y))}
+                  className={`px-3 py-1.5 rounded-full text-[0.72rem] tracking-[0.04em] font-medium transition-colors ${
+                    selectedYear === String(y) ? 'bg-rose text-white' : 'bg-white border border-black/[0.08] text-mid hover:border-rose-pale'
+                  }`}
+                >
+                  {y}
+                </button>
+              ))}
+              <span className="text-[0.62rem] text-mid ml-2">
+                ({ledger.months.filter(m => selectedYear === 'all' || m.month.startsWith(selectedYear)).reduce((s, m) => s + m.items.length, 0)} transakcí)
+              </span>
+            </div>
+          )
+        })()}
 
         {/* Pripojeny block-based dashboard pro tohoto klienta (admin nadefinoval
             data.blocks). Zobrazuje se NAD klasickym CFO UI - operativni casti

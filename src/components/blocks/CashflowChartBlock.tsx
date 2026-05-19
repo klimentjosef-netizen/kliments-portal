@@ -14,7 +14,7 @@ export default function CashflowChartBlock({ title, months, revenue, costs }: Pr
         </p>
       )}
 
-      <div className="flex items-end gap-3 h-[140px]">
+      <div className="flex items-end gap-1.5 sm:gap-3 h-[100px] sm:h-[140px] md:h-[180px]">
         {months.map((m, i) => {
           const rev = revenue[i] || 0
           const cost = costs[i] || 0
@@ -27,8 +27,10 @@ export default function CashflowChartBlock({ title, months, revenue, costs }: Pr
                 className={`w-full rounded-t-[4px] transition-all ${positive ? 'bg-[#6b9d7a]' : 'bg-rose-deep'}`}
                 style={{ height: `${heightPct}%`, minHeight: 4 }}
                 title={`${m}: net ${net.toLocaleString('cs-CZ')} Kč`}
+                role="img"
+                aria-label={`${m}: čistý cashflow ${net.toLocaleString('cs-CZ')} Kč`}
               />
-              <span className="text-[0.62rem] text-mid truncate w-full text-center">{m}</span>
+              <span className="text-[0.55rem] sm:text-[0.62rem] text-mid truncate w-full text-center">{m}</span>
             </div>
           )
         })}

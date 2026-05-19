@@ -149,6 +149,31 @@ export type YoyComparisonBlock = BlockBase & {
   note?: string
 }
 
+/** Data completeness: vizualni prehled co je v portalu, co chybi.
+ *  Pouziva se napr. behem onboardingu noveho klienta — admin vidi
+ *  co uz nahral z RZA podkladu a co je jeste otevreno. */
+export type CompletenessCell = {
+  /** Status policka */
+  status: 'complete' | 'partial' | 'missing'
+  /** Volitelny tooltip / popis */
+  note?: string
+}
+export type CompletenessRow = {
+  /** Nazev kategorie (napr. "Bankovni vypisy", "DPH priznani") */
+  label: string
+  /** Pole bunek odpovidajicich `columns` (napr. mesice nebo roky) */
+  cells: CompletenessCell[]
+}
+export type DataCompletenessBlock = BlockBase & {
+  type: 'data-completeness'
+  title?: string
+  /** Sloupcove popisky (napr. ["2024", "2025", "2026 YTD"] nebo mesice) */
+  columns: string[]
+  rows: CompletenessRow[]
+  /** Volitelne shrnuti — napr. "73 % kompletni, chybi 8 polozek" */
+  summary?: string
+}
+
 /**
  * Sjednoceny union vsech bloku. Pridanim variantky sem se rozsiri cely
  * system; TS pomuze odhalit chybejici implementaci v renderu.
@@ -166,5 +191,6 @@ export type Block =
   | CashflowChartBlock
   | CalloutBlock
   | YoyComparisonBlock
+  | DataCompletenessBlock
 
 export type BlockType = Block['type']

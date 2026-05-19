@@ -10,26 +10,26 @@ export default function StepListBlock({ title, items, layout = 'cards' }: Props)
       )}
 
       {layout === 'timeline' ? (
-        <ol className="relative border-l-2 border-rose/30 ml-3 space-y-5">
+        <ol className="relative border-l-2 border-rose/30 ml-1.5 sm:ml-3 space-y-5">
           {items.map((s, i) => (
-            <li key={s.id || i} className="pl-5 relative">
+            <li key={s.id || i} className="pl-4 sm:pl-5 relative">
               <span className="absolute -left-[7px] top-1 w-3 h-3 rounded-full bg-rose" />
-              <div className="flex items-baseline gap-2 mb-1">
+              <div className="flex items-baseline gap-2 mb-1 flex-wrap">
                 {s.num !== undefined && (
                   <span className="font-serif italic text-rose text-sm">
                     {String(s.num).padStart(2, '0')}
                   </span>
                 )}
                 {s.deadline && (
-                  <span className="text-[0.6rem] tracking-wider uppercase text-mid">
+                  <span className="text-[0.6rem] tracking-wider uppercase text-mid break-words">
                     {s.deadline}
                   </span>
                 )}
               </div>
-              <p className={`text-[0.92rem] font-medium ${s.done ? 'text-mid line-through' : 'text-ink'}`}>
+              <p className={`text-[0.88rem] sm:text-[0.92rem] font-medium ${s.done ? 'text-mid line-through' : 'text-ink'}`}>
                 {s.title}
               </p>
-              {s.desc && <p className="text-[0.78rem] text-mid mt-1">{s.desc}</p>}
+              {s.desc && <p className="text-[0.76rem] sm:text-[0.78rem] text-mid mt-1 leading-relaxed">{s.desc}</p>}
             </li>
           ))}
         </ol>
