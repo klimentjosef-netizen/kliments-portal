@@ -83,7 +83,7 @@ Stačí orientačně, ne hodinu přesné. Cílem je kalibrovat dashboard na real
 
 ## Kam to nahrát
 
-Pošlete prosím všechno na **josef@kliments.cz** v jednom mailu (případně přes WeTransfer, pokud bude objem velký — třeba 200+ MB). Pojďme rovnou počítat s velkým objemem dat, není to problém.
+Pošlete prosím všechno na **kliment.josef@email.cz** v jednom mailu (případně přes WeTransfer, pokud bude objem velký — třeba 200+ MB). Pojďme rovnou počítat s velkým objemem dat, není to problém.
 
 Po obdržení Vám potvrdím a začnu data nahrávat do portálu. Pracuji s novým CSV importem, takže banky a faktury jdou hromadně přes pár kliků (ne ručně přepisováním). Do týdne po obdržení podkladů budete mít:
 
@@ -103,7 +103,7 @@ Pokud cokoliv chybí, nebo si nejste jistý, co Vaše účetní umí exportovat 
 S pozdravem
 Josef Kliment
 +420 ...
-josef@kliments.cz
+kliment.josef@email.cz
 https://app.kliments.cz/portal
 
 ---

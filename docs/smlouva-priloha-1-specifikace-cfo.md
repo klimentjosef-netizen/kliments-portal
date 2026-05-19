@@ -87,7 +87,7 @@ V případě potřeby výše uvedeného Poskytovatel rád zprostředkuje kontakt
 | Kanál | Účel | Reakce |
 |---|---|---|
 | Klientský portál — Zprávy | Standardní komunikace, dotazy, sdílení podkladů | Do 24 hodin |
-| E-mail josef@kliments.cz | Zálohou pokud portál nedostupný, formální komunikace | Do 24 hodin |
+| E-mail kliment.josef@email.cz | Zálohou pokud portál nedostupný, formální komunikace | Do 24 hodin |
 | Telefon | Urgentní záležitosti po dohodě | Same-day |
 | Video call (Google Meet / Zoom) | Měsíční schůzka, ad-hoc konzultace | Dle kalendáře |
 | Osobní setkání | Kvartální review, příprava roční závěrky | Po dohodě |

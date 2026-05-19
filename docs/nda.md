@@ -14,7 +14,7 @@ mezi smluvními stranami:
 Josef Kliment
 IČO: __________
 se sídlem: Ostrava, _______________
-e-mail: josef@kliments.cz
+e-mail: kliment.josef@email.cz
 
 a
 

@@ -15,7 +15,7 @@ Josef Kliment
 IČO: __________
 DIČ: __________
 se sídlem: Ostrava, _______________
-e-mail: josef@kliments.cz
+e-mail: kliment.josef@email.cz
 (dále jen „**Poskytovatel**")
 
 a
@@ -73,7 +73,7 @@ e-mail: autoservis@techcars.cz
 
 4.2. Klient se zavazuje:
 - (a) chránit přihlašovací údaje a nesdílet je s třetími osobami;
-- (b) bez zbytečného odkladu nahlásit ztrátu nebo zneužití přístupových údajů na josef@kliments.cz;
+- (b) bez zbytečného odkladu nahlásit ztrátu nebo zneužití přístupových údajů na kliment.josef@email.cz;
 - (c) využívat Portál pouze pro účely vyplývající z této smlouvy.
 
 4.3. Poskytovatel je oprávněn provádět údržbové práce a změny funkčnosti Portálu. O plánovaných výpadcích delších než 1 hodinu informuje Klienta předem.
