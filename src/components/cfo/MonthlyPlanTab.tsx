@@ -280,6 +280,72 @@ export default function MonthlyPlanTab({ ledger, taxDeadlines, complexity, onLed
           className="px-3 py-1.5 rounded-lg text-mid hover:text-ink hover:bg-sand transition-colors text-sm">Dalsi &rarr;</button>
       </div>
 
+      {/* PLAN vs ACTUAL RECONCILIATION */}
+      {(() => {
+        const incomeExpected = incomeItems.reduce((s, i) => s + Math.abs(i.amount_expected), 0)
+        const incomeActual = incomeItems
+          .filter(i => i.status === 'paid' || i.status === 'confirmed')
+          .reduce((s, i) => s + Math.abs(i.amount_actual), 0)
+        const expenseExpected = expenseItems.reduce((s, i) => s + Math.abs(i.amount_expected), 0)
+        const expenseActual = expenseItems
+          .filter(i => i.status === 'paid' || i.status === 'confirmed')
+          .reduce((s, i) => s + Math.abs(i.amount_actual), 0)
+
+        const incomeVarPct = incomeExpected > 0 ? ((incomeActual - incomeExpected) / incomeExpected) * 100 : null
+        const expenseVarPct = expenseExpected > 0 ? ((expenseActual - expenseExpected) / expenseExpected) * 100 : null
+
+        const netExpected = incomeExpected - expenseExpected
+        const netActual = incomeActual - expenseActual
+        const netVar = netActual - netExpected
+
+        const totalItems = items.length
+        const paidItems = items.filter(i => i.status === 'paid' || i.status === 'confirmed').length
+        const skippedItems = items.filter(i => i.status === 'skipped').length
+        const completePct = totalItems > 0 ? Math.round((paidItems / totalItems) * 100) : 0
+
+        if (totalItems === 0) return null
+
+        return (
+          <div className="bg-white rounded-[20px] p-5 border border-black/[0.06]">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+              <h3 className="text-[0.62rem] tracking-[0.18em] uppercase text-mid font-medium">Plán vs realizace</h3>
+              <span className="text-[0.72rem] text-mid">
+                <span className={`font-medium ${completePct >= 80 ? 'text-green' : completePct >= 50 ? 'text-amber' : 'text-rose-deep'}`}>
+                  {completePct} %
+                </span>
+                {' '}uzavřeno
+                {' · '}
+                <span className="text-mid">{paidItems} z {totalItems} položek</span>
+                {skippedItems > 0 && <span className="text-mid"> · {skippedItems} přeskočeno</span>}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <ReconciliationCard
+                label="Příjmy"
+                expected={incomeExpected}
+                actual={incomeActual}
+                variancePct={incomeVarPct}
+                higherIsBetter={true}
+              />
+              <ReconciliationCard
+                label="Výdaje"
+                expected={expenseExpected}
+                actual={expenseActual}
+                variancePct={expenseVarPct}
+                higherIsBetter={false}
+              />
+              <ReconciliationCard
+                label="Čistá bilance"
+                expected={netExpected}
+                actual={netActual}
+                varianceAbs={netVar}
+                higherIsBetter={true}
+              />
+            </div>
+          </div>
+        )
+      })()}
+
       {/* DEADLINE WARNINGS */}
       {monthDeadlines.length > 0 && (
         <div className="bg-amber/[0.06] rounded-[20px] p-5 border border-amber/15">
@@ -417,4 +483,63 @@ export default function MonthlyPlanTab({ ledger, taxDeadlines, complexity, onLed
 
 function isPaid(items: LedgerItem[]): boolean {
   return items.some(i => i.status === 'paid' || i.status === 'confirmed')
+}
+
+function ReconciliationCard({
+  label,
+  expected,
+  actual,
+  variancePct,
+  varianceAbs,
+  higherIsBetter,
+}: {
+  label: string
+  expected: number
+  actual: number
+  variancePct?: number | null
+  varianceAbs?: number
+  higherIsBetter: boolean
+}) {
+  // Compute display variance and direction
+  const hasVariance = (variancePct !== undefined && variancePct !== null) || varianceAbs !== undefined
+  const isUp = (variancePct !== undefined && variancePct !== null && variancePct > 0)
+    || (varianceAbs !== undefined && varianceAbs > 0)
+  const isZero = (variancePct !== undefined && variancePct !== null && Math.abs(variancePct) < 0.5)
+    || (varianceAbs !== undefined && varianceAbs === 0)
+  const isGood = isZero ? true : higherIsBetter ? isUp : !isUp
+  const arrow = isZero ? '→' : isUp ? '↑' : '↓'
+  const color = isZero ? 'text-mid' : isGood ? 'text-green' : 'text-rose-deep'
+
+  return (
+    <div className="rounded-[14px] border border-black/[0.06] bg-sand-pale/30 p-4">
+      <p className="text-[0.6rem] tracking-[0.16em] uppercase text-mid font-medium mb-2">{label}</p>
+      <div className="space-y-1">
+        <div className="flex justify-between items-baseline">
+          <span className="text-[0.7rem] text-mid">Plán</span>
+          <span className="text-[0.85rem] font-medium text-ink tabular-nums">
+            {fmt(expected)}
+          </span>
+        </div>
+        <div className="flex justify-between items-baseline">
+          <span className="text-[0.7rem] text-mid">Realizace</span>
+          <span className="text-[0.85rem] font-medium text-ink tabular-nums">
+            {fmt(actual)}
+          </span>
+        </div>
+        {hasVariance && (
+          <div className="flex justify-between items-baseline pt-1.5 mt-1 border-t border-black/[0.06]">
+            <span className="text-[0.7rem] text-mid">Odchylka</span>
+            <span className={`text-[0.85rem] font-medium tabular-nums ${color}`}>
+              {arrow}{' '}
+              {variancePct !== undefined && variancePct !== null
+                ? `${Math.abs(variancePct).toFixed(1)} %`
+                : varianceAbs !== undefined
+                  ? fmt(Math.abs(varianceAbs))
+                  : '—'}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
 }
