@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Topbar from '@/components/Topbar'
+import OnboardingWizard from '@/components/admin/OnboardingWizard'
 import type { Profile } from '@/lib/types'
 
 const SERVICES = ['CFO na volné noze', 'Rozjeď to správně', 'Prodej za maximum', 'Firemní audit', 'Startup kit', 'Příprava na investora', 'Mentoring']
@@ -12,12 +13,6 @@ export default function AdminPage() {
   const [clients, setClients] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
-  const [newEmail, setNewEmail] = useState('')
-  const [newName, setNewName] = useState('')
-  const [newService, setNewService] = useState(SERVICES[0])
-  const [newPassword, setNewPassword] = useState('')
-  const [adding, setAdding] = useState(false)
-  const [addError, setAddError] = useState('')
   const [isAdmin, setIsAdmin] = useState(false)
 
   const supabase = createClient()
@@ -44,30 +39,6 @@ export default function AdminPage() {
     load()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  async function addClient() {
-    if (!newEmail || !newName) return
-    setAdding(true)
-    setAddError('')
-
-    const res = await fetch('/portal/api/create-client', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: newEmail, name: newName, password: newPassword, service: newService }),
-    })
-    const result = await res.json()
-
-    if (result.error) {
-      setAddError(result.error)
-    } else {
-      await refreshClients()
-      setShowAdd(false)
-      setNewEmail('')
-      setNewName('')
-      setNewPassword('')
-    }
-    setAdding(false)
-  }
 
   async function toggleActive(clientId: string, current: boolean) {
     await supabase.from('profiles').update({ active: !current }).eq('id', clientId)
@@ -120,65 +91,22 @@ export default function AdminPage() {
         <div className="flex justify-between items-center mb-6">
           <h2 className="font-serif text-xl text-ink">Správa klientů</h2>
           <button
-            onClick={() => setShowAdd(!showAdd)}
+            onClick={() => setShowAdd(true)}
             className="bg-rose text-white px-5 py-2.5 rounded-full text-[0.75rem] tracking-[0.1em] uppercase font-medium hover:bg-rose-deep transition-colors"
           >
             + Přidat klienta
           </button>
         </div>
 
-        {/* Add form */}
+        {/* Onboarding wizard */}
         {showAdd && (
-          <div className="bg-white rounded-[20px] p-6 border border-black/[0.06] mb-6">
-            <h3 className="font-serif text-base text-ink mb-4">Nový klient</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="text-[0.62rem] tracking-[0.16em] uppercase text-mid block mb-1.5">Jméno</label>
-                <input value={newName} onChange={(e) => setNewName(e.target.value)}
-                  className="w-full border-b-[1.5px] border-black/10 bg-transparent py-2.5 text-sm outline-none focus:border-rose transition-colors"
-                  placeholder="Jan Novák" />
-              </div>
-              <div>
-                <label className="text-[0.62rem] tracking-[0.16em] uppercase text-mid block mb-1.5">E-mail</label>
-                <input value={newEmail} onChange={(e) => setNewEmail(e.target.value)}
-                  className="w-full border-b-[1.5px] border-black/10 bg-transparent py-2.5 text-sm outline-none focus:border-rose transition-colors"
-                  placeholder="jan@firma.cz" />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="text-[0.62rem] tracking-[0.16em] uppercase text-mid block mb-1.5">Služby</label>
-                <div className="flex flex-wrap gap-1.5 py-2">
-                  {SERVICES.map(s => {
-                    const selected = newService.split(',').map(x => x.trim()).filter(Boolean).includes(s)
-                    return (
-                      <button key={s} type="button" onClick={() => {
-                        const current = newService.split(',').map(x => x.trim()).filter(Boolean)
-                        const updated = selected ? current.filter(x => x !== s) : [...current, s]
-                        setNewService(updated.join(', '))
-                      }}
-                        className={`px-2.5 py-1 rounded-full text-[0.65rem] font-medium transition-colors ${
-                          selected ? 'bg-rose text-white' : 'bg-black/[0.04] text-mid hover:bg-rose/10 hover:text-rose'
-                        }`}>
-                        {s}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-              <div>
-                <label className="text-[0.62rem] tracking-[0.16em] uppercase text-mid block mb-1.5">Heslo</label>
-                <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full border-b-[1.5px] border-black/10 bg-transparent py-2.5 text-sm outline-none focus:border-rose transition-colors"
-                  placeholder="Min. 6 znaků" />
-              </div>
-            </div>
-            {addError && <p className="text-rose-deep text-sm mb-3">{addError}</p>}
-            <button onClick={addClient} disabled={adding || !newEmail || !newName || !newPassword}
-              className="bg-rose text-white px-6 py-2 rounded-full text-[0.75rem] tracking-[0.1em] uppercase font-medium hover:bg-rose-deep transition-colors disabled:opacity-50">
-              {adding ? 'Přidávám...' : 'Přidat'}
-            </button>
-          </div>
+          <OnboardingWizard
+            onCancel={() => setShowAdd(false)}
+            onComplete={async () => {
+              setShowAdd(false)
+              await refreshClients()
+            }}
+          />
         )}
 
         {/* Clients table */}
