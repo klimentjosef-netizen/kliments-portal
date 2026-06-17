@@ -31,6 +31,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# klientská data + zálohy reportů (NIKDY necommitovat)
+/data/
+/backups/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
