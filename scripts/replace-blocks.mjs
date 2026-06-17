@@ -201,6 +201,22 @@ const blocks = [
     rows: topExp.map((p) => [p.name.slice(0, 28), String(p.monthsPresent), p.total.toLocaleString('cs-CZ')]),
     footer: 'Hrubé částky z knihy přijatých faktur (vč. DPH). POP-ART a Inter Cars = nákup dílů (variabilní); FÚ/OSSZ = daně a odvody; Výplata = mzdy.' },
 
+  { type: 'heading', level: 2, text: 'Měsíční P&L 2025', eyebrow: 'Skutečnost po měsících (z knih faktur, reconciliováno na výkaz)' },
+  { type: 'table', title: 'Hospodaření po měsících 2025', headers: ['Měsíc', 'Tržby', 'Materiál/díly', 'Mzdy + režie', 'EBITDA'], rows: (() => {
+      const out = []
+      for (let i = 1; i <= 12; i++) {
+        const mk = `2025-${String(i).padStart(2, '0')}`
+        const ml = cur.data.ledger.months.find((m) => m.month === mk); if (!ml) continue
+        const get = (re) => ml.items.filter((it) => re.test(it.description)).reduce((s, it) => s + Math.abs(it.status === 'paid' ? it.amount_actual : it.amount_expected), 0)
+        const trzby = ml.items.filter((it) => it.category === 'revenue').reduce((s, it) => s + (it.status === 'paid' ? it.amount_actual : it.amount_expected), 0)
+        const mat = get(/Materiál/i), fix = get(/Mzdy|režie/i)
+        const ebitda = trzby - mat - fix
+        out.push([mk, Math.round(trzby).toLocaleString('cs-CZ'), Math.round(mat).toLocaleString('cs-CZ'), Math.round(fix).toLocaleString('cs-CZ'), Math.round(ebitda).toLocaleString('cs-CZ')])
+      }
+      return out
+    })(),
+    footer: 'Měsíční tvar z dat faktur (datum uskutečnění), úrovně reconciliované na oficiální výkaz. Pozn.: fakturované nákupy ≠ spotřeba (zásoby, zálohy) → škálováno na výkaz.' },
+
   { type: 'heading', level: 2, text: 'Rozpad výnosů a nákladů po účtech', eyebrow: 'Hlavní kniha — 2024 vs 2025 SKUTEČNOST' },
   { type: 'table', title: 'Roční rozpad po účtech (z hlavní knihy)', headers: ['Účet / položka', '2024', '2025', 'Δ r/r'], rows: pnlRows,
     footer: 'Kompletní roční rozpad obou let z hlavní knihy (sedí na výkaz). Měsíční rozpad po účtech v podkladech není — vyžadoval by měsíční obratovou předvahu; měsíční jsou jen souhrnné tržby/náklady (cashflow graf).' },
