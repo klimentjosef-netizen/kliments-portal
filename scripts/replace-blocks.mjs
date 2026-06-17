@@ -40,8 +40,11 @@ const cash24 = cash(2024, 'rozvaha_2024_12.xlsx')   // now=2024, prev=2023
 function rozAsset(re) {
   const wb = XLSX.read(readFileSync(`${BASE}/2025/rozvaha_2025_12.xlsx`), { type: 'buffer' })
   const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' })
-  const r = rows.find((x) => re.test(String(x.TEXT || '').trim()))
-  return r ? { now: (Number(r.NETTO) || 0) * 1000, prev: (Number(r.NETTO_MIN) || 0) * 1000 } : { now: 0, prev: 0 }
+  // v rozvaze je víc řádků se stejným textem (souhrn + prázdné) → vezmi nenulový
+  const matches = rows.filter((x) => re.test(String(x.TEXT || '').trim()))
+  if (!matches.length) return { now: 0, prev: 0 }
+  const best = matches.reduce((a, b) => Math.abs(Number(b.NETTO) || 0) >= Math.abs(Number(a.NETTO) || 0) ? b : a)
+  return { now: (Number(best.NETTO) || 0) * 1000, prev: (Number(best.NETTO_MIN) || 0) * 1000 }
 }
 const zasoby = rozAsset(/^Zásoby$/i), pohl = rozAsset(/^Pohledávky$/i), casRoz = rozAsset(/^Časové rozlišení aktiv$/i)
 const CASH = { 2023: cash24.prev, 2024: cash24.now, 2025: cash25.now } // 1168k, 496k, 82k
@@ -75,7 +78,9 @@ const bridge = {
 }
 bridge.operating = bridge.netProfit + bridge.deprec + bridge.dInv + bridge.dRec + bridge.dPre + bridge.dTradePay + bridge.dAdvances + bridge.dOtherPay
 bridge.financing = bridge.ownerLoan + bridge.bankLoan
-bridge.total = bridge.operating + bridge.financing // ≈ změna hotovosti
+bridge.cashChange = CASH[2025] - CASH[2024] // skutečná změna hotovosti (-414k)
+bridge.residual = bridge.cashChange - bridge.operating - bridge.financing // dorovnání (zaokrouhlení/ostatní)
+bridge.total = bridge.cashChange
 const an = JSON.parse(readFileSync(new URL('../data/techcars/techcars-analysis.json', import.meta.url), 'utf8'))
 const fc = JSON.parse(readFileSync(new URL('../data/techcars/techcars-forecast.json', import.meta.url), 'utf8'))
 
@@ -99,8 +104,8 @@ const newRisks = [
 
 const blocks = [
   { type: 'heading', level: 1, text: 'Finanční řízení servisu',
-    eyebrow: 'TECHCARS SERVIS · 2024–2025 SKUTEČNOST + 2026 PLÁN',
-    sub: 'Reálná čísla z účetní závěrky. Roky oddělené, 2026 je plán (base case +4 % tržeb).' },
+    eyebrow: 'TECHCARS SERVIS · 2024–2025 SKUTEČNOST · 2026 PLÁN',
+    sub: '📅 2024 a 2025 = SKUTEČNOST z účetní závěrky (uzavřené roky). 2026 = PLÁN (base case +4 % tržeb). Roky jsou striktně oddělené.' },
 
   { type: 'kpi-grid', columns: 4, items: [
     { label: 'Hotovost k 31.12.2025', value: CASH[2025].toLocaleString('cs-CZ') + ' Kč', sub: `runway ~${runwayMonths} měsíce ⚠`, trend: 'down', intent: 'critical' },
@@ -115,7 +120,7 @@ const blocks = [
   { type: 'callout', intent: 'warning', title: 'Ztráta je strukturální, ne jednorázová',
     body: 'Po odečtení dílů a materiálu (61 % tržeb) zbývá marže ~39 %, která nepokryje fixní náklady (~3,3 M/rok). Provozní ztráta drží dva roky po sobě (−277k, −269k) a model 2026 ji bez zásahu opakuje (~−290k). Ziskové jsou jen sezónní vrcholy (duben, říjen) — léto (červen–srpen) je pod bodem zvratu.' },
 
-  { type: 'yoy-comparison', title: 'Vývoj hospodaření 2024 → 2026', years: [2024, 2025, 2026], note: '2026 = plán (base case +4 % tržeb, fixní +4 %). EBITDA ≈ provozní VH + odpisy. „Výsledek po zdanění" 2026 neuveden (závisí na finančních nákladech).', rows: [
+  { type: 'yoy-comparison', title: 'Vývoj hospodaření — 2024 a 2025 SKUTEČNOST, 2026 PLÁN', years: [2024, 2025, 2026], note: '⬅ 2024 a 2025 = skutečnost z účetní závěrky. 2026 = plán (base case +4 % tržeb, fixní +4 %). EBITDA ≈ provozní VH + odpisy. „Výsledek po zdanění" 2026 neuveden (závisí na finančních nákladech).', rows: [
     { label: 'Tržby', values: [v24.trzby, v25.trzby, fc.annual.revenue], format: 'currency' },
     { label: 'Materiál a díly (variabilní)', values: [var24, var25, fc.annual.variable_costs], format: 'currency', higherIsBetter: false },
     { label: 'Osobní náklady', values: [v24.osobni, v25.osobni, Math.round(v25.osobni * 1.04)], format: 'currency', higherIsBetter: false },
@@ -143,7 +148,9 @@ const blocks = [
     ['FINANČNÍ', ''],
     ['  Půjčka od společníka', '+' + bridge.ownerLoan.toLocaleString('cs-CZ') + ' Kč'],
     ['  Splátka bankovního úvěru', bridge.bankLoan.toLocaleString('cs-CZ') + ' Kč'],
-  ], footer: `Provozní −${Math.abs(bridge.operating).toLocaleString('cs-CZ')} + finanční +${bridge.financing.toLocaleString('cs-CZ')} = ${bridge.total.toLocaleString('cs-CZ')} Kč (hotovost 496k → 82k). Zdroj: rozvaha (PDF, vč. pasiv). Klíč: provoz a pracovní kapitál odčerpaly 636k, majitel dolil 341k.` },
+    ['Ostatní / zaokrouhlení', (bridge.residual >= 0 ? '+' : '') + bridge.residual.toLocaleString('cs-CZ') + ' Kč'],
+    ['= ZMĚNA HOTOVOSTI', bridge.cashChange.toLocaleString('cs-CZ') + ' Kč'],
+  ], footer: `Provozní ${bridge.operating.toLocaleString('cs-CZ')} + finanční +${bridge.financing.toLocaleString('cs-CZ')} = ${bridge.cashChange.toLocaleString('cs-CZ')} Kč (hotovost 496k → 82k ✓). Zdroj: rozvaha (PDF, vč. pasiv). Klíč: provoz a pracovní kapitál odčerpaly ${Math.abs(bridge.operating).toLocaleString('cs-CZ')}, majitel dolil 341k.` },
   { type: 'callout', intent: 'info', title: 'Páky cash: zásoby +170k a zmizelé zálohy',
     body: 'Dvě věci vážou/odčerpaly nejvíc hotovosti: (1) sklad dílů narostl 128→298k — snížením na rozumnou úroveň (JIT nákup od POP-ART/Inter Cars, kteří dodávají každý měsíc) lze uvolnit ~100–170k; (2) 308k přijatých záloh od zákazníků se v 2025 vyčerpalo — zvážit zálohové platby u větších zakázek pro stabilní cash.' },
 
@@ -153,7 +160,7 @@ const blocks = [
     ['B2B / flotila (STING aj.)', 'Pravidelné', '~6 %', 'STING Service 11 měsíců/rok, „Přímý prodej" každý měsíc'],
   ], footer: 'Pravidelná (smluvní) složka jen 4–6 % → příjmy řídí sezónnost, ne dlouhodobé smlouvy. Příležitost: získat víc flotilových klientů (stabilní opakovaný příjem).' },
 
-  { type: 'cashflow-chart', title: 'Měsíční tržby vs náklady 2025 (sezónnost)',
+  { type: 'cashflow-chart', title: 'Měsíční tržby vs náklady — 2025 SKUTEČNOST (sezónnost)',
     months: cf25.map((m) => m.label.slice(5)), revenue: cf25.map((m) => m.revenue), costs: cf25.map((m) => m.costs) },
 
   { type: 'heading', level: 2, text: 'Co stojí provoz', eyebrow: 'Nákladová struktura 2025' },

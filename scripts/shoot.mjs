@@ -1,0 +1,10 @@
+import { chromium } from 'playwright'
+const file = new URL('../data/techcars/preview.html', import.meta.url)
+const browser = await chromium.launch()
+const page = await browser.newPage({ viewport: { width: 1140, height: 1400 }, deviceScaleFactor: 2 })
+await page.goto(file.href)
+await page.waitForTimeout(300)
+const out = new URL('../data/techcars/preview.png', import.meta.url).pathname.replace(/^\//, '')
+await page.screenshot({ path: out, fullPage: true })
+console.log('Screenshot:', out)
+await browser.close()

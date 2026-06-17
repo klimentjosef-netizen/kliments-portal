@@ -39,11 +39,16 @@ const seasonRaw = Array.from({ length: 12 }, (_, i) => (an.income[2024].seasonal
 const season = seasonRaw.map((s) => (s * 12) / seasonRaw.reduce((a, b) => a + b, 0))
 
 let _id = 0
-const mkItem = (date, description, category, source, amount, actual) => ({
-  id: `tc-${++_id}`, date, description, category, source,
-  amount_expected: Math.round(amount), amount_actual: actual ? Math.round(amount) : 0,
-  status: actual ? 'paid' : 'expected',
-})
+// Znaménková konvence enginu: příjmy +, náklady/odvody/daně −.
+const mkItem = (date, description, category, source, amount, actual) => {
+  const income = category === 'revenue'
+  const signed = Math.round(income ? Math.abs(amount) : -Math.abs(amount))
+  return {
+    id: `tc-${++_id}`, date, description, category, source,
+    amount_expected: signed, amount_actual: actual ? signed : 0,
+    status: actual ? 'paid' : 'expected',
+  }
+}
 
 function monthsForYear(year) {
   const v = V[year]
@@ -73,8 +78,10 @@ function monthsForYear(year) {
 }
 
 function months2026() {
+  // locked:true → /cfo stránka je nepřegeneruje (jinak by smazala tržby+variabilní
+  // a nechala jen fixní náklady, protože autoservis nemá tarify/členy).
   return fc.months.map((m, i) => ({
-    month: m.label, locked: false,
+    month: m.label, locked: true,
     items: [
       mkItem(`${m.label}-15`, 'Tržby – plán 2026', 'revenue', 'invoice', m.revenue + Math.round(fc.annual.other_income / 12), false),
       mkItem(`${m.label}-15`, 'Materiál a díly (variabilní) – plán', 'cost', 'bill', m.variable, false),
@@ -93,8 +100,9 @@ const ledgerMonths = [...monthsForYear(2024), ...monthsForYear(2025), ...months2
 // cashflow_months (36) z ledgeru
 let cum = 0
 const cashflow_months = ledgerMonths.map((m) => {
-  const revenue = m.items.filter((it) => it.category === 'revenue').reduce((s, it) => s + (it.status === 'paid' ? it.amount_actual : it.amount_expected), 0)
-  const costs = m.items.filter((it) => it.category === 'cost').reduce((s, it) => s + (it.status === 'paid' ? it.amount_actual : it.amount_expected), 0)
+  const val = (it) => (it.status === 'paid' ? it.amount_actual : it.amount_expected)
+  const revenue = m.items.filter((it) => it.category === 'revenue').reduce((s, it) => s + val(it), 0)
+  const costs = Math.abs(m.items.filter((it) => it.category !== 'revenue').reduce((s, it) => s + val(it), 0)) // náklady jsou záporné → abs
   const ebitda = revenue - costs; cum += ebitda
   return { label: m.month, revenue, costs, ebitda, cumulative: cum }
 })
