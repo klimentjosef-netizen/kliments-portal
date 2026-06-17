@@ -23,12 +23,14 @@ interface CashflowTabProps {
   ledger: Ledger
   complexity: 'simple' | 'detailed'
   bankBalance: number
+  businessModel?: string
   onRampMonthsChange?: (v: number) => void
   onProjectionMonthsChange?: (v: number) => void
   onBusinessStartMonthChange?: (v: string) => void
 }
 
-export default function CashflowTab({ tiers, extras, fixedCosts, variablePct, budget, rampMonths, projectionMonths, startOffset, businessStartMonth, ledger, complexity, bankBalance, onRampMonthsChange, onProjectionMonthsChange, onBusinessStartMonthChange }: CashflowTabProps) {
+export default function CashflowTab({ tiers, extras, fixedCosts, variablePct, budget, rampMonths, projectionMonths, startOffset, businessStartMonth, ledger, complexity, bankBalance, businessModel, onRampMonthsChange, onProjectionMonthsChange, onBusinessStartMonthChange }: CashflowTabProps) {
+  const isTransaction = businessModel === 'transaction'
   const [wiMembers, setWiMembers] = useState(0)
   const [wiPrice, setWiPrice] = useState(0)
   const [wiCost, setWiCost] = useState(0)
@@ -53,7 +55,8 @@ export default function CashflowTab({ tiers, extras, fixedCosts, variablePct, bu
 
   return (
     <div className="space-y-6">
-      {/* KPI metrics */}
+      {/* KPI metrics — tarifové, jen předplatný model */}
+      {!isTransaction && (<>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="bg-white rounded-[14px] p-4 border border-black/[0.06]">
           <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid mb-1.5">Měsíční příjem</div>
@@ -90,6 +93,7 @@ export default function CashflowTab({ tiers, extras, fixedCosts, variablePct, bu
         <ProgressBar value={totalMembers} max={be.members < 999 ? be.members : 100} showPercent />
         <div className="text-[0.68rem] text-mid mt-2">{bePct} % break-even</div>
       </div>
+      </>)}
 
       {/* Ramp & projection settings */}
       {(onRampMonthsChange || onProjectionMonthsChange || onBusinessStartMonthChange) && (
@@ -138,7 +142,8 @@ export default function CashflowTab({ tiers, extras, fixedCosts, variablePct, bu
         <CashflowChart months={projection} title={`Cashflow: ${projectionMonths}M projekce`} />
       )}
 
-      {/* WHAT-IF SIMULATOR */}
+      {/* WHAT-IF SIMULATOR + scénáře — tarifové, jen předplatný model (transakční má záložku Co kdyby) */}
+      {!isTransaction && (<>
       <div className="bg-white rounded-[20px] p-6 border border-black/[0.06]">
         <h3 className="font-serif text-base text-ink mb-1">{isSimple ? 'Co kdyz...?' : 'Simulator scenaru'}</h3>
         <p className="text-[0.72rem] text-mid mb-4">Pohybujte hodnotami a sledujte dopad na {isSimple ? 'zisk' : 'EBITDA'}.</p>
@@ -239,6 +244,7 @@ export default function CashflowTab({ tiers, extras, fixedCosts, variablePct, bu
           <DoughnutChart items={revMix} title={isSimple ? 'Odkud prijmy jdou' : 'Slozeni prijmu'} />
         )}
       </div>
+      </>)}
 
       {/* Monthly breakdown table */}
       {projection.length > 0 && (

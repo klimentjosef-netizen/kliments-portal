@@ -8,6 +8,7 @@ import {
   calcLedgerMonth, calcCashPosition, calcBreakeven,
   calcRevenue, calcOpex, calcWhatIf, fmt, fmtShort,
 } from './calcEngine'
+import { type WhatIfBase, calcWhatIfAuto, breakEvenRevenue, TECHCARS_BASE, ZERO_LEVERS } from './calcWhatIfAuto'
 import ActualVsPlanChart from './ActualVsPlanChart'
 
 interface DashboardTabProps {
@@ -25,6 +26,8 @@ interface DashboardTabProps {
   timeline: TimelineItem[]
   onTabChange: (tab: string) => void
   onProfileChange: (profile: BusinessProfile) => void
+  businessModel?: string
+  whatifBase?: Partial<WhatIfBase>
 }
 
 const CZ_SHORT = ['Led', 'Uno', 'Bre', 'Dub', 'Kve', 'Cvn', 'Cvc', 'Srp', 'Zar', 'Rij', 'Lis', 'Pro']
@@ -34,17 +37,23 @@ export default function DashboardTab({
   ledger, tiers, extras, fixedCosts, variablePct, budget,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   receivables, taxes, vat, profile, recommendations, timeline,
-  onTabChange, onProfileChange,
+  onTabChange, onProfileChange, businessModel, whatifBase,
 }: DashboardTabProps) {
   const [whatIfAmount, setWhatIfAmount] = useState(0)
   const isSimple = profile.complexity === 'simple'
+  const isTransaction = businessModel === 'transaction'
 
   const cashPos = calcCashPosition(ledger.bank_balance, ledger, 6)
   const be = calcBreakeven(tiers, fixedCosts, variablePct)
   const totalMembers = tiers.reduce((s, t) => s + t.members, 0)
   const rev = calcRevenue(tiers, extras)
   const opex = calcOpex(fixedCosts, variablePct, rev.total)
-  const monthlyEbitda = rev.total - opex.total
+  // transakční byznys: reálné hodnoty z whatif_base (skutečnost), ne z tarifů
+  const wbase: WhatIfBase = { ...TECHCARS_BASE, ...whatifBase }
+  const wres = calcWhatIfAuto(wbase, ZERO_LEVERS)
+  const beRevenue = breakEvenRevenue(wbase, ZERO_LEVERS)
+  const runwayMonths = wbase.fixed_annual > 0 ? ledger.bank_balance / (wbase.fixed_annual / 12) : null
+  const monthlyEbitda = isTransaction ? Math.round(wres.ebitda / 12) : rev.total - opex.total
 
   const currentMonth = new Date().toISOString().slice(0, 7)
   const currentML = ledger.months.find(m => m.month === currentMonth)
@@ -205,7 +214,8 @@ export default function DashboardTab({
         </div>
       )}
 
-      {/* WHAT-IF CALCULATOR */}
+      {/* WHAT-IF CALCULATOR — jen předplatný model (transakční má vlastní záložku Co kdyby) */}
+      {!isTransaction && (
       <div className="bg-white rounded-[20px] p-6 border border-black/[0.06]">
         <h3 className="font-serif text-base text-ink mb-1">{isSimple ? 'Muzu si dovolit...?' : 'Simulace investice'}</h3>
         <p className="text-[0.72rem] text-mid mb-4">{isSimple ? 'Zadejte castku a uvidite, co se stane.' : 'Jednora zovy vydaj a jeho dopad na cashflow.'}</p>
@@ -249,9 +259,35 @@ export default function DashboardTab({
           </div>
         )}
       </div>
+      )}
 
-      {/* KPI CARDS - detailed only */}
-      {!isSimple && (
+      {/* KPI CARDS */}
+      {isTransaction ? (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="bg-white rounded-[14px] p-4 border border-black/[0.06]">
+            <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid mb-1.5">Roční tržby</div>
+            <div className="font-serif text-xl font-light text-ink leading-none">{fmtShort(wbase.annual_revenue)}</div>
+            <div className={`text-[0.68rem] mt-1 ${wres.ebitda >= 0 ? 'text-green' : 'text-rose-deep'}`}>EBITDA {wres.ebitda >= 0 ? '+' : ''}{fmtShort(wres.ebitda)}</div>
+          </div>
+          <div className="bg-white rounded-[14px] p-4 border border-black/[0.06]">
+            <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid mb-1.5">Hotovost</div>
+            <div className={`font-serif text-xl font-light leading-none ${ledger.bank_balance > 0 ? 'text-ink' : 'text-rose-deep'}`}>{fmtShort(ledger.bank_balance)}</div>
+            <div className={`text-[0.68rem] mt-1 ${runwayMonths !== null && runwayMonths < 1 ? 'text-rose-deep' : 'text-mid'}`}>
+              {runwayMonths !== null ? `vystačí ~${runwayMonths.toFixed(1)} měs` : ''}
+            </div>
+          </div>
+          <div className="bg-white rounded-[14px] p-4 border border-black/[0.06]">
+            <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid mb-1.5">Materiálová náročnost</div>
+            <div className="font-serif text-xl font-light text-ink leading-none">{Math.round(wbase.material_pct)} %</div>
+            <div className="text-[0.68rem] mt-1 text-mid">díly/materiál z tržeb</div>
+          </div>
+          <div className="bg-white rounded-[14px] p-4 border border-black/[0.06]">
+            <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid mb-1.5">Bod zvratu</div>
+            <div className="font-serif text-xl font-light text-ink leading-none">{isFinite(beRevenue) ? fmtShort(beRevenue) : '···'}</div>
+            <div className="text-[0.68rem] mt-1 text-mid">{isFinite(beRevenue) ? (wbase.annual_revenue >= beRevenue ? '✓ dosaženo' : `chybí ${fmtShort(beRevenue - wbase.annual_revenue)}`) : ''}</div>
+          </div>
+        </div>
+      ) : !isSimple && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="bg-white rounded-[14px] p-4 border border-black/[0.06]">
             <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid mb-1.5">Break-even</div>

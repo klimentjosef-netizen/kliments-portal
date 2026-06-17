@@ -198,6 +198,12 @@ function CfoPageInner() {
   const extras = (d.extras || DEFAULT_DATA.extras) as Extra[]
   const fixedCosts = (d.fixed_costs || DEFAULT_DATA.fixed_costs) as CostItem[]
   const variablePct = (d.variable_cost_pct ?? DEFAULT_DATA.variable_cost_pct) as number
+  // Typ byznysu: 'transaction' (autoservis ap.) vs 'subscription' (členové/tarify).
+  // Default subscription kvůli zpětné kompatibilitě stávajících reportů.
+  const businessModel = (d.business_model as string) || 'subscription'
+  const isTransaction = businessModel === 'transaction'
+  // Záložky nevhodné pro transakční byznys (postavené na tarifech/členech/CAPEX startupu)
+  const HIDDEN_FOR_TRANSACTION = ['pricing', 'monthly', 'budget']
   const budget = (d.budget || DEFAULT_DATA.budget) as Budget
   const rampMonths = (d.ramp_months ?? DEFAULT_DATA.ramp_months) as number
   const projectionMonths = (d.projection_months ?? DEFAULT_DATA.projection_months) as number
@@ -402,6 +408,17 @@ function CfoPageInner() {
             </select>
           </div>
           <div className="flex items-center gap-2">
+            <label className="text-[0.58rem] tracking-[0.1em] uppercase text-mid">Typ byznysu</label>
+            <select
+              value={businessModel}
+              onChange={e => updateData('business_model', e.target.value)}
+              className="bg-sand-pale rounded-lg px-3 py-1.5 text-[0.78rem] text-ink border-none outline-none focus:ring-1 focus:ring-rose"
+            >
+              <option value="transaction">Transakční (servis, e-shop…)</option>
+              <option value="subscription">Předplatné (členové, tarify)</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
             <label className="text-[0.58rem] tracking-[0.1em] uppercase text-mid">Platce DPH</label>
             <button
               onClick={() => updateData('business_profile', { ...profile, vat_payer: !profile.vat_payer })}
@@ -437,6 +454,7 @@ function CfoPageInner() {
         {/* Tabs */}
         <CfoTabs tabs={ALL_TABS.filter(t => {
           if (t.id === 'vat' && !profile.vat_payer && !profile.vat_transition_date) return false
+          if (isTransaction && HIDDEN_FOR_TRANSACTION.includes(t.id)) return false
           return true
         })} active={tab} onChange={handleTabChange} />
 
@@ -467,6 +485,7 @@ function CfoPageInner() {
             ledger={ledger}
             complexity={profile.complexity}
             bankBalance={ledger.bank_balance}
+            businessModel={businessModel}
             onRampMonthsChange={v => updateData('ramp_months', v)}
             onProjectionMonthsChange={v => updateData('projection_months', v)}
             onBusinessStartMonthChange={v => updateData('business_start_month', v)}
@@ -493,6 +512,7 @@ function CfoPageInner() {
             variablePct={variablePct} budget={budget} receivables={receivables}
             taxes={taxesData} vat={vat} profile={profile}
             recommendations={recommendations} timeline={timeline}
+            businessModel={businessModel} whatifBase={d.whatif_base}
             onTabChange={handleTabChange}
             onProfileChange={v => updateData('business_profile', v)}
           />

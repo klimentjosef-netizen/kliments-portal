@@ -42,6 +42,7 @@ const fixed_costs = [
 const fixedMonthlyTotal = fixed_costs.reduce((s, c) => s + c.amount, 0)
 
 const patch = {
+  business_model: 'transaction', // autoservis = transakční (ne tarify/členové)
   variable_cost_pct: 61, // výkaz-based materiálová náročnost (konzistentní s Přehledem)
   fixed_costs,
   extras: [], // odstranit šablonové odhady
