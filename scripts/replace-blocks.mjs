@@ -91,6 +91,34 @@ const var24 = v24.material + v24.zbozi, var25 = v25.material + v25.zbozi
 const ebitda24 = v24.provozni_vh + v24.odpisy, ebitda25 = v25.provozni_vh + v25.odpisy
 const topExp = an.expense[2025].regular_partners.slice(0, 6)
 
+// Roční rozpad výnosů (6xx, strana DAL) a nákladů (5xx, strana MD) po účtech, z hlavní knihy
+function hkByAccount(year) {
+  const wb = XLSX.read(readFileSync(`${BASE}/${year}/hk_obrat.xlsx`), { type: 'buffer' })
+  const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' })
+  const g = {}
+  for (const r of rows) {
+    const u = String(r.UCET || ''); const md = Number(r.OBRAT_MD) || 0, dal = Number(r.OBRAT_DAL) || 0
+    let v = 0; if (/^6/.test(u)) v = dal; else if (/^5/.test(u)) v = md; else continue
+    if (Math.abs(v) < 1000) continue
+    const grp = u.slice(0, 3)
+    g[grp] = g[grp] || { popis: String(r.POPIS || '').split(' - ')[0].slice(0, 28), val: 0, kind: u[0] === '6' ? 'V' : 'N' }
+    g[grp].val += v
+  }
+  return g
+}
+const hk24 = hkByAccount(2024), hk25 = hkByAccount(2025)
+const hkGroups = [...new Set([...Object.keys(hk24), ...Object.keys(hk25)])].sort()
+const pnlRows = []
+for (const kind of ['V', 'N']) {
+  pnlRows.push([kind === 'V' ? '▸ VÝNOSY' : '▸ NÁKLADY', '', '', ''])
+  for (const grp of hkGroups) {
+    const a = hk24[grp], b = hk25[grp]; const k = (b || a).kind; if (k !== kind) continue
+    const v24 = a?.val || 0, v25 = b?.val || 0
+    const dpct = v24 ? Math.round(((v25 - v24) / Math.abs(v24)) * 100) : null
+    pnlRows.push([`${grp} ${(b || a).popis}`, Math.round(v24).toLocaleString('cs-CZ'), Math.round(v25).toLocaleString('cs-CZ'), dpct == null ? '—' : (dpct > 0 ? '+' : '') + dpct + ' %'])
+  }
+}
+
 const newRisks = [
   { level: 'critical', title: 'Záporný vlastní kapitál −364k (předlužení)', desc: 'Účetní insolvenční signál. Firmu drží půjčka společníka (+341k v 2025). Řešit kapitalizací půjčky do vlastního kapitálu + návratem k zisku.' },
   { level: 'critical', title: `Kritická likvidita — hotovost ${CASH[2025].toLocaleString('cs-CZ')} Kč`, desc: `Rezerva ~${runwayMonths} měsíce fixních nákladů. Hotovost spadla 1,17 M → 496k → 82k za dva roky. Bez doplnění cash hrozí platební neschopnost v 2026.` },
@@ -172,6 +200,10 @@ const blocks = [
   { type: 'table', title: 'Největší pravidelní dodavatelé 2025', headers: ['Dodavatel', 'Měsíců/rok', 'Objem (Kč, vč. DPH)'],
     rows: topExp.map((p) => [p.name.slice(0, 28), String(p.monthsPresent), p.total.toLocaleString('cs-CZ')]),
     footer: 'Hrubé částky z knihy přijatých faktur (vč. DPH). POP-ART a Inter Cars = nákup dílů (variabilní); FÚ/OSSZ = daně a odvody; Výplata = mzdy.' },
+
+  { type: 'heading', level: 2, text: 'Rozpad výnosů a nákladů po účtech', eyebrow: 'Hlavní kniha — 2024 vs 2025 SKUTEČNOST' },
+  { type: 'table', title: 'Roční rozpad po účtech (z hlavní knihy)', headers: ['Účet / položka', '2024', '2025', 'Δ r/r'], rows: pnlRows,
+    footer: 'Kompletní roční rozpad obou let z hlavní knihy (sedí na výkaz). Měsíční rozpad po účtech v podkladech není — vyžadoval by měsíční obratovou předvahu; měsíční jsou jen souhrnné tržby/náklady (cashflow graf).' },
 
   { type: 'heading', level: 2, text: 'Silné a slabé stránky', eyebrow: 'Stav firmy' },
   { type: 'strengths-weaknesses',
