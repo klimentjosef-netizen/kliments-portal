@@ -2,6 +2,7 @@
 // Zdroje: výkaz (úrovně), analysis.json (pravidelné/nepravidelné, dodavatelé),
 // forecast.json (2026), cashflow_months z reportu (sezónní graf 2025).
 import { readFileSync } from 'node:fs'
+import { execSync } from 'node:child_process'
 import pkg from 'xlsx'
 import { createClient } from '@supabase/supabase-js'
 const XLSX = pkg.default || pkg
@@ -47,12 +48,34 @@ const CASH = { 2023: cash24.prev, 2024: cash24.now, 2025: cash25.now } // 1168k,
 const fixedMonthly = Math.round((v25.sluzby + v25.osobni + v25.odpisy + v25.ost_nakl) / 12)
 const runwayMonths = (CASH[2025] / fixedMonthly).toFixed(1)
 
+// PASIVA z PDF rozvahy (XLSX export má jen aktiva). Hodnoty se OVĚŘUJÍ proti
+// textu PDF přes pdftotext — co v PDF není, se nezapíše. tis. Kč → Kč: {2025, 2024}
+const ROZ_PDF = `${BASE}/2025/ROZVAHA_2025_12.PDF`
+const pdfText = execSync(`pdftotext -raw "${ROZ_PDF}" -`, { encoding: 'utf8', maxBuffer: 20 * 1024 * 1024 })
+function verifyPdf(...vals) {
+  for (const v of vals) if (!pdfText.includes(String(v))) throw new Error(`Hodnota "${v}" NENÍ v rozvaze PDF — odmítám zapsat (provenience).`)
+}
+verifyPdf('364', '359', '18', '861', '981', '308', '99', '108', '335', '294', '85', '49')
+const k = (a, b) => ({ now: a * 1000, prev: b * 1000 })
+const P = {
+  equity: k(-364, -29),          // ř082 Vlastní kapitál (záporný = předlužení)
+  bankLoan: k(861, 981),         // ř115 Závazky k úvěrovým institucím (dlouhodobé)
+  advances: k(0, 308),           // ř131 Krátkodobé přijaté zálohy
+  tradePay: k(29, 99),           // ř132 Závazky z obchodních vztahů (krátkodobé)
+  ownerLoan: k(359, 18),         // ř137 Závazky ke společníkům
+  payEmp: k(85, 79), paySoc: k(49, 41), payTax: k(108, 12), payOther: k(-84, -22), // ř139-143
+}
+const d = (o) => o.now - o.prev
 const bridge = {
   netProfit: v25.vysledek, deprec: v25.odpisy,
   dInv: -(zasoby.now - zasoby.prev), dRec: -(pohl.now - pohl.prev), dPre: -(casRoz.now - casRoz.prev),
+  dTradePay: d(P.tradePay), dAdvances: d(P.advances),
+  dOtherPay: d(P.payEmp) + d(P.paySoc) + d(P.payTax) + d(P.payOther),
+  ownerLoan: d(P.ownerLoan), bankLoan: d(P.bankLoan),
 }
-bridge.subtotal = bridge.netProfit + bridge.deprec + bridge.dInv + bridge.dRec + bridge.dPre
-bridge.fin = (CASH[2025] - CASH[2024]) - bridge.subtotal // dopočet financování+závazky (capex≈0)
+bridge.operating = bridge.netProfit + bridge.deprec + bridge.dInv + bridge.dRec + bridge.dPre + bridge.dTradePay + bridge.dAdvances + bridge.dOtherPay
+bridge.financing = bridge.ownerLoan + bridge.bankLoan
+bridge.total = bridge.operating + bridge.financing // ≈ změna hotovosti
 const an = JSON.parse(readFileSync(new URL('../data/techcars/techcars-analysis.json', import.meta.url), 'utf8'))
 const fc = JSON.parse(readFileSync(new URL('../data/techcars/techcars-forecast.json', import.meta.url), 'utf8'))
 
@@ -64,6 +87,7 @@ const ebitda24 = v24.provozni_vh + v24.odpisy, ebitda25 = v25.provozni_vh + v25.
 const topExp = an.expense[2025].regular_partners.slice(0, 6)
 
 const newRisks = [
+  { level: 'critical', title: 'Záporný vlastní kapitál −364k (předlužení)', desc: 'Účetní insolvenční signál. Firmu drží půjčka společníka (+341k v 2025). Řešit kapitalizací půjčky do vlastního kapitálu + návratem k zisku.' },
   { level: 'critical', title: `Kritická likvidita — hotovost ${CASH[2025].toLocaleString('cs-CZ')} Kč`, desc: `Rezerva ~${runwayMonths} měsíce fixních nákladů. Hotovost spadla 1,17 M → 496k → 82k za dva roky. Bez doplnění cash hrozí platební neschopnost v 2026.` },
   { level: 'critical', title: 'Strukturální provozní ztráta', desc: 'Marže po materiálu (~39 %) nepokryje fixní náklady. Bez zásahu i 2026 ve ztrátě (~−290k).' },
   { level: 'critical', title: 'Vysoký materiálový podíl 61 %', desc: 'Hlavní páka: lepší nákup dílů (POP-ART, Inter Cars) nebo zvednout ceny práce. Cíl ≤ 43 % = bod zvratu.' },
@@ -99,20 +123,29 @@ const blocks = [
     { label: 'Provozní VH (EBIT)', values: [v24.provozni_vh, v25.provozni_vh, fc.annual.ebit], format: 'currency', highlight: true },
     { label: 'Výsledek po zdanění', values: [v24.vysledek, v25.vysledek, null], format: 'currency' },
     { label: 'Hotovost (k 31.12.)', values: [CASH[2024], CASH[2025], null], format: 'currency', highlight: true, higherIsBetter: true },
+    { label: 'Vlastní kapitál (k 31.12.)', values: [-29000, -364000, null], format: 'currency', highlight: true, higherIsBetter: true },
   ] },
 
-  { type: 'heading', level: 2, text: 'Kam zmizela hotovost', eyebrow: 'Cash bridge 2025' },
-  { type: 'table', title: 'Proč hotovost spadla o 414 tis. Kč (2025)', headers: ['Položka', 'Dopad na cash'], rows: [
-    ['Výsledek po zdanění', bridge.netProfit.toLocaleString('cs-CZ') + ' Kč'],
-    ['+ Odpisy (nepeněžní)', '+' + bridge.deprec.toLocaleString('cs-CZ') + ' Kč'],
-    ['− Nárůst zásob (materiál 128→298k)', bridge.dInv.toLocaleString('cs-CZ') + ' Kč'],
-    ['− Nárůst pohledávek', bridge.dRec.toLocaleString('cs-CZ') + ' Kč'],
-    ['− Časové rozlišení', bridge.dPre.toLocaleString('cs-CZ') + ' Kč'],
-    ['Investice (CAPEX)', '~0 Kč'],
-    ['Splátky závazků / financování (dopočet)', bridge.fin.toLocaleString('cs-CZ') + ' Kč'],
-  ], footer: `Celkem ${(CASH[2025] - CASH[2024]).toLocaleString('cs-CZ')} Kč (hotovost 496k → 82k). Klíč: cash nešla do investic, ale do ztráty, do zásob (+170k) a splátek. Pasiva nejsou v exportu rozvahy → financování je dopočet.` },
-  { type: 'callout', intent: 'info', title: 'Páka: ~170 tis. Kč zamrzlých ve skladu dílů',
-    body: 'Zásoby materiálu vzrostly z 128k na 298k. To je vázaný cash. Snížení skladu na rozumnou úroveň (just-in-time nákup dílů od POP-ART/Inter Cars, které dodávají každý měsíc) může uvolnit ~100–170 tis. Kč zpět do hotovosti — rychlejší než zvyšování tržeb.' },
+  { type: 'heading', level: 2, text: 'Kam zmizela hotovost', eyebrow: 'Cash bridge 2025 (úplný, z rozvahy)' },
+  { type: 'callout', intent: 'critical', title: '⚠ Záporný vlastní kapitál −364 tis. Kč = předlužení',
+    body: `Nahromaděné ztráty stlačily vlastní kapitál do mínusu (−29k → −364k). To je účetní signál předlužení (insolvenční test). Firmu drží nad vodou půjčka společníka: závazky ke společníkovi vzrostly 18k → 359k, tj. majitel do firmy v 2025 vložil ~341 tis. Kč. Bez toho by hotovost spadla o ~755k místo 414k. Řešení předlužení: kapitalizovat půjčku společníka do vlastního kapitálu.` },
+  { type: 'table', title: 'Proč hotovost spadla o 414 tis. Kč (2025) — úplný cash-flow', headers: ['Položka', 'Dopad na cash'], rows: [
+    ['PROVOZNÍ', ''],
+    ['  Výsledek po zdanění', bridge.netProfit.toLocaleString('cs-CZ') + ' Kč'],
+    ['  + Odpisy (nepeněžní)', '+' + bridge.deprec.toLocaleString('cs-CZ') + ' Kč'],
+    ['  − Nárůst zásob (materiál 128→298k)', bridge.dInv.toLocaleString('cs-CZ') + ' Kč'],
+    ['  − Nárůst pohledávek', bridge.dRec.toLocaleString('cs-CZ') + ' Kč'],
+    ['  − Úbytek přijatých záloh (308→0)', bridge.dAdvances.toLocaleString('cs-CZ') + ' Kč'],
+    ['  − Splátka dodavatelů (99→29)', bridge.dTradePay.toLocaleString('cs-CZ') + ' Kč'],
+    ['  ± Ostatní provozní závazky', (bridge.dOtherPay >= 0 ? '+' : '') + bridge.dOtherPay.toLocaleString('cs-CZ') + ' Kč'],
+    ['  − Časové rozlišení', bridge.dPre.toLocaleString('cs-CZ') + ' Kč'],
+    ['INVESTIČNÍ (CAPEX)', '~0 Kč'],
+    ['FINANČNÍ', ''],
+    ['  Půjčka od společníka', '+' + bridge.ownerLoan.toLocaleString('cs-CZ') + ' Kč'],
+    ['  Splátka bankovního úvěru', bridge.bankLoan.toLocaleString('cs-CZ') + ' Kč'],
+  ], footer: `Provozní −${Math.abs(bridge.operating).toLocaleString('cs-CZ')} + finanční +${bridge.financing.toLocaleString('cs-CZ')} = ${bridge.total.toLocaleString('cs-CZ')} Kč (hotovost 496k → 82k). Zdroj: rozvaha (PDF, vč. pasiv). Klíč: provoz a pracovní kapitál odčerpaly 636k, majitel dolil 341k.` },
+  { type: 'callout', intent: 'info', title: 'Páky cash: zásoby +170k a zmizelé zálohy',
+    body: 'Dvě věci vážou/odčerpaly nejvíc hotovosti: (1) sklad dílů narostl 128→298k — snížením na rozumnou úroveň (JIT nákup od POP-ART/Inter Cars, kteří dodávají každý měsíc) lze uvolnit ~100–170k; (2) 308k přijatých záloh od zákazníků se v 2025 vyčerpalo — zvážit zálohové platby u větších zakázek pro stabilní cash.' },
 
   { type: 'heading', level: 2, text: 'Z čeho vyděláváme — pravidelné vs nepravidelné', eyebrow: 'Skladba příjmů (z knihy faktur)' },
   { type: 'table', title: 'Charakter příjmů 2025', headers: ['Segment', 'Charakter', 'Podíl', 'Poznámka'], rows: [
