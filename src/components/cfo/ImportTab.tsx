@@ -505,7 +505,7 @@ export default function ImportTab({ ledger, receivables, onLedgerChange, onRecei
         <p className="text-[0.78rem] font-medium text-ink mb-2">💡 Tipy pro export z účetních SW</p>
         <ul className="text-[0.78rem] text-mid space-y-1.5 list-disc list-inside">
           <li><strong>Pohoda:</strong> Účetnictví → Sestavy → Hlavní kniha → Export do CSV (Excel)</li>
-          <li><strong>Money S3:</strong> Účetnictví → Účetní deník → tlačítko „Export" → vyberte CSV</li>
+          <li><strong>Money S3:</strong> Účetnictví → Účetní deník → tlačítko „Export“ → vyberte CSV</li>
           <li><strong>Banka (ČSOB, KB, Air Bank, mBank):</strong> Internet banking → Historie → Export → CSV</li>
           <li>Pokud má soubor jiné názvy sloupců, otevřete ho v Excelu a přejmenujte hlavičku podle šablony.</li>
         </ul>

@@ -133,7 +133,9 @@ const newRisks = [
 const blocks = [
   { type: 'heading', level: 1, text: 'Finanční řízení servisu',
     eyebrow: 'TECHCARS SERVIS · 2024–2025 SKUTEČNOST · 2026 PLÁN',
-    sub: '📅 2024 a 2025 = SKUTEČNOST z účetní závěrky (uzavřené roky). 2026 = PLÁN (base case +4 % tržeb). Roky jsou striktně oddělené.' },
+    sub: 'Přehled hospodaření vaší firmy v jednoduchém jazyce.' },
+  { type: 'callout', intent: 'info', title: '📅 Pozor: jde o INFORMATIVNÍ data za UZAVŘENÉ roky 2024 a 2025',
+    body: 'Čísla níže popisují, jak firma hospodařila v minulosti (roky 2024 a 2025 jsou uzavřené). Slouží k pochopení a rozhodování — nejsou to aktuální čísla za letošek. Rok 2026 je zatím jen ODHAD (plán). Chcete si zkusit „co kdyby"? Otevřete si záložku Co kdyby — tam posouváte páky a hned vidíte dopad.' },
 
   { type: 'kpi-grid', columns: 4, items: [
     { label: 'Hotovost k 31.12.2025', value: CASH[2025].toLocaleString('cs-CZ') + ' Kč', sub: `runway ~${runwayMonths} měsíce ⚠`, trend: 'down', intent: 'critical' },

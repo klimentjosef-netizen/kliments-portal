@@ -50,6 +50,11 @@ const patch = {
     vat_payer: true, complexity: 'standard', entity_type: 'sro', founding_date: '', fiscal_year_start: '01',
     vat_transition_date: '', industry: 'Autoservis', employees: '3–4', annual_revenue: '7,1 mil. Kč (2025)',
   },
+  // výchozí báze pro what-if simulátor (skutečnost 2025, reconciliováno na výkaz) — klient si může upravit
+  whatif_base: {
+    annual_revenue: 7119000, material_pct: 60.9, other_income: 245000,
+    fixed_annual: 3297500, depreciation_annual: 255000, labor_share_pct: 40,
+  },
 }
 
 console.log('Variabilní (materiál/zakázky):', Math.round(variable).toLocaleString('cs-CZ'), `→ ${varPct}% tržeb (zapisuji 61% dle výkazu)`)

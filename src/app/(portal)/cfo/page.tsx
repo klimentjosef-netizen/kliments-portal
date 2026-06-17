@@ -21,6 +21,7 @@ import ImportTab from '@/components/cfo/ImportTab'
 import VatTab from '@/components/cfo/VatTab'
 import TaxesTab from '@/components/cfo/TaxesTab'
 import ReceivablesTab from '@/components/cfo/ReceivablesTab'
+import WhatIfTab from '@/components/cfo/WhatIfTab'
 import {
   type Tier, type Extra, type CostItem, type Budget, type Ledger,
   type VatData, type TaxData, type ReceivablesData, type Actuals,
@@ -40,6 +41,7 @@ const ALL_TABS = [
   { id: 'monthly', label: 'Měsíční plán' },
   { id: 'pricing', label: 'Cenotvorba' },
   { id: 'cashflow', label: 'Cashflow' },
+  { id: 'whatif', label: 'Co kdyby' },
   { id: 'receivables', label: 'Pohledávky a závazky' },
   { id: 'vat', label: 'DPH' },
   { id: 'taxes', label: 'Daně & Odvody' },
@@ -503,6 +505,9 @@ function CfoPageInner() {
         )}
         {tab === 'taxes' && (
           <TaxesTab taxes={taxesData} taxDeadlines={taxDeadlines} complexity={profile.complexity} onTaxesChange={v => updateData('taxes', v)} />
+        )}
+        {tab === 'whatif' && (
+          <WhatIfTab base={d.whatif_base} onBaseChange={v => updateData('whatif_base', v)} />
         )}
         {tab === 'receivables' && (
           <ReceivablesTab receivables={receivables} onReceivablesChange={v => updateData('receivables', v)} />

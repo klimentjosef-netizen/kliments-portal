@@ -86,7 +86,7 @@ function LoginPageInner() {
           <div className="mb-6 rounded-xl bg-rose-blush/50 border border-rose-pale px-4 py-3">
             <p className="text-[0.72rem] text-rose-deep font-medium mb-1">🔍 Demo režim · Alpha Atelier</p>
             <p className="text-[0.72rem] text-mid leading-relaxed">
-              Údaje jsou předvyplněné, stačí kliknout „Přihlásit se". Demo data se každý měsíc resetují, nic nerozbijete.
+              Údaje jsou předvyplněné, stačí kliknout „Přihlásit se“. Demo data se každý měsíc resetují, nic nerozbijete.
             </p>
           </div>
         )}
