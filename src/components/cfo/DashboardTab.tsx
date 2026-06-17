@@ -151,8 +151,8 @@ export default function DashboardTab({
         </div>
       </div>
 
-      {/* RECOMMENDATIONS */}
-      {recommendations.length > 0 && (
+      {/* RECOMMENDATIONS — skryté pro transakční (logika i texty jsou tarifové; plán je v Přehledu) */}
+      {!isTransaction && recommendations.length > 0 && (
         <div className="space-y-2">
           <h3 className="text-[0.62rem] tracking-[0.12em] uppercase text-mid font-medium">Doporuceni</h3>
           {recommendations.slice(0, 5).map(rec => (
