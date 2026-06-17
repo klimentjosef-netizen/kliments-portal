@@ -237,15 +237,23 @@ const blocks = [
       'Letní sezónní propad bez vyrovnávací rezervy',
     ] },
 
-  { type: 'heading', level: 2, text: 'Co s tím — cesta k bodu zvratu', eyebrow: 'Akční plán' },
-  { type: 'callout', intent: 'info', title: 'Bod zvratu (EBIT = 0): tři páky',
-    body: 'Tržby 8,14 M (+14 % vs 2025) · NEBO snížit materiálový podíl z 61 % na 43 % · NEBO srazit fixní náklady o ~290k. Nejúčinnější je marže na dílech a cenotvorba práce.' },
-  { type: 'step-list', layout: 'timeline', title: 'Priority', items: [
-    { num: '01', title: 'Zvýšit marži na dílech a cenu práce', desc: 'Materiálový podíl 61 % je hlavní páka. Vyjednat nákup (POP-ART, Inter Cars), revidovat hodinovou sazbu. Cíl ≤ 43 % = bod zvratu i bez růstu tržeb.' },
-    { num: '02', title: 'Růst tržeb na 8,1 M přes B2B', desc: 'Flotilové/firemní smlouvy dnes jen ~6 % příjmů. Stabilní opakovaný příjem + lepší vytížení mimo sezónu.' },
-    { num: '03', title: 'Zastropovat osobní náklady', desc: 'Mzdy +29 % předběhly tržby +11 %. Sledovat tržby na mechanika (produktivita).' },
-    { num: '04', title: 'Letní cash rezerva', desc: 'Červen–srpen pod break-even. Držet rezervu ≥ 1 měsíční fixní náklad (~275k).' },
-    { num: '05', title: 'Měsíční uzávěrka v portálu', desc: 'Každý měsíc 2026 nahrát doklady → portál porovná plán vs skutečnost a ukáže odchylky.' },
+  { type: 'heading', level: 2, text: 'Plán ozdravení — co konkrétně dělat', eyebrow: 'CFO doporučení · kvantifikováno' },
+  { type: 'callout', intent: 'success', title: 'Klíč: stačí 4 procentní body lepší marže na dílech',
+    body: 'Materiál žere 61 % tržeb. Každý 1 procentní bod zlepšení = +71 tis. Kč/rok. Ztráta 2026 je ~290k → 4 p.b. (z 61 % na 57 %) = +284k = VYROVNANÝ ROZPOČET, i bez růstu tržeb. Není to o velké revoluci, ale o nákupu dílů a cenotvorbě práce.' },
+  { type: 'step-list', layout: 'timeline', title: '🔴 TEĎ (0–30 dní) — ustát cash', items: [
+    { num: '01', title: 'Uvolnit hotovost ze skladu: +~148 tis. Kč', desc: 'Zásoby dílů narostly na 298k. Srazit na ~150k (JIT nákup od POP-ART/Inter Cars, kteří dodávají každý měsíc) → uvolní ~148k cash. Nejrychlejší zdroj peněz.' },
+    { num: '02', title: 'Zálohy 50 % u zakázek nad 20 tis.', desc: '308k přijatých záloh se v 2025 vyčerpalo. Vrátit je do cyklu = financovat materiál penězi zákazníka, ne svými.' },
+    { num: '03', title: 'Kontokorent ~150 tis. na léto', desc: 'Projekce: hotovost jde v čer–zář pod nulu. Zajistit polštář DŘÍV, než dojde — z pozice 82k se vyjednává hůř.' },
+  ] },
+  { type: 'step-list', layout: 'timeline', title: '🟠 DO ROKA — k zisku', items: [
+    { num: '04', title: 'Marže na dílech +4–6 p.b. → +284–426 tis./rok', desc: 'HLAVNÍ PÁKA. Vyjednat lepší nákupní ceny (objem u POP-ART/Inter Cars) a/nebo zvednout přirážku. 4 p.b. = break-even.' },
+    { num: '05', title: 'Revize hodinové sazby práce', desc: 'Benchmark v regionu. Práce má vyšší marži než díly — posun mixu k práci zlepší celkovou marži.' },
+    { num: '06', title: 'Zastropovat osobní náklady', desc: 'Mzdy +29 % předběhly tržby +11 %. Sledovat tržby na mechanika; další nábor až po růstu tržeb.' },
+    { num: '07', title: 'Refinancovat úvěr — úroky ×6 (10→59k)', desc: 'Úvěr 861k zdražil. Přejednat sazbu/splátkový kalendář = přímá úspora cash.' },
+  ] },
+  { type: 'step-list', layout: 'timeline', title: '🟢 STRUKTURA — jednorázově', items: [
+    { num: '08', title: 'Kapitalizovat půjčku společníka → smazat předlužení', desc: 'Vlastní kapitál −364k. Přeměnit půjčku společníka (359k) na vlastní kapitál → kapitál ~0, zmizí insolvenční signál. Účetní/právní krok, řešit s účetní.' },
+    { num: '09', title: 'Měsíční uzávěrka v portálu', desc: 'Každý měsíc 2026 nahrát doklady → portál porovná plán vs skutečnost a hlídá odchylky i cash.' },
   ] },
 
   { type: 'heading', level: 2, text: 'Co může zaboleť', eyebrow: 'Rizika' },
