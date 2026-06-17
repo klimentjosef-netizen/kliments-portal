@@ -34,9 +34,25 @@ function cash(year, f) {
 }
 const cash25 = cash(2025, 'rozvaha_2025_12.xlsx')   // now=2025, prev=2024
 const cash24 = cash(2024, 'rozvaha_2024_12.xlsx')   // now=2024, prev=2023
+
+// rozvaha 2025 — delty aktiv pro cash bridge (v Kč)
+function rozAsset(re) {
+  const wb = XLSX.read(readFileSync(`${BASE}/2025/rozvaha_2025_12.xlsx`), { type: 'buffer' })
+  const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' })
+  const r = rows.find((x) => re.test(String(x.TEXT || '').trim()))
+  return r ? { now: (Number(r.NETTO) || 0) * 1000, prev: (Number(r.NETTO_MIN) || 0) * 1000 } : { now: 0, prev: 0 }
+}
+const zasoby = rozAsset(/^Zásoby$/i), pohl = rozAsset(/^Pohledávky$/i), casRoz = rozAsset(/^Časové rozlišení aktiv$/i)
 const CASH = { 2023: cash24.prev, 2024: cash24.now, 2025: cash25.now } // 1168k, 496k, 82k
 const fixedMonthly = Math.round((v25.sluzby + v25.osobni + v25.odpisy + v25.ost_nakl) / 12)
 const runwayMonths = (CASH[2025] / fixedMonthly).toFixed(1)
+
+const bridge = {
+  netProfit: v25.vysledek, deprec: v25.odpisy,
+  dInv: -(zasoby.now - zasoby.prev), dRec: -(pohl.now - pohl.prev), dPre: -(casRoz.now - casRoz.prev),
+}
+bridge.subtotal = bridge.netProfit + bridge.deprec + bridge.dInv + bridge.dRec + bridge.dPre
+bridge.fin = (CASH[2025] - CASH[2024]) - bridge.subtotal // dopočet financování+závazky (capex≈0)
 const an = JSON.parse(readFileSync(new URL('../data/techcars/techcars-analysis.json', import.meta.url), 'utf8'))
 const fc = JSON.parse(readFileSync(new URL('../data/techcars/techcars-forecast.json', import.meta.url), 'utf8'))
 
@@ -84,6 +100,19 @@ const blocks = [
     { label: 'Výsledek po zdanění', values: [v24.vysledek, v25.vysledek, null], format: 'currency' },
     { label: 'Hotovost (k 31.12.)', values: [CASH[2024], CASH[2025], null], format: 'currency', highlight: true, higherIsBetter: true },
   ] },
+
+  { type: 'heading', level: 2, text: 'Kam zmizela hotovost', eyebrow: 'Cash bridge 2025' },
+  { type: 'table', title: 'Proč hotovost spadla o 414 tis. Kč (2025)', headers: ['Položka', 'Dopad na cash'], rows: [
+    ['Výsledek po zdanění', bridge.netProfit.toLocaleString('cs-CZ') + ' Kč'],
+    ['+ Odpisy (nepeněžní)', '+' + bridge.deprec.toLocaleString('cs-CZ') + ' Kč'],
+    ['− Nárůst zásob (materiál 128→298k)', bridge.dInv.toLocaleString('cs-CZ') + ' Kč'],
+    ['− Nárůst pohledávek', bridge.dRec.toLocaleString('cs-CZ') + ' Kč'],
+    ['− Časové rozlišení', bridge.dPre.toLocaleString('cs-CZ') + ' Kč'],
+    ['Investice (CAPEX)', '~0 Kč'],
+    ['Splátky závazků / financování (dopočet)', bridge.fin.toLocaleString('cs-CZ') + ' Kč'],
+  ], footer: `Celkem ${(CASH[2025] - CASH[2024]).toLocaleString('cs-CZ')} Kč (hotovost 496k → 82k). Klíč: cash nešla do investic, ale do ztráty, do zásob (+170k) a splátek. Pasiva nejsou v exportu rozvahy → financování je dopočet.` },
+  { type: 'callout', intent: 'info', title: 'Páka: ~170 tis. Kč zamrzlých ve skladu dílů',
+    body: 'Zásoby materiálu vzrostly z 128k na 298k. To je vázaný cash. Snížení skladu na rozumnou úroveň (just-in-time nákup dílů od POP-ART/Inter Cars, které dodávají každý měsíc) může uvolnit ~100–170 tis. Kč zpět do hotovosti — rychlejší než zvyšování tržeb.' },
 
   { type: 'heading', level: 2, text: 'Z čeho vyděláváme — pravidelné vs nepravidelné', eyebrow: 'Skladba příjmů (z knihy faktur)' },
   { type: 'table', title: 'Charakter příjmů 2025', headers: ['Segment', 'Charakter', 'Podíl', 'Poznámka'], rows: [
