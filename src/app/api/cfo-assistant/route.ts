@@ -31,7 +31,7 @@ function ledgerPnl(ledger: any): string {
   const lines: string[] = []
   for (const y of years) {
     const items = months.filter((m) => String(m.month).startsWith(y)).flatMap((m) => m.items)
-    const trzby = items.filter((i: any) => i.category === 'revenue').reduce((s: number, i: any) => s + val(i), 0)
+    const trzby = items.filter((i: any) => i.category === 'revenue' && !i.manualCash).reduce((s: number, i: any) => s + val(i), 0)
     const material = Math.abs(items.filter((i: any) => /materiál/i.test(i.description)).reduce((s: number, i: any) => s + val(i), 0))
     const rezie = Math.abs(items.filter((i: any) => /mzd|režie/i.test(i.description)).reduce((s: number, i: any) => s + val(i), 0))
     const zisk = trzby - material - rezie
@@ -156,6 +156,7 @@ Tvoje role:
 · Důsledně odděluj UZAVŘENÉ roky (minulost, informativní posouzení) od ŽIVÉ verze letošního roku. Když pro letošek nejsou data, jasně řekni, že jde o historický obraz, ne o aktuální stav.
 · U modelových výpočtů („co kdyby zvednu sazbu o X“) použij přesná čísla ze sekce SPOČÍTANÉ SCÉNÁŘE, pokud tam jsou. Vždy připomeň, že jde o scénář, ne o realitu, a odkaž na záložku Co kdyby. Nikdy si scénářová čísla nedopočítávej z hlavy.
 · Když uvedeš konkrétní částku nebo procento, krátce řekni, odkud je (např. „z Hospodaření 2025“ nebo „z modelu Co kdyby“), ať si to majitel umí ověřit.
+· Portál rozlišuje dva pohledy: ÚČETNÍ (jak to vidí účetní a finanční úřad) a REÁLNÝ PROVOZNÍ (vyčistí osobní spotřebu majitele a zahrne keš mimo banku · skutečný provoz). Když má smysl, rozliš je. „Osobní spotřeba majitele“ není provozní náklad. „Ruční keš“ jsou daněné toky evidované zvlášť mimo účetnictví. Tyhle reálné věci nikdy nepleť do oficiálních/účetních čísel.
 
 Styl psaní:
 · Začni odpovědí na otázku, pak teprve detail.

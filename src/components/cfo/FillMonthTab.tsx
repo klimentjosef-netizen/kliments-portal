@@ -16,12 +16,13 @@ function val(it: { status: string; amount_actual: number; amount_expected: numbe
   return it.status === 'paid' || it.status === 'confirmed' ? it.amount_actual : it.amount_expected
 }
 let _id = 0
-const item = (date: string, description: string, category: 'revenue' | 'cost', amount: number) => {
+type ItemExtra = { kind?: 'provozni' | 'osobni' | 'investice' | 'mimoradne'; manualCash?: boolean }
+const item = (date: string, description: string, category: 'revenue' | 'cost', amount: number, extra: ItemExtra = {}) => {
   const signed = Math.round(category === 'revenue' ? Math.abs(amount) : -Math.abs(amount))
   return {
     id: `fill-${Date.now()}-${++_id}`, date, description, category,
     source: (category === 'revenue' ? 'invoice' : 'bill') as 'invoice' | 'bill',
-    amount_expected: signed, amount_actual: signed, status: 'paid' as const,
+    amount_expected: signed, amount_actual: signed, status: 'paid' as const, ...extra,
   }
 }
 
@@ -32,6 +33,8 @@ export default function FillMonthTab({ ledger, whatifBase, onLedgerChange }: Fil
   const [trzby, setTrzby] = useState('')
   const [material, setMaterial] = useState('')
   const [rezie, setRezie] = useState('')
+  const [osobni, setOsobni] = useState('')
+  const [kes, setKes] = useState('')
   const [saved, setSaved] = useState(false)
 
   const base: WhatIfBase = { ...TECHCARS_BASE, ...whatifBase }
@@ -41,24 +44,31 @@ export default function FillMonthTab({ ledger, whatifBase, onLedgerChange }: Fil
   useEffect(() => {
     const ex = ledger.months.find((m) => m.month === month && m.items.length > 0)
     if (ex) {
-      const rev = ex.items.filter((i) => i.category === 'revenue').reduce((s, i) => s + val(i), 0)
+      const rev = ex.items.filter((i) => i.category === 'revenue' && !i.manualCash).reduce((s, i) => s + val(i), 0)
       const mat = Math.abs(ex.items.filter((i) => /materiál/i.test(i.description)).reduce((s, i) => s + val(i), 0))
       const rez = Math.abs(ex.items.filter((i) => /mzd|režie/i.test(i.description)).reduce((s, i) => s + val(i), 0))
+      const oso = Math.abs(ex.items.filter((i) => i.kind === 'osobni').reduce((s, i) => s + val(i), 0))
+      const ke = ex.items.filter((i) => i.manualCash).reduce((s, i) => s + val(i), 0)
       setTrzby(rev ? String(rev) : ''); setMaterial(mat ? String(mat) : ''); setRezie(rez ? String(rez) : '')
-    } else { setTrzby(''); setMaterial(''); setRezie('') }
+      setOsobni(oso ? String(oso) : ''); setKes(ke ? String(ke) : '')
+    } else { setTrzby(''); setMaterial(''); setRezie(''); setOsobni(''); setKes('') }
     setSaved(false)
   }, [month, ledger])
 
   const t = parseFloat(trzby) || 0, m = parseFloat(material) || 0, r = parseFloat(rezie) || 0
-  const ebitda = t - m - r
-  const variance = ebitda - planMonthEbitda
+  const o = parseFloat(osobni) || 0, k = parseFloat(kes) || 0
+  const ebitdaUcetni = t - m - r - o          // jak to vidí účetní (osobní je náklad)
+  const ebitdaReal = (t + Math.max(0, k)) - m - r + Math.min(0, k)  // provoz bez osobní + keš mimo banku
+  const variance = ebitdaReal - planMonthEbitda
 
   function save() {
     const items = [
       item(`${month}-15`, 'Tržby', 'revenue', t),
       item(`${month}-15`, 'Materiál a díly', 'cost', m),
-      item(`${month}-15`, 'Mzdy a režie', 'cost', r),
+      item(`${month}-15`, 'Mzdy a režie', 'cost', r, { kind: 'provozni' }),
     ]
+    if (o > 0) items.push(item(`${month}-15`, 'Osobní spotřeba majitele', 'cost', o, { kind: 'osobni' }))
+    if (k !== 0) items.push(item(`${month}-15`, 'Ruční keš (mimo účetnictví)', k >= 0 ? 'revenue' : 'cost', Math.abs(k), { manualCash: true }))
     const rest = ledger.months.filter((mm) => mm.month !== month)
     const newMonths = [...rest, { month, items, locked: false }].sort((a, b) => a.month.localeCompare(b.month))
     onLedgerChange({ ...ledger, months: newMonths })
@@ -92,13 +102,24 @@ export default function FillMonthTab({ ledger, whatifBase, onLedgerChange }: Fil
               ))}
             </select>
           </label>
-          {([['Tržby (Kč)', trzby, setTrzby], ['Materiál a díly (Kč)', material, setMaterial], ['Mzdy a režie (Kč)', rezie, setRezie]] as [string, string, (v: string) => void][]).map(([label, v, set]) => (
+          {([['Tržby (Kč)', trzby, setTrzby], ['Materiál a díly (Kč)', material, setMaterial], ['Mzdy a režie · provozní (Kč)', rezie, setRezie]] as [string, string, (v: string) => void][]).map(([label, v, set]) => (
             <label key={label} className="block mb-3">
               <span className="text-[0.62rem] tracking-[0.1em] uppercase text-mid block mb-1">{label}</span>
               <input type="number" value={v} onChange={(e) => { set(e.target.value); setSaved(false) }} placeholder="0" className={inputCls} />
             </label>
           ))}
-          <button onClick={save} disabled={t === 0 && m === 0 && r === 0}
+          <div className="mt-4 mb-2 text-[0.6rem] tracking-[0.1em] uppercase text-rose-deep">Reálná vrstva · nevidí účetní/FÚ</div>
+          <label className="block mb-1">
+            <span className="text-[0.62rem] tracking-[0.1em] uppercase text-mid block mb-1">Osobní spotřeba majitele (Kč)</span>
+            <input type="number" value={osobni} onChange={(e) => { setOsobni(e.target.value); setSaved(false) }} placeholder="0" className={inputCls} />
+          </label>
+          <p className="text-[0.66rem] text-mid mb-3 px-1">Vlastní výběry vedené přes firmu · v reálném zisku se nepočítají jako provozní náklad.</p>
+          <label className="block mb-1">
+            <span className="text-[0.62rem] tracking-[0.1em] uppercase text-mid block mb-1">Ruční keš mimo banku (Kč, +/−)</span>
+            <input type="number" value={kes} onChange={(e) => { setKes(e.target.value); setSaved(false) }} placeholder="0" className={inputCls} />
+          </label>
+          <p className="text-[0.66rem] text-mid mb-3 px-1">Daněné toky evidované zvlášť (na papíře). Kladně příjem, záporně výdaj · vstupují do reálné hotovosti.</p>
+          <button onClick={save} disabled={t === 0 && m === 0 && r === 0 && o === 0 && k === 0}
             className="w-full mt-2 bg-rose text-white rounded-full py-2.5 text-[0.82rem] font-medium hover:bg-rose-deep transition-colors disabled:opacity-40">
             {saved ? '✓ Uloženo' : 'Uložit měsíc'}
           </button>
@@ -110,16 +131,23 @@ export default function FillMonthTab({ ledger, whatifBase, onLedgerChange }: Fil
           <div className="space-y-2 text-[0.85rem]">
             <Row label="Tržby" value={t} />
             <Row label="− Materiál a díly" value={-m} />
-            <Row label="− Mzdy a režie" value={-r} />
-            <div className="border-t border-black/10 pt-2 flex justify-between font-semibold">
-              <span>Provozní zisk (EBITDA)</span>
-              <span className={ebitda >= 0 ? 'text-green' : 'text-rose-deep'}>{fmt(Math.round(ebitda))}</span>
+            <Row label="− Mzdy a režie (provozní)" value={-r} />
+            {o > 0 && <Row label="− Osobní spotřeba majitele" value={-o} />}
+            <div className="border-t border-black/10 pt-2 flex justify-between text-mid">
+              <span>Účetní zisk</span>
+              <span className={ebitdaUcetni >= 0 ? 'text-green' : 'text-rose-deep'}>{fmt(Math.round(ebitdaUcetni))}</span>
+            </div>
+            {o > 0 && <Row label="+ Osobní zpět (není provoz)" value={o} />}
+            {k !== 0 && <Row label={`${k >= 0 ? '+' : '−'} Ruční keš mimo banku`} value={k} />}
+            <div className="border-t-2 border-black/10 pt-2 flex justify-between font-semibold">
+              <span>Reálný provozní zisk</span>
+              <span className={ebitdaReal >= 0 ? 'text-green' : 'text-rose-deep'}>{fmt(Math.round(ebitdaReal))}</span>
             </div>
           </div>
           <div className="mt-4 pt-3 border-t border-black/[0.06] text-[0.78rem]">
             <div className="flex justify-between text-mid"><span>Plán (měsíc)</span><span>{fmt(planMonthEbitda)}</span></div>
             <div className="flex justify-between font-medium mt-1">
-              <span>Odchylka od plánu</span>
+              <span>Odchylka od plánu (reálný)</span>
               <span className={variance >= 0 ? 'text-green' : 'text-rose-deep'}>{variance >= 0 ? '+' : ''}{fmt(Math.round(variance))}</span>
             </div>
           </div>

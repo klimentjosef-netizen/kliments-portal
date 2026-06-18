@@ -76,6 +76,9 @@ export interface LedgerItem {
   vat_rate?: number
   vat_amount?: number
   status: ItemStatus
+  // Reálná (interní) vrstva · nemíchá se do účetního pohledu:
+  kind?: 'provozni' | 'osobni' | 'investice' | 'mimoradne' // 'osobni' = spotřeba majitele přes firmu
+  manualCash?: boolean // tok mimo účetnictví (daněn, evidován zvlášť na papíře) · jen v reálném pohledu
 }
 
 export interface MonthLedger {

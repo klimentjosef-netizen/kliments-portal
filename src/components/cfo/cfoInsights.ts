@@ -28,7 +28,7 @@ export function ledgerByYear(d: any): YearAgg[] {
   return years.map((y) => {
     const ms = months.filter((m) => String(m.month).startsWith(y))
     const items = ms.flatMap((m) => m.items)
-    const trzby = items.filter((i: any) => i.category === 'revenue').reduce((s: number, i: any) => s + val(i), 0)
+    const trzby = items.filter((i: any) => i.category === 'revenue' && !i.manualCash).reduce((s: number, i: any) => s + val(i), 0)
     const material = Math.abs(items.filter((i: any) => /materiál/i.test(i.description)).reduce((s: number, i: any) => s + val(i), 0))
     const rezie = Math.abs(items.filter((i: any) => /mzd|režie/i.test(i.description)).reduce((s: number, i: any) => s + val(i), 0))
     const zisk = trzby - material - rezie
