@@ -535,7 +535,7 @@ function ReconciliationCard({
                 ? `${Math.abs(variancePct).toFixed(1)} %`
                 : varianceAbs !== undefined
                   ? fmt(Math.abs(varianceAbs))
-                  : '—'}
+                  : '·'}
             </span>
           </div>
         )}

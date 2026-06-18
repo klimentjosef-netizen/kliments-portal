@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabase } from '@/lib/supabase/server'
 
-// Smazani klienta — vsechny jeho reporty + auth user + profile.
+// Smazani klienta · vsechny jeho reporty + auth user + profile.
 // Vyzaduje admin session (server-side check, ne pouze frontend).
 
 export async function POST(req: NextRequest) {

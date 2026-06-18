@@ -55,7 +55,7 @@ export default function CashflowTab({ tiers, extras, fixedCosts, variablePct, bu
 
   return (
     <div className="space-y-6">
-      {/* KPI metrics — tarifové, jen předplatný model */}
+      {/* KPI metrics · tarifové, jen předplatný model */}
       {!isTransaction && (<>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="bg-white rounded-[14px] p-4 border border-black/[0.06]">
@@ -142,7 +142,7 @@ export default function CashflowTab({ tiers, extras, fixedCosts, variablePct, bu
         <CashflowChart months={projection} title={`Cashflow: ${projectionMonths}M projekce`} />
       )}
 
-      {/* WHAT-IF SIMULATOR + scénáře — tarifové, jen předplatný model (transakční má záložku Co kdyby) */}
+      {/* WHAT-IF SIMULATOR + scénáře · tarifové, jen předplatný model (transakční má záložku Co kdyby) */}
       {!isTransaction && (<>
       <div className="bg-white rounded-[20px] p-6 border border-black/[0.06]">
         <h3 className="font-serif text-base text-ink mb-1">{isSimple ? 'Co kdyz...?' : 'Simulator scenaru'}</h3>

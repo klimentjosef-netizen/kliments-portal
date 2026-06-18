@@ -36,7 +36,7 @@ function cash(year, f) {
 const cash25 = cash(2025, 'rozvaha_2025_12.xlsx')   // now=2025, prev=2024
 const cash24 = cash(2024, 'rozvaha_2024_12.xlsx')   // now=2024, prev=2023
 
-// rozvaha 2025 — delty aktiv pro cash bridge (v Kč)
+// rozvaha 2025 · delty aktiv pro cash bridge (v Kč)
 function rozAsset(re) {
   const wb = XLSX.read(readFileSync(`${BASE}/2025/rozvaha_2025_12.xlsx`), { type: 'buffer' })
   const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' })
@@ -52,11 +52,11 @@ const fixedMonthly = Math.round((v25.sluzby + v25.osobni + v25.odpisy + v25.ost_
 const runwayMonths = (CASH[2025] / fixedMonthly).toFixed(1)
 
 // PASIVA z PDF rozvahy (XLSX export má jen aktiva). Hodnoty se OVĚŘUJÍ proti
-// textu PDF přes pdftotext — co v PDF není, se nezapíše. tis. Kč → Kč: {2025, 2024}
+// textu PDF přes pdftotext · co v PDF není, se nezapíše. tis. Kč → Kč: {2025, 2024}
 const ROZ_PDF = `${BASE}/2025/ROZVAHA_2025_12.PDF`
 const pdfText = execSync(`pdftotext -raw "${ROZ_PDF}" -`, { encoding: 'utf8', maxBuffer: 20 * 1024 * 1024 })
 function verifyPdf(...vals) {
-  for (const v of vals) if (!pdfText.includes(String(v))) throw new Error(`Hodnota "${v}" NENÍ v rozvaze PDF — odmítám zapsat (provenience).`)
+  for (const v of vals) if (!pdfText.includes(String(v))) throw new Error(`Hodnota "${v}" NENÍ v rozvaze PDF · odmítám zapsat (provenience).`)
 }
 verifyPdf('364', '359', '18', '861', '981', '308', '99', '108', '335', '294', '85', '49')
 const k = (a, b) => ({ now: a * 1000, prev: b * 1000 })
@@ -115,27 +115,27 @@ for (const kind of ['V', 'N']) {
     const a = hk24[grp], b = hk25[grp]; const k = (b || a).kind; if (k !== kind) continue
     const v24 = a?.val || 0, v25 = b?.val || 0
     const dpct = v24 ? Math.round(((v25 - v24) / Math.abs(v24)) * 100) : null
-    pnlRows.push([`${grp} ${(b || a).popis}`, Math.round(v24).toLocaleString('cs-CZ'), Math.round(v25).toLocaleString('cs-CZ'), dpct == null ? '—' : (dpct > 0 ? '+' : '') + dpct + ' %'])
+    pnlRows.push([`${grp} ${(b || a).popis}`, Math.round(v24).toLocaleString('cs-CZ'), Math.round(v25).toLocaleString('cs-CZ'), dpct == null ? '·' : (dpct > 0 ? '+' : '') + dpct + ' %'])
   }
 }
 
 const newRisks = [
   { level: 'critical', title: 'Záporný vlastní kapitál −364k (předlužení)', desc: 'Účetní insolvenční signál. Firmu drží půjčka společníka (+341k v 2025). Řešit kapitalizací půjčky do vlastního kapitálu + návratem k zisku.' },
-  { level: 'critical', title: `Kritická likvidita — hotovost ${CASH[2025].toLocaleString('cs-CZ')} Kč`, desc: `Rezerva ~${runwayMonths} měsíce fixních nákladů. Hotovost spadla 1,17 M → 496k → 82k za dva roky. Bez doplnění cash hrozí platební neschopnost v 2026.` },
+  { level: 'critical', title: `Kritická likvidita · hotovost ${CASH[2025].toLocaleString('cs-CZ')} Kč`, desc: `Rezerva ~${runwayMonths} měsíce fixních nákladů. Hotovost spadla 1,17 M → 496k → 82k za dva roky. Bez doplnění cash hrozí platební neschopnost v 2026.` },
   { level: 'critical', title: 'Strukturální provozní ztráta', desc: 'Marže po materiálu (~39 %) nepokryje fixní náklady. Bez zásahu i 2026 ve ztrátě (~−290k).' },
   { level: 'critical', title: 'Vysoký materiálový podíl 61 %', desc: 'Hlavní páka: lepší nákup dílů (POP-ART, Inter Cars) nebo zvednout ceny práce. Cíl ≤ 43 % = bod zvratu.' },
   { level: 'medium', title: 'Růst osobních nákladů +29 %', desc: '2024→2025 mzdy 1,50→1,94 M, rychleji než tržby (+11 %). Hlídat produktivitu (tržby na mechanika).' },
   { level: 'medium', title: 'Odliv cash mimo provoz', desc: 'Investice, splátky půjčky společníka a odvody odčerpávají víc než provozní ztráta. Zmapovat a zastavit zbytné odlivy.' },
-  { level: 'medium', title: 'Sezónní propad léto', desc: 'Červen–srpen pod break-even. Plánovat rezervu / akce mimo sezónu.' },
+  { level: 'medium', title: 'Sezónní propad léto', desc: 'Červen/srpen pod break-even. Plánovat rezervu / akce mimo sezónu.' },
   { level: 'low', title: 'Rostoucí úroky 10→59k', desc: 'Financování zdražuje. Zkontrolovat úvěry/leasing.' },
 ]
 
 const blocks = [
   { type: 'heading', level: 1, text: 'Finanční řízení servisu',
-    eyebrow: 'TECHCARS SERVIS · INFORMATIVNÍ DATA ZA UZAVŘENÉ ROKY 2024–2025',
+    eyebrow: 'TECHCARS SERVIS · INFORMATIVNÍ DATA ZA UZAVŘENÉ ROKY 2024/2025',
     sub: 'Přehled hospodaření vaší firmy v jednoduchém jazyce.' },
   { type: 'callout', intent: 'info', title: '📅 Pozor: jde o INFORMATIVNÍ data za UZAVŘENÉ roky 2024 a 2025',
-    body: 'Čísla níže popisují, jak firma hospodařila v minulosti (roky 2024 a 2025 jsou uzavřené). Slouží k pochopení a rozhodování — nejsou to aktuální čísla za letošek. Rok 2026 je zatím jen ODHAD (plán). Chcete si zkusit „co kdyby"? Otevřete si záložku Co kdyby — tam posouváte páky a hned vidíte dopad.' },
+    body: 'Čísla níže popisují, jak firma hospodařila v minulosti (roky 2024 a 2025 jsou uzavřené). Slouží k pochopení a rozhodování · nejsou to aktuální čísla za letošek. Rok 2026 je zatím jen ODHAD (plán). Chcete si zkusit „co kdyby"? Otevřete si záložku Co kdyby · tam posouváte páky a hned vidíte dopad.' },
 
   { type: 'kpi-grid', columns: 4, items: [
     { label: 'Hotovost k 31.12.2025', value: CASH[2025].toLocaleString('cs-CZ') + ' Kč', sub: `runway ~${runwayMonths} měsíce ⚠`, trend: 'down', intent: 'critical' },
@@ -144,13 +144,13 @@ const blocks = [
     { label: 'Materiálová náročnost', value: '61 %', sub: 'díly/materiál z tržeb', trend: 'neutral', intent: 'warning' },
   ] },
 
-  { type: 'callout', intent: 'critical', title: `⚠ Kritická likvidita — hotovost klesla na ${CASH[2025].toLocaleString('cs-CZ')} Kč`,
-    body: `Peněžní prostředky (pokladna + účty) spadly z ${CASH[2023].toLocaleString('cs-CZ')} Kč (2023) na ${CASH[2024].toLocaleString('cs-CZ')} (2024) a na pouhých ${CASH[2025].toLocaleString('cs-CZ')} Kč ke konci 2025. Při fixních nákladech ~${fixedMonthly.toLocaleString('cs-CZ')} Kč/měs je rezerva jen ~${runwayMonths} měsíce. Úbytek hotovosti (−672k, pak −414k/rok) je výrazně vyšší než provozní ztráta — odčerpávají ji i investice, splátky půjčky společníka a odvody. TOTO je nejnaléhavější téma: bez doplnění cash nebo zastavení odlivu hrozí platební neschopnost v 2026.` },
+  { type: 'callout', intent: 'critical', title: `⚠ Kritická likvidita · hotovost klesla na ${CASH[2025].toLocaleString('cs-CZ')} Kč`,
+    body: `Peněžní prostředky (pokladna + účty) spadly z ${CASH[2023].toLocaleString('cs-CZ')} Kč (2023) na ${CASH[2024].toLocaleString('cs-CZ')} (2024) a na pouhých ${CASH[2025].toLocaleString('cs-CZ')} Kč ke konci 2025. Při fixních nákladech ~${fixedMonthly.toLocaleString('cs-CZ')} Kč/měs je rezerva jen ~${runwayMonths} měsíce. Úbytek hotovosti (−672k, pak −414k/rok) je výrazně vyšší než provozní ztráta · odčerpávají ji i investice, splátky půjčky společníka a odvody. TOTO je nejnaléhavější téma: bez doplnění cash nebo zastavení odlivu hrozí platební neschopnost v 2026.` },
 
   { type: 'callout', intent: 'warning', title: 'Ztráta je strukturální, ne jednorázová',
-    body: 'Po odečtení dílů a materiálu (61 % tržeb) zbývá marže ~39 %, která nepokryje fixní náklady (~3,3 M/rok). Provozní ztráta drží dva roky po sobě (−277k, −269k) a model 2026 ji bez zásahu opakuje (~−290k). Ziskové jsou jen sezónní vrcholy (duben, říjen) — léto (červen–srpen) je pod bodem zvratu.' },
+    body: 'Po odečtení dílů a materiálu (61 % tržeb) zbývá marže ~39 %, která nepokryje fixní náklady (~3,3 M/rok). Provozní ztráta drží dva roky po sobě (−277k, −269k) a model 2026 ji bez zásahu opakuje (~−290k). Ziskové jsou jen sezónní vrcholy (duben, říjen) · léto (červen/srpen) je pod bodem zvratu.' },
 
-  { type: 'yoy-comparison', title: 'Vývoj hospodaření — 2024 vs 2025 (skutečnost)', years: [2024, 2025], note: '2024 a 2025 = skutečnost z účetní závěrky (uzavřené roky). EBITDA ≈ provozní výsledek + odpisy. Výhled na 2026 najdete v záložce „Co kdyby".', rows: [
+  { type: 'yoy-comparison', title: 'Vývoj hospodaření · 2024 vs 2025 (skutečnost)', years: [2024, 2025], note: '2024 a 2025 = skutečnost z účetní závěrky (uzavřené roky). EBITDA ≈ provozní výsledek + odpisy. Výhled na 2026 najdete v záložce „Co kdyby".', rows: [
     { label: 'Tržby', values: [v24.trzby, v25.trzby], format: 'currency' },
     { label: 'Materiál a díly (variabilní)', values: [var24, var25], format: 'currency', higherIsBetter: false },
     { label: 'Osobní náklady', values: [v24.osobni, v25.osobni], format: 'currency', higherIsBetter: false },
@@ -164,7 +164,7 @@ const blocks = [
   { type: 'heading', level: 2, text: 'Kam zmizela hotovost', eyebrow: 'Cash bridge 2025 (úplný, z rozvahy)' },
   { type: 'callout', intent: 'critical', title: '⚠ Záporný vlastní kapitál −364 tis. Kč = předlužení',
     body: `Nahromaděné ztráty stlačily vlastní kapitál do mínusu (−29k → −364k). To je účetní signál předlužení (insolvenční test). Firmu drží nad vodou půjčka společníka: závazky ke společníkovi vzrostly 18k → 359k, tj. majitel do firmy v 2025 vložil ~341 tis. Kč. Bez toho by hotovost spadla o ~755k místo 414k. Řešení předlužení: kapitalizovat půjčku společníka do vlastního kapitálu.` },
-  { type: 'table', title: 'Proč hotovost spadla o 414 tis. Kč (2025) — úplný cash-flow', headers: ['Položka', 'Dopad na cash'], rows: [
+  { type: 'table', title: 'Proč hotovost spadla o 414 tis. Kč (2025) · úplný cash-flow', headers: ['Položka', 'Dopad na cash'], rows: [
     ['PROVOZNÍ', ''],
     ['  Výsledek po zdanění', bridge.netProfit.toLocaleString('cs-CZ') + ' Kč'],
     ['  + Odpisy (nepeněžní)', '+' + bridge.deprec.toLocaleString('cs-CZ') + ' Kč'],
@@ -182,15 +182,15 @@ const blocks = [
     ['= ZMĚNA HOTOVOSTI', bridge.cashChange.toLocaleString('cs-CZ') + ' Kč'],
   ], footer: `Provozní ${bridge.operating.toLocaleString('cs-CZ')} + finanční +${bridge.financing.toLocaleString('cs-CZ')} = ${bridge.cashChange.toLocaleString('cs-CZ')} Kč (hotovost 496k → 82k ✓). Zdroj: rozvaha (PDF, vč. pasiv). Klíč: provoz a pracovní kapitál odčerpaly ${Math.abs(bridge.operating).toLocaleString('cs-CZ')}, majitel dolil 341k.` },
   { type: 'callout', intent: 'info', title: 'Páky cash: zásoby +170k a zmizelé zálohy',
-    body: 'Dvě věci vážou/odčerpaly nejvíc hotovosti: (1) sklad dílů narostl 128→298k — snížením na rozumnou úroveň (JIT nákup od POP-ART/Inter Cars, kteří dodávají každý měsíc) lze uvolnit ~100–170k; (2) 308k přijatých záloh od zákazníků se v 2025 vyčerpalo — zvážit zálohové platby u větších zakázek pro stabilní cash.' },
+    body: 'Dvě věci vážou/odčerpaly nejvíc hotovosti: (1) sklad dílů narostl 128→298k · snížením na rozumnou úroveň (JIT nákup od POP-ART/Inter Cars, kteří dodávají každý měsíc) lze uvolnit ~100/170k; (2) 308k přijatých záloh od zákazníků se v 2025 vyčerpalo · zvážit zálohové platby u větších zakázek pro stabilní cash.' },
 
-  { type: 'heading', level: 2, text: 'Z čeho vyděláváme — pravidelné vs nepravidelné', eyebrow: 'Skladba příjmů (z knihy faktur)' },
+  { type: 'heading', level: 2, text: 'Z čeho vyděláváme · pravidelné vs nepravidelné', eyebrow: 'Skladba příjmů (z knihy faktur)' },
   { type: 'table', title: 'Charakter příjmů 2025', headers: ['Segment', 'Charakter', 'Podíl', 'Poznámka'], rows: [
     ['Drobné zakázky (retail)', 'Nepravidelné po zákazníkovi, stabilní v součtu', '~94 %', '500+ zákazníků/rok, kolísání ±22 %'],
     ['B2B / flotila (STING aj.)', 'Pravidelné', '~6 %', 'STING Service 11 měsíců/rok, „Přímý prodej" každý měsíc'],
-  ], footer: 'Pravidelná (smluvní) složka jen 4–6 % → příjmy řídí sezónnost, ne dlouhodobé smlouvy. Příležitost: získat víc flotilových klientů (stabilní opakovaný příjem).' },
+  ], footer: 'Pravidelná (smluvní) složka jen 4/6 % → příjmy řídí sezónnost, ne dlouhodobé smlouvy. Příležitost: získat víc flotilových klientů (stabilní opakovaný příjem).' },
 
-  { type: 'cashflow-chart', title: 'Měsíční tržby vs náklady — 2025 SKUTEČNOST (sezónnost)',
+  { type: 'cashflow-chart', title: 'Měsíční tržby vs náklady · 2025 SKUTEČNOST (sezónnost)',
     months: cf25.map((m) => m.label.slice(5)), revenue: cf25.map((m) => m.revenue), costs: cf25.map((m) => m.costs) },
 
   { type: 'heading', level: 2, text: 'Co stojí provoz', eyebrow: 'Nákladová struktura 2025' },
@@ -219,41 +219,41 @@ const blocks = [
     })(),
     footer: 'Měsíční tvar z dat faktur (datum uskutečnění), úrovně reconciliované na oficiální výkaz. Pozn.: fakturované nákupy ≠ spotřeba (zásoby, zálohy) → škálováno na výkaz.' },
 
-  { type: 'heading', level: 2, text: 'Rozpad výnosů a nákladů po účtech', eyebrow: 'Hlavní kniha — 2024 vs 2025 SKUTEČNOST' },
+  { type: 'heading', level: 2, text: 'Rozpad výnosů a nákladů po účtech', eyebrow: 'Hlavní kniha · 2024 vs 2025 SKUTEČNOST' },
   { type: 'table', title: 'Roční rozpad po účtech (z hlavní knihy)', headers: ['Účet / položka', '2024', '2025', 'Δ r/r'], rows: pnlRows,
-    footer: 'Kompletní roční rozpad obou let z hlavní knihy (sedí na výkaz). Měsíční rozpad po účtech v podkladech není — vyžadoval by měsíční obratovou předvahu; měsíční jsou jen souhrnné tržby/náklady (cashflow graf).' },
+    footer: 'Kompletní roční rozpad obou let z hlavní knihy (sedí na výkaz). Měsíční rozpad po účtech v podkladech není · vyžadoval by měsíční obratovou předvahu; měsíční jsou jen souhrnné tržby/náklady (cashflow graf).' },
 
   { type: 'heading', level: 2, text: 'Silné a slabé stránky', eyebrow: 'Stav firmy' },
   { type: 'strengths-weaknesses',
     strengths: [
-      'Stabilní poptávka — 500+ zákazníků ročně, nízké kolísání (CV 0,22)',
-      'Vysoce předvídatelné náklady — 77–84 % pravidelných, 15 stálých dodavatelů',
+      'Stabilní poptávka · 500+ zákazníků ročně, nízké kolísání (CV 0,22)',
+      'Vysoce předvídatelné náklady · 77/84 % pravidelných, 15 stálých dodavatelů',
       'Rostoucí tržby (+11 % v 2025)',
       'Žádná závislost na jednom velkém zákazníkovi',
     ],
     weaknesses: [
-      'Strukturální ztráta — provozní VH záporný dva roky po sobě',
+      'Strukturální ztráta · provozní VH záporný dva roky po sobě',
       'Materiálová náročnost 61 % → nízká marže po dílech (~39 %)',
       'Osobní náklady rostou rychleji než tržby (+29 % vs +11 %)',
-      'Rostoucí úroky (10→59k) — dražší financování',
+      'Rostoucí úroky (10→59k) · dražší financování',
       'Letní sezónní propad bez vyrovnávací rezervy',
     ] },
 
-  { type: 'heading', level: 2, text: 'Plán ozdravení — co konkrétně dělat', eyebrow: 'CFO doporučení · kvantifikováno' },
+  { type: 'heading', level: 2, text: 'Plán ozdravení · co konkrétně dělat', eyebrow: 'CFO doporučení · kvantifikováno' },
   { type: 'callout', intent: 'success', title: 'Klíč: stačí 4 procentní body lepší marže na dílech',
     body: 'Materiál žere 61 % tržeb. Každý 1 procentní bod zlepšení = +71 tis. Kč/rok. Ztráta 2026 je ~290k → 4 p.b. (z 61 % na 57 %) = +284k = VYROVNANÝ ROZPOČET, i bez růstu tržeb. Není to o velké revoluci, ale o nákupu dílů a cenotvorbě práce.' },
-  { type: 'step-list', layout: 'timeline', title: '🔴 TEĎ (0–30 dní) — ustát cash', items: [
+  { type: 'step-list', layout: 'timeline', title: '🔴 TEĎ (0/30 dní) · ustát cash', items: [
     { num: '01', title: 'Uvolnit hotovost ze skladu: +~148 tis. Kč', desc: 'Zásoby dílů narostly na 298k. Srazit na ~150k (JIT nákup od POP-ART/Inter Cars, kteří dodávají každý měsíc) → uvolní ~148k cash. Nejrychlejší zdroj peněz.' },
     { num: '02', title: 'Zálohy 50 % u zakázek nad 20 tis.', desc: '308k přijatých záloh se v 2025 vyčerpalo. Vrátit je do cyklu = financovat materiál penězi zákazníka, ne svými.' },
-    { num: '03', title: 'Kontokorent ~150 tis. na léto', desc: 'Projekce: hotovost jde v čer–zář pod nulu. Zajistit polštář DŘÍV, než dojde — z pozice 82k se vyjednává hůř.' },
+    { num: '03', title: 'Kontokorent ~150 tis. na léto', desc: 'Projekce: hotovost jde v čer/zář pod nulu. Zajistit polštář DŘÍV, než dojde · z pozice 82k se vyjednává hůř.' },
   ] },
-  { type: 'step-list', layout: 'timeline', title: '🟠 DO ROKA — k zisku', items: [
-    { num: '04', title: 'Marže na dílech +4–6 p.b. → +284–426 tis./rok', desc: 'HLAVNÍ PÁKA. Vyjednat lepší nákupní ceny (objem u POP-ART/Inter Cars) a/nebo zvednout přirážku. 4 p.b. = break-even.' },
-    { num: '05', title: 'Revize hodinové sazby práce', desc: 'Benchmark v regionu. Práce má vyšší marži než díly — posun mixu k práci zlepší celkovou marži.' },
+  { type: 'step-list', layout: 'timeline', title: '🟠 DO ROKA · k zisku', items: [
+    { num: '04', title: 'Marže na dílech +4/6 p.b. → +284/426 tis./rok', desc: 'HLAVNÍ PÁKA. Vyjednat lepší nákupní ceny (objem u POP-ART/Inter Cars) a/nebo zvednout přirážku. 4 p.b. = break-even.' },
+    { num: '05', title: 'Revize hodinové sazby práce', desc: 'Benchmark v regionu. Práce má vyšší marži než díly · posun mixu k práci zlepší celkovou marži.' },
     { num: '06', title: 'Zastropovat osobní náklady', desc: 'Mzdy +29 % předběhly tržby +11 %. Sledovat tržby na mechanika; další nábor až po růstu tržeb.' },
-    { num: '07', title: 'Refinancovat úvěr — úroky ×6 (10→59k)', desc: 'Úvěr 861k zdražil. Přejednat sazbu/splátkový kalendář = přímá úspora cash.' },
+    { num: '07', title: 'Refinancovat úvěr · úroky ×6 (10→59k)', desc: 'Úvěr 861k zdražil. Přejednat sazbu/splátkový kalendář = přímá úspora cash.' },
   ] },
-  { type: 'step-list', layout: 'timeline', title: '🟢 STRUKTURA — jednorázově', items: [
+  { type: 'step-list', layout: 'timeline', title: '🟢 STRUKTURA · jednorázově', items: [
     { num: '08', title: 'Kapitalizovat půjčku společníka → smazat předlužení', desc: 'Vlastní kapitál −364k. Přeměnit půjčku společníka (359k) na vlastní kapitál → kapitál ~0, zmizí insolvenční signál. Účetní/právní krok, řešit s účetní.' },
     { num: '09', title: 'Měsíční uzávěrka v portálu', desc: 'Každý měsíc 2026 nahrát doklady → portál porovná plán vs skutečnost a hlídá odchylky i cash.' },
   ] },
@@ -269,7 +269,7 @@ console.log('Hotovost (Kč):', CASH, '| fixní/měs', fixedMonthly, '| runway', 
 if (!WRITE) { console.log('\n(DRY) Spusť s --write.'); process.exit(0) }
 const ledger = { ...cur.data.ledger, bank_balance: CASH[2025] }
 const merged = { ...cur.data, blocks, risks: newRisks, ledger,
-  summary: cur.data.summary + ` Hotovost klesla na ${CASH[2025].toLocaleString('cs-CZ')} Kč (runway ~${runwayMonths} měs) — nejnaléhavější téma.` }
+  summary: cur.data.summary + ` Hotovost klesla na ${CASH[2025].toLocaleString('cs-CZ')} Kč (runway ~${runwayMonths} měs) · nejnaléhavější téma.` }
 const { error } = await supa.from('reports').update({ data: merged }).eq('id', REPORT_ID)
 if (error) { console.error('Zápis selhal:', error.message); process.exit(1) }
 console.log('\n✅ Přehled (blocks) přepsán reálnými čísly.')

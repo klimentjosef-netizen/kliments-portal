@@ -70,7 +70,7 @@ function monthsForYear(year) {
         mkItem(`${month}-15`, 'Tržby z prodeje služeb a výrobků', 'revenue', 'invoice', revenue, true),
         mkItem(`${month}-15`, 'Materiál a díly (variabilní)', 'cost', 'bill', material, true),
         mkItem(`${month}-15`, 'Mzdy a odvody (pravidelné)', 'cost', 'fixed_cost', payroll, true),
-        mkItem(`${month}-15`, 'Provozní režie – služby, nájem (pravidelné)', 'cost', 'fixed_cost', overhead, true),
+        mkItem(`${month}-15`, 'Provozní režie / služby, nájem (pravidelné)', 'cost', 'fixed_cost', overhead, true),
       ],
     })
   }
@@ -83,10 +83,10 @@ function months2026() {
   return fc.months.map((m, i) => ({
     month: m.label, locked: true,
     items: [
-      mkItem(`${m.label}-15`, 'Tržby – plán 2026', 'revenue', 'invoice', m.revenue + Math.round(fc.annual.other_income / 12), false),
-      mkItem(`${m.label}-15`, 'Materiál a díly (variabilní) – plán', 'cost', 'bill', m.variable, false),
-      mkItem(`${m.label}-15`, 'Mzdy a odvody – plán', 'cost', 'fixed_cost', Math.round(V[2025].osobni * 1.04 / 12), false),
-      mkItem(`${m.label}-15`, 'Provozní režie – plán', 'cost', 'fixed_cost', Math.round((V[2025].sluzby + V[2025].ost_nakl) * 1.04 / 12), false),
+      mkItem(`${m.label}-15`, 'Tržby / plán 2026', 'revenue', 'invoice', m.revenue + Math.round(fc.annual.other_income / 12), false),
+      mkItem(`${m.label}-15`, 'Materiál a díly (variabilní) / plán', 'cost', 'bill', m.variable, false),
+      mkItem(`${m.label}-15`, 'Mzdy a odvody / plán', 'cost', 'fixed_cost', Math.round(V[2025].osobni * 1.04 / 12), false),
+      mkItem(`${m.label}-15`, 'Provozní režie / plán', 'cost', 'fixed_cost', Math.round((V[2025].sluzby + V[2025].ost_nakl) * 1.04 / 12), false),
     ],
   }))
 }
@@ -152,7 +152,7 @@ const kpis = [
 
 const patch = {
   tiers: [], // odstranit šablonu předplatného → dashboard použije reálná pole
-  subtitle: 'TechCars Servis s.r.o. — autoservis',
+  subtitle: 'TechCars Servis s.r.o. · autoservis',
   status: 'active',
   ledger: { bank_balance: bankBalance, months: ledgerMonths },
   receivables, cashflow_months, monthly_pnl, kpis,
@@ -163,7 +163,7 @@ const patch = {
     { level: 'critical', title: 'Strukturální ztráta', desc: 'Marže po materiálu (~39 %) nepokryje fixní náklady. Bez zásahu i 2026 ve ztrátě (~−290k).' },
     { level: 'critical', title: 'Vysoký materiálový podíl 61 %', desc: 'Hlavní páka: vyjednat lepší nákup dílů (POP-ART, Inter Cars) nebo zvednout ceny práce. Cíl ≤ 43 % na bod zvratu.' },
     { level: 'medium', title: 'Růst osobních nákladů +29 %', desc: '2024→2025 mzdy 1,50→1,94 M. Hlídat produktivitu (tržby na zaměstnance).' },
-    { level: 'medium', title: 'Sezónní propad léto', desc: 'Červen–srpen pod break-even. Plánovat cash rezervu / akce mimo sezónu.' },
+    { level: 'medium', title: 'Sezónní propad léto', desc: 'Červen/srpen pod break-even. Plánovat cash rezervu / akce mimo sezónu.' },
     { level: 'low', title: 'Rostoucí úroky 10→59k', desc: 'Financování zdražuje. Zkontrolovat úvěry/leasing.' },
   ],
 }

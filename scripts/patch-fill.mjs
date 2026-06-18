@@ -21,7 +21,7 @@ const acc = {}
 for (const r of rows) { const u = String(r.UCET || ''); if (/^5/.test(u)) acc[u] = (acc[u] || 0) + (Number(r.OBRAT_MD) || 0) }
 const sum = (...prefixes) => Object.entries(acc).filter(([u]) => prefixes.some((p) => u.startsWith(p))).reduce((s, [, v]) => s + v, 0)
 
-// VARIABILNÍ (materiál/služby na zakázky) — NEjde do fixed_costs, ale do variable_cost_pct
+// VARIABILNÍ (materiál/služby na zakázky) · NEjde do fixed_costs, ale do variable_cost_pct
 const variable = acc['501.500'] + acc['504.100'] + (acc['501.999'] || 0) + (acc['518.500'] || 0)
 const revenue25 = 7119000
 const varPct = Math.round((variable / revenue25) * 100)
@@ -49,9 +49,9 @@ const patch = {
   budget: { total: 0, capex_budget: 0, reserve_budget: 0, capex_items: [], reserve_drawn: 0 },
   business_profile: {
     vat_payer: true, complexity: 'standard', entity_type: 'sro', founding_date: '', fiscal_year_start: '01',
-    vat_transition_date: '', industry: 'Autoservis', employees: '3–4', annual_revenue: '7,1 mil. Kč (2025)',
+    vat_transition_date: '', industry: 'Autoservis', employees: '3/4', annual_revenue: '7,1 mil. Kč (2025)',
   },
-  // výchozí báze pro what-if simulátor (skutečnost 2025, reconciliováno na výkaz) — klient si může upravit
+  // výchozí báze pro what-if simulátor (skutečnost 2025, reconciliováno na výkaz) · klient si může upravit
   whatif_base: {
     annual_revenue: 7119000, material_pct: 60.9, other_income: 245000,
     fixed_annual: 3297500, depreciation_annual: 255000, labor_share_pct: 40,

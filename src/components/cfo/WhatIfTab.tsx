@@ -47,11 +47,11 @@ export default function WhatIfTab({ base, onBaseChange }: WhatIfTabProps) {
         <h3 className="font-serif text-xl font-light mb-1">Co kdyby… 🔮</h3>
         <p className="text-[0.82rem] text-white/55 leading-relaxed">
           Posouvej páky a hned uvidíš, co to udělá s ročním ziskem a cashem. Vychází to z informativních
-          čísel za uzavřené roky 2024–2025 — slouží k modelování, ne jako účetní výkaz.
+          čísel za uzavřené roky 2024/2025 · slouží k modelování, ne jako účetní výkaz.
         </p>
       </div>
 
-      {/* Moje čísla — editovatelná báze */}
+      {/* Moje čísla · editovatelná báze */}
       <div className={card}>
         <h3 className="font-serif text-base text-ink mb-1">Moje čísla (základ scénáře)</h3>
         <p className="text-[0.75rem] text-mid mb-4">Tady si uprav výchozí hodnoty, ať scénáře sedí na tvoji firmu. Ukládá se automaticky.</p>
@@ -75,7 +75,7 @@ export default function WhatIfTab({ base, onBaseChange }: WhatIfTabProps) {
 
       {/* Páky */}
       <div className={card}>
-        <h3 className="font-serif text-base text-ink mb-4">Páky — co když změním…</h3>
+        <h3 className="font-serif text-base text-ink mb-4">Páky · co když změním…</h3>
         <div className="space-y-5">
           <Slider label="Marže na dílech" hint="lepší nákup / přirážka" value={levers.material_pp}
             min={-10} max={15} step={0.5} unit=" p.b." color="#7bbf8a" onChange={(v) => setLever('material_pp', v)} />
@@ -115,7 +115,7 @@ export default function WhatIfTab({ base, onBaseChange }: WhatIfTabProps) {
         </div>
         <div className={card}>
           <div className="text-[0.62rem] tracking-[0.08em] uppercase text-mid mb-1">Bod zvratu (tržby)</div>
-          <div className="font-serif text-2xl font-light text-ink">{isFinite(beRev) ? fmt(Math.round(beRev)) : '—'}</div>
+          <div className="font-serif text-2xl font-light text-ink">{isFinite(beRev) ? fmt(Math.round(beRev)) : '·'}</div>
           <div className="text-[0.72rem] text-mid mt-1">
             {isFinite(beRev) ? (sc.revenue >= beRev ? '✓ nad bodem zvratu' : `chybí ${fmt(Math.round(beRev - sc.revenue))} tržeb`) : ''}
           </div>

@@ -88,7 +88,7 @@ function DiagnozaPageInner() {
 
   // Pokud report obsahuje pole bloku, vyrenderujeme je pres BlockRenderer.
   // Pokud ne, padame na klasicky hardcoded layout nize. Tim je migrace
-  // postupna — admin muze pridat data.blocks ke kdejake reportu a tim
+  // postupna · admin muze pridat data.blocks ke kdejake reportu a tim
   // prepsat default rendering.
   const customBlocks = Array.isArray(d.blocks) ? (d.blocks as Block[]) : null
 

@@ -1,4 +1,4 @@
-// What-if model pro transakční byznys (autoservis) — nezávislý na "tarifech/členech".
+// What-if model pro transakční byznys (autoservis) · nezávislý na "tarifech/členech".
 // 4 páky: marže na dílech (±p.b.), tržby (±%), fixní náklady (±Kč), hodinová sazba (±%).
 
 export interface WhatIfBase {
@@ -6,8 +6,8 @@ export interface WhatIfBase {
   material_pct: number        // materiálová náročnost = materiál/díly jako % tržeb (0..100)
   other_income: number        // ostatní provozní výnosy (Kč/rok)
   fixed_annual: number        // fixní náklady vč. odpisů (Kč/rok)
-  depreciation_annual: number // odpisy (Kč/rok) — pro EBITDA add-back
-  labor_share_pct: number     // odhad: kolik % tržeb je práce (zbytek díly) — pro páku hod. sazby
+  depreciation_annual: number // odpisy (Kč/rok) · pro EBITDA add-back
+  labor_share_pct: number     // odhad: kolik % tržeb je práce (zbytek díly) · pro páku hod. sazby
 }
 
 export interface WhatIfLevers {

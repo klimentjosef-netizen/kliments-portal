@@ -91,7 +91,7 @@ export type StepListBlock = BlockBase & {
   type: 'step-list'
   title?: string
   items: StepItem[]
-  /** Layout — vertikalni "casova osa" nebo "karty" */
+  /** Layout · vertikalni "casova osa" nebo "karty" */
   layout?: 'timeline' | 'cards'
 }
 
@@ -131,7 +131,7 @@ export type YoyRow = {
   label: string
   /** Hodnoty pro jednotlive roky ve stejnem poradi jako `years` */
   values: (number | null)[]
-  /** Formatovani — currency (Kc), percent, number (raw) */
+  /** Formatovani · currency (Kc), percent, number (raw) */
   format?: 'currency' | 'percent' | 'number'
   /** Highlight tohoto radku (napr. EBITDA, klicovy ukazatel) */
   highlight?: boolean
@@ -150,7 +150,7 @@ export type YoyComparisonBlock = BlockBase & {
 }
 
 /** Data completeness: vizualni prehled co je v portalu, co chybi.
- *  Pouziva se napr. behem onboardingu noveho klienta — admin vidi
+ *  Pouziva se napr. behem onboardingu noveho klienta · admin vidi
  *  co uz nahral z RZA podkladu a co je jeste otevreno. */
 export type CompletenessCell = {
   /** Status policka */
@@ -170,7 +170,7 @@ export type DataCompletenessBlock = BlockBase & {
   /** Sloupcove popisky (napr. ["2024", "2025", "2026 YTD"] nebo mesice) */
   columns: string[]
   rows: CompletenessRow[]
-  /** Volitelne shrnuti — napr. "73 % kompletni, chybi 8 polozek" */
+  /** Volitelne shrnuti · napr. "73 % kompletni, chybi 8 polozek" */
   summary?: string
 }
 

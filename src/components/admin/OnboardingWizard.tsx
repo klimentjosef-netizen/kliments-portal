@@ -12,7 +12,7 @@ import { useState } from 'react'
  *  - report CFO se zakladnimi daty (tiers, fixed_costs, business_profile)
  *
  * Wizard ma vlastni state. Po Save zavolat onComplete(clientId, summary)
- * — admin page si pak refresne klienty.
+ * · admin page si pak refresne klienty.
  */
 
 type Step = 1 | 2 | 3 | 4

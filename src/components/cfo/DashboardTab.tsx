@@ -151,7 +151,7 @@ export default function DashboardTab({
         </div>
       </div>
 
-      {/* RECOMMENDATIONS — skryté pro transakční (logika i texty jsou tarifové; plán je v Přehledu) */}
+      {/* RECOMMENDATIONS · skryté pro transakční (logika i texty jsou tarifové; plán je v Přehledu) */}
       {!isTransaction && recommendations.length > 0 && (
         <div className="space-y-2">
           <h3 className="text-[0.62rem] tracking-[0.12em] uppercase text-mid font-medium">Doporuceni</h3>
@@ -214,7 +214,7 @@ export default function DashboardTab({
         </div>
       )}
 
-      {/* WHAT-IF CALCULATOR — jen předplatný model (transakční má vlastní záložku Co kdyby) */}
+      {/* WHAT-IF CALCULATOR · jen předplatný model (transakční má vlastní záložku Co kdyby) */}
       {!isTransaction && (
       <div className="bg-white rounded-[20px] p-6 border border-black/[0.06]">
         <h3 className="font-serif text-base text-ink mb-1">{isSimple ? 'Muzu si dovolit...?' : 'Simulace investice'}</h3>

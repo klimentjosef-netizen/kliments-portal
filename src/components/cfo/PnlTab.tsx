@@ -57,7 +57,7 @@ export default function PnlTab({ ledger }: PnlTabProps) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="font-serif text-xl text-ink font-light">Hospodaření</h3>
-          <p className="text-[0.78rem] text-mid">Kolik firma vydělala — tržby, náklady, zisk. Skutečnost za uzavřené roky.</p>
+          <p className="text-[0.78rem] text-mid">Kolik firma vydělala · tržby, náklady, zisk. Skutečnost za uzavřené roky.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {tabBtn('souhrn', 'Souhrn všech let')}
@@ -105,7 +105,7 @@ export default function PnlTab({ ledger }: PnlTabProps) {
 
           {/* Kumulativní karty */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <SumCard label={`Tržby celkem (${years[0]}–${years[years.length - 1]})`} value={total.trzby} />
+            <SumCard label={`Tržby celkem (${years[0]}/${years[years.length - 1]})`} value={total.trzby} />
             <SumCard label="Materiál celkem" value={total.material} negative sub={`${pct(total.material, total.trzby)} % z tržeb`} />
             <SumCard label="Mzdy + režie celkem" value={total.rezie} negative />
             <SumCard label="Provozní zisk celkem" value={total.zisk} profit />
@@ -148,7 +148,7 @@ function YearDetail({ ledger, year, agg }: { ledger: Ledger; year: string; agg: 
         <SumCard label="Provozní zisk (EBITDA)" value={agg.zisk} profit />
       </div>
       <div className={`${card} overflow-x-auto`}>
-        <h4 className="font-serif text-base text-ink mb-4">Po měsících — {year}</h4>
+        <h4 className="font-serif text-base text-ink mb-4">Po měsících · {year}</h4>
         <table className="w-full text-[0.8rem]">
           <thead>
             <tr className="text-[0.6rem] tracking-[0.1em] uppercase text-mid">

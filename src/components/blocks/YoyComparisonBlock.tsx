@@ -1,7 +1,7 @@
 import type { YoyComparisonBlock as Props, YoyRow } from './types'
 
 function fmtValue(v: number | null, format: YoyRow['format']): string {
-  if (v === null || v === undefined || isNaN(v)) return '—'
+  if (v === null || v === undefined || isNaN(v)) return '·'
   if (format === 'percent') return `${v.toFixed(1)} %`
   if (format === 'number') return v.toLocaleString('cs-CZ')
   // default: currency
@@ -42,7 +42,7 @@ export default function YoyComparisonBlock({ title, years, rows, note }: Props) 
     )
   }
 
-  // Posledni rok je "vlevo nejvic vpravo" — aktualni stav
+  // Posledni rok je "vlevo nejvic vpravo" · aktualni stav
   const sortedYears = [...years].sort((a, b) => a - b)
 
   return (
@@ -100,7 +100,7 @@ export default function YoyComparisonBlock({ title, years, rows, note }: Props) 
                 ))}
                 {sortedYears.length >= 2 && (
                   <td className="py-2.5 pl-3 text-right text-[0.78rem] font-medium tabular-nums">
-                    {trend ? <span className={trend.cls}>{trend.text}</span> : <span className="text-mid">—</span>}
+                    {trend ? <span className={trend.cls}>{trend.text}</span> : <span className="text-mid">·</span>}
                   </td>
                 )}
               </tr>

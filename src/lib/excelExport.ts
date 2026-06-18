@@ -40,7 +40,7 @@ export function exportCfoExcel(opts: ExportOpts) {
 
   // ──────── List 1: SOUHRN ────────
   const summary: (string | number)[][] = [
-    ['CFO REPORT' + (clientName ? ` — ${clientName}` : '')],
+    ['CFO REPORT' + (clientName ? ` · ${clientName}` : '')],
     [`Generováno: ${new Date().toLocaleDateString('cs-CZ')}`],
     [],
     ['Parametry'],
