@@ -24,6 +24,8 @@ import ReceivablesTab from '@/components/cfo/ReceivablesTab'
 import WhatIfTab from '@/components/cfo/WhatIfTab'
 import PnlTab from '@/components/cfo/PnlTab'
 import FillMonthTab from '@/components/cfo/FillMonthTab'
+import WeeklyCashflowTab from '@/components/cfo/WeeklyCashflowTab'
+import TaxOverviewTab from '@/components/cfo/TaxOverviewTab'
 import AssistantWidget from '@/components/cfo/AssistantWidget'
 import { PeriodStrip, ledgerYearInfo } from '@/components/cfo/period'
 import {
@@ -477,7 +479,16 @@ function CfoPageInner() {
         )}
         {tab === 'cashflow' && (
           <div className="space-y-8">
+          {isTransaction && (
+            <WeeklyCashflowTab
+              ledger={ledger}
+              whatifBase={d.whatif_base}
+              schedule={d.cf_schedule}
+              onScheduleChange={v => updateData('cf_schedule', v)}
+            />
+          )}
           {isTransaction && Array.isArray(d.blocks_cash) && d.blocks_cash.length > 0 && <BlockRenderer blocks={d.blocks_cash as Block[]} />}
+          {!isTransaction && (
           <CashflowTab
             tiers={tiers}
             extras={extras}
@@ -496,6 +507,7 @@ function CfoPageInner() {
             onProjectionMonthsChange={v => updateData('projection_months', v)}
             onBusinessStartMonthChange={v => updateData('business_start_month', v)}
           />
+          )}
           </div>
         )}
         {tab === 'budget' && (
@@ -546,7 +558,9 @@ function CfoPageInner() {
           <VatTab vat={vat} ledger={ledger} capexVat={capexVat} profile={profile} onVatChange={v => updateData('vat', v)} />
         )}
         {tab === 'taxes' && (
-          <TaxesTab taxes={taxesData} taxDeadlines={taxDeadlines} complexity={profile.complexity} onTaxesChange={v => updateData('taxes', v)} />
+          isTransaction
+            ? <TaxOverviewTab ledger={ledger} whatifBase={d.whatif_base} />
+            : <TaxesTab taxes={taxesData} taxDeadlines={taxDeadlines} complexity={profile.complexity} onTaxesChange={v => updateData('taxes', v)} />
         )}
         {tab === 'hospodareni' && (
           <div className="space-y-8">
