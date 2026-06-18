@@ -23,6 +23,7 @@ import TaxesTab from '@/components/cfo/TaxesTab'
 import ReceivablesTab from '@/components/cfo/ReceivablesTab'
 import WhatIfTab from '@/components/cfo/WhatIfTab'
 import PnlTab from '@/components/cfo/PnlTab'
+import FillMonthTab from '@/components/cfo/FillMonthTab'
 import { PeriodStrip, ledgerYearInfo } from '@/components/cfo/period'
 import {
   type Tier, type Extra, type CostItem, type Budget, type Ledger,
@@ -542,12 +543,16 @@ function CfoPageInner() {
         {tab === 'risks' && <RisksTab data={d} onRisksChange={v => updateData('risks', v)} onStepsChange={v => updateData('steps', v)} />}
         {tab === 'questions' && <QuestionsTab data={d} onQuestionsChange={v => updateData('questions', v)} />}
         {tab === 'import' && (
+          isTransaction ? (
+            <FillMonthTab ledger={ledger} whatifBase={d.whatif_base} onLedgerChange={v => updateData('ledger', v)} />
+          ) : (
           <ImportTab
             ledger={ledger}
             receivables={receivables}
             onLedgerChange={v => updateData('ledger', v)}
             onReceivablesChange={v => updateData('receivables', v)}
           />
+          )
         )}
         </div>
       </div>
