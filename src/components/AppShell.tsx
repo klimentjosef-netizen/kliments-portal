@@ -89,8 +89,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <Sidebar profile={profile} onNavigate={() => setSidebarOpen(false)} unreadCount={unreadCount} />
       </div>
 
-      {/* Main */}
-      <main className="lg:ml-60 flex-1 min-h-screen flex flex-col w-full">
+      {/* Main · sidebar je na desktopu v toku (lg:static + lg:sticky), takže
+          žádné ml-60 navíc, jinak vznikne dvojitá mezera */}
+      <main className="flex-1 min-w-0 min-h-screen flex flex-col">
         {/* Mobile topbar with hamburger */}
         <div className="lg:hidden flex items-center gap-3 px-4 py-3 bg-sand/90 backdrop-blur-md border-b border-black/[0.06] sticky top-0 z-30">
           <button onClick={() => setSidebarOpen(true)} className="p-1.5 relative">
