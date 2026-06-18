@@ -27,12 +27,12 @@ const onboardingBlocks = [
   { id: 'onb-h', type: 'heading', level: 2, eyebrow: 'Stav nasazení', text: 'Portál je živý · a teď ho rozsvítíme naživo', sub: 'Co je hotové, co od vás ještě potřebujeme a jak půjdeme do ostrého provozu.' },
 
   { id: 'onb-done', type: 'callout', intent: 'success', title: 'Hotové a napojené',
-    body: 'Roky 2024 a 2025 jsou kompletně zpracované a striktně oddělené jako historie. Máte hotový finanční obraz · hospodaření po letech, tok hotovosti (cash bridge), rizika i plán ozdravení. NOVĚ je v portálu napojený AI poradce „CFO Klimentík" · rozumí číslům vaší firmy, sám upozorní na to podstatné a odpoví na dotazy typu „co kdyby zvednu hodinovku o 10 %". Najdete ho vpravo dole na záložce CFO.' },
+    body: 'Roky 2024 a 2025 jsou kompletně zpracované a striktně oddělené jako historie. Máš hotový finanční obraz · hospodaření po letech, tok hotovosti (cash bridge), rizika i plán ozdravení. NOVĚ je v portálu napojený AI poradce „CFO Klimentík" · rozumí číslům tvé firmy, sám upozorní na to podstatné a odpoví na dotazy typu „co kdyby zvednu hodinovku o 10 %". Najdeš ho vpravo dole na záložce CFO.' },
 
   { id: 'onb-wait', type: 'callout', intent: 'info', title: 'Než přepneme na živý měsíční režim',
-    body: 'Zbývají dvě věci. (1) Spustit data za rok 2026 · po uzávěrce každého měsíce stačí v záložce „Doplnit data" zadat tři čísla (tržby, materiál a díly, mzdy a režie) a portál se rozsvítí naživo. (2) Pár podkladů níže, ať model sedí na korunu. Projděte prosím seznam a napište nám, co z toho máte po ruce.' },
+    body: 'Zbývají dvě věci. (1) Spustit data za rok 2026 · po uzávěrce každého měsíce stačí v záložce „Doplnit data" zadat tři čísla (tržby, materiál a díly, mzdy a režie) a portál se rozsvítí naživo. (2) Pár podkladů níže, ať model sedí na korunu. Projdi prosím seznam a napiš mi, co z toho máš po ruce.' },
 
-  { id: 'onb-need', type: 'data-completeness', title: 'Co od vás ještě potřebujeme · seřazeno dle důležitosti', columns: cols,
+  { id: 'onb-need', type: 'data-completeness', title: 'Co od tebe ještě potřebujeme · seřazeno dle důležitosti', columns: cols,
     summary: 'Bez bankovních výpisů jedeme jen z pokladny · proto je to priorita číslo jedna.',
     rows: [
       { label: '1. Bankovní výpisy (běžný účet)', cells: [C('missing'), C('missing'), C('missing', 'průběžně')] },
@@ -56,9 +56,9 @@ const onboardingBlocks = [
 
   { id: 'onb-steps', type: 'step-list', title: 'Další kroky', layout: 'timeline',
     items: [
-      { num: '1', title: 'Projděte seznam „Co potřebujeme" a napište, co máte', desc: 'Stačí krátká odpověď u každé položky · mám / nemám / dohledám.' },
-      { num: '2', title: 'Pošlete bankovní výpisy 2024 a 2025', desc: 'Priorita · odemknou reálný tok peněz, ne jen pokladnu.', deadline: 'Priorita' },
-      { num: '3', title: 'Po uzávěrce každého měsíce 2026 doplňte tři čísla', desc: 'Záložka „Doplnit data" · tím portál přejde z historie do živého režimu.' },
+      { num: '1', title: 'Projdi seznam „Co potřebujeme" a napiš, co máš', desc: 'Stačí krátká odpověď u každé položky · mám / nemám / dohledám.' },
+      { num: '2', title: 'Pošli bankovní výpisy 2024 a 2025', desc: 'Priorita · odemknou reálný tok peněz, ne jen pokladnu.', deadline: 'Priorita' },
+      { num: '3', title: 'Po uzávěrce každého měsíce 2026 doplň tři čísla', desc: 'Záložka „Doplnit data" · tím portál přejde z historie do živého režimu.' },
     ] },
 ]
 
