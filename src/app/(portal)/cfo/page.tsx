@@ -445,6 +445,8 @@ function CfoPageInner() {
           />
         )}
         {tab === 'cashflow' && (
+          <div className="space-y-8">
+          {isTransaction && Array.isArray(d.blocks_cash) && d.blocks_cash.length > 0 && <BlockRenderer blocks={d.blocks_cash as Block[]} />}
           <CashflowTab
             tiers={tiers}
             extras={extras}
@@ -463,6 +465,7 @@ function CfoPageInner() {
             onProjectionMonthsChange={v => updateData('projection_months', v)}
             onBusinessStartMonthChange={v => updateData('business_start_month', v)}
           />
+          </div>
         )}
         {tab === 'budget' && (
           <BudgetTab
@@ -480,8 +483,8 @@ function CfoPageInner() {
           />
         )}
         {tab === 'dashboard' && (
-          isTransaction && Array.isArray(d.blocks) && d.blocks.length > 0 ? (
-            <BlockRenderer blocks={d.blocks as Block[]} />
+          isTransaction && Array.isArray(d.blocks_overview || d.blocks) ? (
+            <BlockRenderer blocks={(d.blocks_overview || d.blocks) as Block[]} />
           ) : (
           <DashboardTab
             ledger={ledger} tiers={tiers} extras={extras} fixedCosts={fixedCosts}
@@ -504,7 +507,10 @@ function CfoPageInner() {
           <TaxesTab taxes={taxesData} taxDeadlines={taxDeadlines} complexity={profile.complexity} onTaxesChange={v => updateData('taxes', v)} />
         )}
         {tab === 'hospodareni' && (
-          <PnlTab ledger={ledger} />
+          <div className="space-y-8">
+            <PnlTab ledger={ledger} />
+            {Array.isArray(d.blocks_pnl) && d.blocks_pnl.length > 0 && <BlockRenderer blocks={d.blocks_pnl as Block[]} />}
+          </div>
         )}
         {tab === 'whatif' && (
           <WhatIfTab base={d.whatif_base} onBaseChange={v => updateData('whatif_base', v)} />
