@@ -132,7 +132,7 @@ const newRisks = [
 
 const blocks = [
   { type: 'heading', level: 1, text: 'Finanční řízení servisu',
-    eyebrow: 'TECHCARS SERVIS · 2024–2025 SKUTEČNOST · 2026 PLÁN',
+    eyebrow: 'TECHCARS SERVIS · INFORMATIVNÍ DATA ZA UZAVŘENÉ ROKY 2024–2025',
     sub: 'Přehled hospodaření vaší firmy v jednoduchém jazyce.' },
   { type: 'callout', intent: 'info', title: '📅 Pozor: jde o INFORMATIVNÍ data za UZAVŘENÉ roky 2024 a 2025',
     body: 'Čísla níže popisují, jak firma hospodařila v minulosti (roky 2024 a 2025 jsou uzavřené). Slouží k pochopení a rozhodování — nejsou to aktuální čísla za letošek. Rok 2026 je zatím jen ODHAD (plán). Chcete si zkusit „co kdyby"? Otevřete si záložku Co kdyby — tam posouváte páky a hned vidíte dopad.' },
@@ -150,15 +150,15 @@ const blocks = [
   { type: 'callout', intent: 'warning', title: 'Ztráta je strukturální, ne jednorázová',
     body: 'Po odečtení dílů a materiálu (61 % tržeb) zbývá marže ~39 %, která nepokryje fixní náklady (~3,3 M/rok). Provozní ztráta drží dva roky po sobě (−277k, −269k) a model 2026 ji bez zásahu opakuje (~−290k). Ziskové jsou jen sezónní vrcholy (duben, říjen) — léto (červen–srpen) je pod bodem zvratu.' },
 
-  { type: 'yoy-comparison', title: 'Vývoj hospodaření — 2024 a 2025 SKUTEČNOST, 2026 PLÁN', years: [2024, 2025, 2026], note: '⬅ 2024 a 2025 = skutečnost z účetní závěrky. 2026 = plán (base case +4 % tržeb, fixní +4 %). EBITDA ≈ provozní VH + odpisy. „Výsledek po zdanění" 2026 neuveden (závisí na finančních nákladech).', rows: [
-    { label: 'Tržby', values: [v24.trzby, v25.trzby, fc.annual.revenue], format: 'currency' },
-    { label: 'Materiál a díly (variabilní)', values: [var24, var25, fc.annual.variable_costs], format: 'currency', higherIsBetter: false },
-    { label: 'Osobní náklady', values: [v24.osobni, v25.osobni, Math.round(v25.osobni * 1.04)], format: 'currency', higherIsBetter: false },
-    { label: 'EBITDA', values: [ebitda24, ebitda25, fc.annual.ebitda], format: 'currency', highlight: true },
-    { label: 'Provozní VH (EBIT)', values: [v24.provozni_vh, v25.provozni_vh, fc.annual.ebit], format: 'currency', highlight: true },
-    { label: 'Výsledek po zdanění', values: [v24.vysledek, v25.vysledek, null], format: 'currency' },
-    { label: 'Hotovost (k 31.12.)', values: [CASH[2024], CASH[2025], null], format: 'currency', highlight: true, higherIsBetter: true },
-    { label: 'Vlastní kapitál (k 31.12.)', values: [-29000, -364000, null], format: 'currency', highlight: true, higherIsBetter: true },
+  { type: 'yoy-comparison', title: 'Vývoj hospodaření — 2024 vs 2025 (skutečnost)', years: [2024, 2025], note: '2024 a 2025 = skutečnost z účetní závěrky (uzavřené roky). EBITDA ≈ provozní výsledek + odpisy. Výhled na 2026 najdete v záložce „Co kdyby".', rows: [
+    { label: 'Tržby', values: [v24.trzby, v25.trzby], format: 'currency' },
+    { label: 'Materiál a díly (variabilní)', values: [var24, var25], format: 'currency', higherIsBetter: false },
+    { label: 'Osobní náklady', values: [v24.osobni, v25.osobni], format: 'currency', higherIsBetter: false },
+    { label: 'EBITDA', values: [ebitda24, ebitda25], format: 'currency', highlight: true },
+    { label: 'Provozní VH (EBIT)', values: [v24.provozni_vh, v25.provozni_vh], format: 'currency', highlight: true },
+    { label: 'Výsledek po zdanění', values: [v24.vysledek, v25.vysledek], format: 'currency' },
+    { label: 'Hotovost (k 31.12.)', values: [CASH[2024], CASH[2025]], format: 'currency', highlight: true, higherIsBetter: true },
+    { label: 'Vlastní kapitál (k 31.12.)', values: [-29000, -364000], format: 'currency', highlight: true, higherIsBetter: true },
   ] },
 
   { type: 'heading', level: 2, text: 'Kam zmizela hotovost', eyebrow: 'Cash bridge 2025 (úplný, z rozvahy)' },

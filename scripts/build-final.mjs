@@ -95,7 +95,10 @@ function months2026() {
 let bankBalance = 0
 try { const d = sheet(`${BASE}/2025/denik.xlsx`); bankBalance = Math.round(num(d[d.length - 1].ZUSTATEK)) } catch {}
 
-const ledgerMonths = [...monthsForYear(2024), ...monthsForYear(2025), ...months2026()]
+// 2026 zatím BEZ skutečných dat → do ledgeru jdou jen uzavřené roky 2024+2025.
+// Výhled 2026 žije zvlášť v záložce „Co kdyby" (whatif_base/forecast), ne jako data.
+void months2026
+const ledgerMonths = [...monthsForYear(2024), ...monthsForYear(2025)]
 
 // cashflow_months (36) z ledgeru
 let cum = 0

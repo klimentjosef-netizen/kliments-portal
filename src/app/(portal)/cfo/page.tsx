@@ -22,6 +22,7 @@ import VatTab from '@/components/cfo/VatTab'
 import TaxesTab from '@/components/cfo/TaxesTab'
 import ReceivablesTab from '@/components/cfo/ReceivablesTab'
 import WhatIfTab from '@/components/cfo/WhatIfTab'
+import PnlTab from '@/components/cfo/PnlTab'
 import {
   type Tier, type Extra, type CostItem, type Budget, type Ledger,
   type VatData, type TaxData, type ReceivablesData, type Actuals,
@@ -38,6 +39,7 @@ import { exportCfoExcel } from '@/lib/excelExport'
 
 const ALL_TABS = [
   { id: 'dashboard', label: 'Přehled' },
+  { id: 'hospodareni', label: 'Hospodaření' },
   { id: 'monthly', label: 'Měsíční plán' },
   { id: 'pricing', label: 'Cenotvorba' },
   { id: 'cashflow', label: 'Cashflow' },
@@ -104,7 +106,6 @@ function CfoPageInner() {
   const [clientName, setClientName] = useState<string>('')
   const [isAdminView, setIsAdminView] = useState(false)
   const [isAdminNoPick, setIsAdminNoPick] = useState(false)
-  const [selectedYear, setSelectedYear] = useState<string>('all')
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const reportIdRef = useRef<string>('')
   const supabase = createClient()
@@ -203,7 +204,13 @@ function CfoPageInner() {
   const businessModel = (d.business_model as string) || 'subscription'
   const isTransaction = businessModel === 'transaction'
   // Záložky nevhodné pro transakční byznys (postavené na tarifech/členech/CAPEX startupu)
-  const HIDDEN_FOR_TRANSACTION = ['pricing', 'monthly', 'budget']
+  const HIDDEN_FOR_TRANSACTION = ['pricing', 'monthly', 'budget', 'risks', 'questions']
+  // Hospodaření je jen pro transakční model
+  const TRANSACTION_ONLY = ['hospodareni']
+  // Srozumitelné názvy pro transakční byznys
+  const TRANSACTION_LABELS: Record<string, string> = {
+    cashflow: 'Peníze', receivables: 'Faktury', taxes: 'Daně a odvody', import: 'Doplnit data',
+  }
   const budget = (d.budget || DEFAULT_DATA.budget) as Budget
   const rampMonths = (d.ramp_months ?? DEFAULT_DATA.ramp_months) as number
   const projectionMonths = (d.projection_months ?? DEFAULT_DATA.projection_months) as number
@@ -302,50 +309,10 @@ function CfoPageInner() {
           </div>
         )}
 
-        {/* Year selector — zobrazi se pouze pokud ledger obsahuje data z vice let.
-            Filtruje block-based dashboard nize. CFO taby zustavaji full-ledger
-            pro plnou funkcnost. */}
-        {(() => {
-          const years = Array.from(new Set(
-            ledger.months
-              .filter(m => m.items.length > 0)
-              .map(m => parseInt(m.month.slice(0, 4), 10))
-              .filter(y => !isNaN(y))
-          )).sort()
-          if (years.length < 2) return null
-          return (
-            <div className="flex items-center gap-2 flex-wrap mb-4">
-              <span className="text-[0.62rem] tracking-[0.16em] uppercase text-mid font-medium mr-2">Rok</span>
-              <button
-                onClick={() => setSelectedYear('all')}
-                className={`px-3 py-1.5 rounded-full text-[0.72rem] tracking-[0.04em] font-medium transition-colors ${
-                  selectedYear === 'all' ? 'bg-rose text-white' : 'bg-white border border-black/[0.08] text-mid hover:border-rose-pale'
-                }`}
-              >
-                Vše
-              </button>
-              {years.map(y => (
-                <button
-                  key={y}
-                  onClick={() => setSelectedYear(String(y))}
-                  className={`px-3 py-1.5 rounded-full text-[0.72rem] tracking-[0.04em] font-medium transition-colors ${
-                    selectedYear === String(y) ? 'bg-rose text-white' : 'bg-white border border-black/[0.08] text-mid hover:border-rose-pale'
-                  }`}
-                >
-                  {y}
-                </button>
-              ))}
-              <span className="text-[0.62rem] text-mid ml-2">
-                ({ledger.months.filter(m => selectedYear === 'all' || m.month.startsWith(selectedYear)).reduce((s, m) => s + m.items.length, 0)} transakcí)
-              </span>
-            </div>
-          )
-        })()}
-
-        {/* Pripojeny block-based dashboard pro tohoto klienta (admin nadefinoval
-            data.blocks). Zobrazuje se NAD klasickym CFO UI - operativni casti
-            (Mesicni plan / Cashflow / DPH atd.) zustavaji dostupne pod nim. */}
-        {Array.isArray(d.blocks) && d.blocks.length > 0 && (
+        {/* Block-based dashboard: transakční klienti ho vidí UVNITŘ záložky Přehled
+            (čistší flow); předplatní ho mají nad CFO UI jako dřív. Přepínání let
+            řeší přímo živé záložky (Hospodaření), ne statické bloky. */}
+        {!isTransaction && Array.isArray(d.blocks) && d.blocks.length > 0 && (
           <div className="mb-8">
             <BlockRenderer blocks={d.blocks as Block[]} />
           </div>
@@ -454,9 +421,11 @@ function CfoPageInner() {
         {/* Tabs */}
         <CfoTabs tabs={ALL_TABS.filter(t => {
           if (t.id === 'vat' && !profile.vat_payer && !profile.vat_transition_date) return false
+          if (!isTransaction && TRANSACTION_ONLY.includes(t.id)) return false
           if (isTransaction && HIDDEN_FOR_TRANSACTION.includes(t.id)) return false
           return true
-        })} active={tab} onChange={handleTabChange} />
+        }).map(t => (isTransaction && TRANSACTION_LABELS[t.id]) ? { ...t, label: TRANSACTION_LABELS[t.id] } : t)}
+          active={tab} onChange={handleTabChange} />
 
         {/* Tab content */}
         <div id="cfo-content">
@@ -507,6 +476,9 @@ function CfoPageInner() {
           />
         )}
         {tab === 'dashboard' && (
+          isTransaction && Array.isArray(d.blocks) && d.blocks.length > 0 ? (
+            <BlockRenderer blocks={d.blocks as Block[]} />
+          ) : (
           <DashboardTab
             ledger={ledger} tiers={tiers} extras={extras} fixedCosts={fixedCosts}
             variablePct={variablePct} budget={budget} receivables={receivables}
@@ -516,6 +488,7 @@ function CfoPageInner() {
             onTabChange={handleTabChange}
             onProfileChange={v => updateData('business_profile', v)}
           />
+          )
         )}
         {tab === 'monthly' && (
           <MonthlyPlanTab ledger={ledger} taxDeadlines={taxDeadlines} complexity={profile.complexity} onLedgerChange={v => updateData('ledger', v)} />
@@ -525,6 +498,9 @@ function CfoPageInner() {
         )}
         {tab === 'taxes' && (
           <TaxesTab taxes={taxesData} taxDeadlines={taxDeadlines} complexity={profile.complexity} onTaxesChange={v => updateData('taxes', v)} />
+        )}
+        {tab === 'hospodareni' && (
+          <PnlTab ledger={ledger} />
         )}
         {tab === 'whatif' && (
           <WhatIfTab base={d.whatif_base} onBaseChange={v => updateData('whatif_base', v)} />
