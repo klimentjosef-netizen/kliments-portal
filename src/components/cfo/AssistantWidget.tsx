@@ -6,10 +6,18 @@ import { useState, useRef, useEffect } from 'react'
 // uzemněné v datech klienta. Drží se palety portálu (ink/sand/rose).
 
 type Msg = { role: 'user' | 'assistant'; content: string }
+type Insight = { id: string; title: string; detail: string; severity: 'good' | 'info' | 'warn' | 'critical'; prompt: string }
 
 interface Props {
   clientId?: string
   clientName?: string
+}
+
+const SEV: Record<Insight['severity'], { dot: string; ring: string }> = {
+  critical: { dot: 'bg-rose-deep', ring: 'hover:border-rose/40' },
+  warn: { dot: 'bg-amber-500', ring: 'hover:border-amber-300' },
+  info: { dot: 'bg-sky-500', ring: 'hover:border-sky-300' },
+  good: { dot: 'bg-green', ring: 'hover:border-green/40' },
 }
 
 const STARTERS = [
@@ -24,6 +32,8 @@ export default function AssistantWidget({ clientId, clientName }: Props) {
   const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
+  const [insights, setInsights] = useState<Insight[]>([])
+  const insightsLoaded = useRef(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -32,8 +42,19 @@ export default function AssistantWidget({ clientId, clientName }: Props) {
   }, [messages, busy])
 
   useEffect(() => {
-    if (open) inputRef.current?.focus()
-  }, [open])
+    if (!open) return
+    inputRef.current?.focus()
+    if (insightsLoaded.current) return
+    insightsLoaded.current = true
+    fetch('/api/cfo-assistant', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientId, mode: 'insights' }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.insights) setInsights(d.insights) })
+      .catch(() => {})
+  }, [open, clientId])
 
   async function send(text: string) {
     const q = text.trim()
@@ -119,7 +140,27 @@ export default function AssistantWidget({ clientId, clientName }: Props) {
                   Dobrý den. Jsem CFO Klimentík · rozumím číslům vaší firmy. Zeptejte se mě na cokoli, nebo zkuste jednu z otázek níže.
                   <div className="mt-2 text-[0.7rem] text-mid">Vycházím z dat v portálu. Uzavřené roky jsou historie; letošní rok je živá verze.</div>
                 </div>
+
+                {insights.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid px-1">Čeho jsem si všiml</div>
+                    {insights.map((it) => (
+                      <button key={it.id} onClick={() => send(it.prompt)}
+                        className={`w-full text-left bg-white border border-black/[0.06] rounded-xl px-3.5 py-2.5 transition-colors ${SEV[it.severity].ring}`}>
+                        <div className="flex items-start gap-2">
+                          <span className={`mt-1.5 shrink-0 w-1.5 h-1.5 rounded-full ${SEV[it.severity].dot}`} />
+                          <div>
+                            <div className="text-[0.8rem] font-medium text-ink leading-snug">{it.title}</div>
+                            <div className="text-[0.72rem] text-mid leading-snug mt-0.5">{it.detail}</div>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 <div className="flex flex-col gap-2">
+                  <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid px-1">Nebo se zeptejte</div>
                   {STARTERS.map((s) => (
                     <button key={s} onClick={() => send(s)}
                       className="text-left text-[0.8rem] text-ink bg-white border border-black/[0.06] rounded-xl px-3.5 py-2.5 hover:border-rose-pale hover:bg-rose/[0.03] transition-colors">

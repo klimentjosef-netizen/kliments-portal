@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Anthropic from '@anthropic-ai/sdk'
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabase } from '@/lib/supabase/server'
+import { buildInsights, scenarioContext, insightsContext } from '@/components/cfo/cfoInsights'
 
 // CFO kecálek · živý průvodce klienta jeho vlastní firmou.
 // Uzemněný VÝHRADNĚ v datech reportu klienta (žádné vymýšlení čísel).
@@ -139,6 +140,10 @@ function buildContext(d: any, clientName: string): string {
     serializeBlocks(d.blocks_cash || [], 'PENÍZE — tok hotovosti / cash bridge'),
     '',
     serializeBlocks(d.blocks_pnl || [], 'HOSPODAŘENÍ — charakter příjmů a nákladů'),
+    '',
+    scenarioContext(d),
+    '',
+    insightsContext(d),
   ].filter((s) => s !== '').join('\n')
 }
 
@@ -149,7 +154,8 @@ Tvoje role:
 · Odpovídáš stručně a k věci. Vede tě závěr, ne dlouhý výčet. Když má smysl doporučení, dej jedno jasné, ne přehlídku možností.
 · Čísla bereš VÝHRADNĚ z kontextu níže. Nikdy si nevymýšlej ani neodhaduj částky. Když odpověď v datech není, řekni to rovně a navrhni, kde ji v portálu doplnit (záložky: Přehled, Hospodaření, Peníze, Co kdyby, Doplnit data).
 · Důsledně odděluj UZAVŘENÉ roky (minulost, informativní posouzení) od ŽIVÉ verze letošního roku. Když pro letošek nejsou data, jasně řekni, že jde o historický obraz, ne o aktuální stav.
-· U modelových výpočtů („co kdyby zvednu sazbu o X“) vždy připomeň, že jde o scénář, ne o realitu, a odkaž na záložku Co kdyby.
+· U modelových výpočtů („co kdyby zvednu sazbu o X“) použij přesná čísla ze sekce SPOČÍTANÉ SCÉNÁŘE, pokud tam jsou. Vždy připomeň, že jde o scénář, ne o realitu, a odkaž na záložku Co kdyby. Nikdy si scénářová čísla nedopočítávej z hlavy.
+· Když uvedeš konkrétní částku nebo procento, krátce řekni, odkud je (např. „z Hospodaření 2025“ nebo „z modelu Co kdyby“), ať si to majitel umí ověřit.
 
 Styl psaní:
 · Začni odpovědí na otázku, pak teprve detail.
@@ -160,25 +166,16 @@ Styl psaní:
 Nikdy nepředstírej přístup k živým bankovním účtům ani k datům, která nejsou v kontextu.`
 
 export async function POST(req: NextRequest) {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return new Response(
-      'Kecálek zatím není aktivní · chybí klíč k AI. Doplň ho v nastavení portálu a zkuste to znovu.',
-      { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } }
-    )
-  }
-
   const supabase = createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return new Response('Unauthorized', { status: 401 })
 
-  let body: { clientId?: string; messages?: Msg[] }
+  let body: { clientId?: string; messages?: Msg[]; mode?: string }
   try {
     body = await req.json()
   } catch {
     return new Response('Bad request', { status: 400 })
   }
-  const messages = (body.messages || []).filter((m) => m && m.content?.trim()).slice(-12)
-  if (messages.length === 0) return new Response('Bad request', { status: 400 })
 
   // Cílový klient · admin smí přes ?client=, jinak vlastní report. RLS hlídá přístup.
   let targetId = user.id
@@ -195,6 +192,22 @@ export async function POST(req: NextRequest) {
     .order('created_at', { ascending: false }).limit(1).single()
 
   if (!report) return new Response('Report nenalezen', { status: 404 })
+
+  // Režim proaktivních postřehů · čistá matematika, žádný LLM ani API klíč.
+  if (body.mode === 'insights') {
+    return NextResponse.json({ insights: buildInsights(report.data) })
+  }
+
+  // Chatový režim · vyžaduje API klíč.
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return new Response(
+      'Klimentík zatím není aktivní · chybí klíč k AI. Doplň ho v nastavení portálu a zkuste to znovu.',
+      { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } }
+    )
+  }
+
+  const messages = (body.messages || []).filter((m) => m && m.content?.trim()).slice(-12)
+  if (messages.length === 0) return new Response('Bad request', { status: 400 })
 
   const context = buildContext(report.data, clientName)
   const system = [

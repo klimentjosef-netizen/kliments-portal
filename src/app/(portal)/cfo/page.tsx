@@ -275,6 +275,9 @@ function CfoPageInner() {
     return synced
   })()
 
+  // Živá data letošního roku · pro nudge na Přehledu
+  const liveMonthsCount = ledger.months.filter(m => m.month.startsWith(String(new Date().getFullYear())) && m.items.length > 0).length
+
   // Calculate EBITDA for budget tab
   const rev = calcRevenue(tiers, extras)
   const opex = calcOpex(fixedCosts, variablePct, rev.total)
@@ -509,6 +512,17 @@ function CfoPageInner() {
             onCostsChange={v => updateData('fixed_costs', v)}
             onVariableChange={v => updateData('variable_cost_pct', v)}
           />
+        )}
+        {tab === 'dashboard' && isTransaction && liveMonthsCount === 0 && (
+          <button onClick={() => handleTabChange('import')}
+            className="w-full text-left bg-ink rounded-[20px] p-5 mb-6 flex items-center justify-between gap-4 group">
+            <div>
+              <div className="text-[0.62rem] tracking-[0.1em] uppercase text-rose-pale mb-1">Živá data {new Date().getFullYear()}</div>
+              <div className="font-serif text-[1.05rem] text-sand font-light leading-snug">Letošní rok zatím nemá data · doplňte poslední uzavřený měsíc</div>
+              <div className="text-[0.76rem] text-white/45 mt-1">Stačí tři čísla a portál se rozsvítí naživo. Bez nich vidíte jen historii.</div>
+            </div>
+            <span className="shrink-0 bg-rose text-white rounded-full px-4 py-2 text-[0.78rem] font-medium group-hover:bg-rose-deep transition-colors">Doplnit data →</span>
+          </button>
         )}
         {tab === 'dashboard' && (
           isTransaction && Array.isArray(d.blocks_overview || d.blocks) ? (
