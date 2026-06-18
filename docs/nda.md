@@ -29,7 +29,7 @@ e-mail: autoservis@techcars.cz
 
 ## I. ÚČEL A KONTEXT
 
-1.1. Tato smlouva je uzavřena jako **Příloha č. 2 ke Smlouvě o poskytování služeb finančního poradenství a přístupu do klientského portálu Kliments** uzavřené mezi smluvními stranami (dále jen „**Hlavní smlouva**").
+1.1. Tato smlouva je uzavřena jako **Příloha č. 2 ke Smlouvě o poskytování služeb finančního řízení a přístupu do klientského portálu Kliments** uzavřené mezi smluvními stranami (dále jen „**Hlavní smlouva**").
 
 1.2. V rámci plnění Hlavní smlouvy bude Klient předávat Příjemci důvěrná data o své firmě (účetní výkazy, bankovní výpisy, faktury, smlouvy, mzdové podklady, plány, KPI a další). Tato smlouva upravuje, **jak Příjemce s těmito daty smí a nesmí nakládat**.
 

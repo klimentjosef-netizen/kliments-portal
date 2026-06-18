@@ -4,7 +4,7 @@
 
 ---
 
-**Hlavní smlouva:** Smlouva o poskytování služeb finančního poradenství a přístupu do klientského portálu Kliments (viz `smlouva-portal.md`).
+**Hlavní smlouva:** Smlouva o poskytování služeb finančního řízení a přístupu do klientského portálu Kliments (viz `smlouva-portal.md`).
 
 **Smluvní strany:**
 - Poskytovatel: Josef Kliment, IČO __________
@@ -204,7 +204,7 @@ Detaily ukončení viz hlavní smlouva, čl. VIII.
 
 ## SCHVÁLENÍ
 
-Tato příloha je nedílnou součástí Smlouvy o poskytování služeb finančního poradenství a přístupu do klientského portálu Kliments. Změny vyžadují písemný dodatek podepsaný oběma stranami.
+Tato příloha je nedílnou součástí Smlouvy o poskytování služeb finančního řízení a přístupu do klientského portálu Kliments. Změny vyžadují písemný dodatek podepsaný oběma stranami.
 
 **V Ostravě, dne __________**
 

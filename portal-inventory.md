@@ -236,7 +236,7 @@ Hlavní operativní obrazovka portálu. 12 tabů, perzistuje se přes URL query 
 - **Název v UI:** „Zprávy" (chat s Josefem Klimentem)
 - **K čemu slouží:** Realtime chat 1-on-1 mezi klientem a adminem.
 - **Co klient vidí:**
-  - Hlavička s avatarem „JK" — Josef Kliment, podtitulek „Váš finanční poradce".
+  - Hlavička s avatarem „JK" — Josef Kliment, podtitulek „Vaše finanční řízení".
   - Scrollovací view zpráv (vlastní zprávy vpravo růžové, příchozí vlevo béžové). Timestamp HH:MM.
   - Input + odeslat tlačítko.
 - **Realtime:** Supabase realtime channel `messages` na `INSERT` v tabulce `messages`, filtrované podle `sender_id` nebo `receiver_id` rovno `user.id`.

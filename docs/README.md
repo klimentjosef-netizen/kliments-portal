@@ -5,7 +5,7 @@
 ## Soubory
 
 ### Smlouvy a NDA
-- **[smlouva-portal.md](smlouva-portal.md)** — Smlouva o poskytování služeb finančního poradenství a přístupu do klientského portálu. Hlavní smlouva mezi Josefem Klimentem a klientem.
+- **[smlouva-portal.md](smlouva-portal.md)** — Smlouva o poskytování služeb finančního řízení a přístupu do klientského portálu. Hlavní smlouva mezi Josefem Klimentem a klientem.
 - **[smlouva-priloha-1-specifikace-cfo.md](smlouva-priloha-1-specifikace-cfo.md)** — **Příloha č. 1**: Specifikace rozsahu služby „CFO na volné noze". Detailní popis co služba zahrnuje, co nezahrnuje, KPI, komunikační kanály, podklady, odměna, specifika pro auto-servis.
 - **[nda.md](nda.md)** — Smlouva o mlčenlivosti (NDA). **Příloha č. 2** hlavní smlouvy. Definuje, jak Josef smí (a nesmí) nakládat s daty klienta. Zahrnuje GDPR zpracovatelskou doložku.
 

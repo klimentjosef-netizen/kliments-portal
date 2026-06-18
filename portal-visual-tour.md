@@ -437,7 +437,7 @@ Klasický **chat interface s rohovou avatarkou Josefa nahoře**. Pravé bubliny 
 HLAVIČKA / TOP SEKCE:
 Bílá karta přes celou šířku:
 - Vlevo kruhová avatara „JK" v růžové barvě s bílým textem.
-- Hned vedle dva řádky: tučný „Josef Kliment" + šedý „Váš finanční poradce".
+- Hned vedle dva řádky: tučný „Josef Kliment" + šedý „Vaše finanční řízení".
 
 HLAVNÍ OBSAH:
 Velký bílý chat-kontejner s scrollem:
@@ -1143,7 +1143,7 @@ KOPIROVATELNÉ MIKROCOPY (přímé citace z UI vhodné do webu)
 14. „Automaticky český daňový kalendář" (TaxesTab — killer feature description)
 15. „Pohoda · Money S3 · ČSOB · KB · Air Bank · mBank" (ImportTab tipy — důvěryhodnost pro český trh)
 16. „✓ Uloženo 14:32" (SaveToast — autosave proof point)
-17. „Váš finanční poradce" (chat header pod jménem Josef Kliment)
+17. „Vaše finanční řízení" (chat header pod jménem Josef Kliment)
 18. „Zatím žádné zprávy. Napište první." (chat prázdný stav)
 19. „Označit / Hotovo" (toggle na akčních krocích — taktilní mikrocopy)
 20. „Plán vs realizace" + „XX % uzavřeno · X z Y položek" (MonthlyPlanTab reconciliation badge — silný pro „operativní controlling")

@@ -4,7 +4,7 @@
 
 ---
 
-## SMLOUVA O POSKYTOVÁNÍ SLUŽEB FINANČNÍHO PORADENSTVÍ A PŘÍSTUPU DO KLIENTSKÉHO PORTÁLU
+## SMLOUVA O POSKYTOVÁNÍ SLUŽEB FINANČNÍHO ŘÍZENÍ A PŘÍSTUPU DO KLIENTSKÉHO PORTÁLU
 
 uzavřená podle § 1746 odst. 2 zákona č. 89/2012 Sb., občanský zákoník, v platném znění,
 

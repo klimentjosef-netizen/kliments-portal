@@ -89,10 +89,10 @@ export default function AssistantWidget({ clientId, clientName }: Props) {
         <button
           onClick={() => setOpen(true)}
           className="fixed bottom-5 right-5 z-40 flex items-center gap-2 bg-ink text-sand rounded-full pl-4 pr-5 py-3 shadow-lg hover:shadow-xl transition-shadow"
-          aria-label="Otevřít CFO průvodce"
+          aria-label="Otevřít CFO Klimentíka"
         >
           <span className="grid place-items-center w-7 h-7 rounded-full bg-rose text-white font-serif italic text-sm">K</span>
-          <span className="text-[0.82rem] font-medium">Zeptat se CFO</span>
+          <span className="text-[0.82rem] font-medium">Zeptat se Klimentíka</span>
         </button>
       )}
 
@@ -104,7 +104,7 @@ export default function AssistantWidget({ clientId, clientName }: Props) {
             <div className="flex items-center gap-2.5">
               <span className="grid place-items-center w-8 h-8 rounded-full bg-rose text-white font-serif italic">K</span>
               <div>
-                <div className="font-serif text-[0.95rem] leading-tight">CFO průvodce</div>
+                <div className="font-serif text-[0.95rem] leading-tight">CFO Klimentík</div>
                 <div className="text-[0.64rem] text-white/45 leading-tight">{clientName ? `firma ${clientName}` : 'váš finanční parťák'}</div>
               </div>
             </div>
@@ -116,7 +116,7 @@ export default function AssistantWidget({ clientId, clientName }: Props) {
             {messages.length === 0 && (
               <div className="space-y-3">
                 <div className="bg-white rounded-2xl rounded-tl-sm px-4 py-3 text-[0.84rem] text-ink leading-relaxed border border-black/[0.05]">
-                  Dobrý den. Jsem váš CFO průvodce · rozumím číslům vaší firmy. Zeptejte se mě na cokoli, nebo zkuste jednu z otázek níže.
+                  Dobrý den. Jsem CFO Klimentík · rozumím číslům vaší firmy. Zeptejte se mě na cokoli, nebo zkuste jednu z otázek níže.
                   <div className="mt-2 text-[0.7rem] text-mid">Vycházím z dat v portálu. Uzavřené roky jsou historie; letošní rok je živá verze.</div>
                 </div>
                 <div className="flex flex-col gap-2">
