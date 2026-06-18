@@ -36,17 +36,26 @@ export function ledgerByYear(d: any): YearAgg[] {
   })
 }
 
-// Orientační pásma materiálové náročnosti pro autoservis (díly = velká část tržeb).
-function materialVerdict(matPct: number): { sev: Insight['severity']; word: string } {
-  if (matPct <= 50) return { sev: 'good', word: 'výborná' }
-  if (matPct <= 58) return { sev: 'info', word: 'zdravá' }
-  if (matPct <= 63) return { sev: 'warn', word: 'na hraně' }
-  return { sev: 'critical', word: 'vysoká' }
+function industryString(d: any): string {
+  return `${d?.business_profile?.industry || ''} ${d?.subtitle || ''} ${d?.title || ''}`.toLowerCase()
 }
 
-function isAutoservis(d: any): boolean {
-  const s = `${d?.business_profile?.industry || ''} ${d?.subtitle || ''} ${d?.title || ''}`.toLowerCase()
-  return /servis|auto|pneu|mechan|díln/.test(s)
+// Orientační pásma materiálové náročnosti podle oboru (materiál/díly jako % tržeb).
+type Bands = { goodMax: number; healthyMax: number; edgeMax: number; label: string }
+function materialBands(d: any): Bands {
+  const s = industryString(d)
+  if (/servis|auto|pneu|mechan|díln/.test(s)) return { goodMax: 50, healthyMax: 58, edgeMax: 63, label: 'autoservis' }
+  if (/eshop|e-shop|ecommerce|retail|obchod|velkoobchod|prodej zbož/.test(s)) return { goodMax: 60, healthyMax: 72, edgeMax: 78, label: 'e-commerce / retail' }
+  if (/gastro|restaur|kavár|bistro|jídl|kuchy|hospod|pivnic/.test(s)) return { goodMax: 28, healthyMax: 35, edgeMax: 42, label: 'gastro' }
+  if (/výrob|manufakt|produkc|truhlář|kovo|strojír/.test(s)) return { goodMax: 45, healthyMax: 60, edgeMax: 68, label: 'výroba' }
+  if (/služ|konzult|agentur|marketing|softwar|\bit\b|vývoj|advok|projekč/.test(s)) return { goodMax: 15, healthyMax: 30, edgeMax: 42, label: 'služby' }
+  return { goodMax: 40, healthyMax: 55, edgeMax: 65, label: '' }
+}
+function materialVerdict(matPct: number, b: Bands): { sev: Insight['severity']; word: string } {
+  if (matPct <= b.goodMax) return { sev: 'good', word: 'výborná' }
+  if (matPct <= b.healthyMax) return { sev: 'info', word: 'zdravá' }
+  if (matPct <= b.edgeMax) return { sev: 'warn', word: 'na hraně' }
+  return { sev: 'critical', word: 'vysoká' }
 }
 
 const SEV_RANK: Record<Insight['severity'], number> = { critical: 0, warn: 1, info: 2, good: 3 }
@@ -92,10 +101,11 @@ export function buildInsights(d: any): Insight[] {
       })
     }
 
-    // 3) Materiálová náročnost vs benchmark
+    // 3) Materiálová náročnost vs benchmark oboru
     if (last.matPct > 0) {
-      const v = materialVerdict(last.matPct)
-      const bench = isAutoservis(d) ? ' Pro autoservis je zdravé pásmo zhruba 50 až 58 % (orientačně).' : ''
+      const bands = materialBands(d)
+      const v = materialVerdict(last.matPct, bands)
+      const bench = ` Zdravé pásmo${bands.label ? ` pro ${bands.label}` : ''} je zhruba ${bands.goodMax} až ${bands.healthyMax} % (orientačně).`
       out.push({
         id: 'material',
         title: `Materiálová náročnost ${Math.round(last.matPct)} % · ${v.word}`,
@@ -124,7 +134,43 @@ export function buildInsights(d: any): Insight[] {
     }
   }
 
-  // 5) Trend materiálové náročnosti mezi roky
+  // 5) ŽIVÉ ALERTY · jen když letošní rok má data (rozsvítí se samy po doplnění)
+  const cur = years.find((y) => Number(y.year) >= cy && y.months > 0)
+  if (cur) {
+    if (cur.zisk < 0) {
+      out.push({
+        id: 'live-loss',
+        title: `Letos jsi zatím ve ztrátě (${cur.months}/12 měsíců)`,
+        detail: `Provozní výsledek ${kc(cur.zisk)} za ${cur.months} měsíců ${cy}. Stojí za to zabrzdit hned, ne až na konci roku.`,
+        severity: 'critical',
+        prompt: `Letos jsem zatím ve ztrátě. Co ji žene a co s tím udělat teď?`,
+      })
+    }
+    if (base) {
+      const planMonthZisk = ((base.annual_revenue + base.other_income) - base.annual_revenue * base.material_pct / 100 - base.fixed_annual) / 12
+      const actualMonthZisk = cur.zisk / cur.months
+      if (planMonthZisk > 0 && actualMonthZisk < planMonthZisk * 0.8) {
+        out.push({
+          id: 'live-vs-plan',
+          title: `Letošní zisk pod plánem`,
+          detail: `Vycházíš na ~${kc(actualMonthZisk)}/měsíc, plán je ~${kc(planMonthZisk)}/měsíc. Zaostáváš o ~${Math.round((1 - actualMonthZisk / planMonthZisk) * 100)} %.`,
+          severity: 'warn',
+          prompt: `Letošní zisk za měsíc je pod plánem. Kde to ztrácím a jak to dohnat?`,
+        })
+      }
+      if (cur.matPct - base.material_pct >= 3) {
+        out.push({
+          id: 'live-material',
+          title: `Letošní materiálová náročnost roste`,
+          detail: `Letos ${Math.round(cur.matPct)} %, model počítá s ${base.material_pct} %. Každý bod navíc ukrajuje z marže.`,
+          severity: 'warn',
+          prompt: `Materiálová náročnost mi letos roste proti modelu. Co s tím?`,
+        })
+      }
+    }
+  }
+
+  // 6) Trend materiálové náročnosti mezi roky
   if (closed.length >= 2) {
     const a = closed[closed.length - 2], b = closed[closed.length - 1]
     const diff = b.matPct - a.matPct

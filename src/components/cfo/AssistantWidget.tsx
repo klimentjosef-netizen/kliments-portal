@@ -36,6 +36,25 @@ export default function AssistantWidget({ clientId, clientName }: Props) {
   const insightsLoaded = useRef(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const storageKey = `klimentik-chat-${clientId || 'self'}`
+
+  // Paměť konverzace · přežije refresh (lokálně v prohlížeči, per klient)
+  useEffect(() => {
+    try {
+      const s = localStorage.getItem(storageKey)
+      if (s) setMessages(JSON.parse(s))
+    } catch {}
+  }, [storageKey])
+  useEffect(() => {
+    try {
+      if (messages.length) localStorage.setItem(storageKey, JSON.stringify(messages.slice(-30)))
+    } catch {}
+  }, [messages, storageKey])
+
+  function clearChat() {
+    setMessages([])
+    try { localStorage.removeItem(storageKey) } catch {}
+  }
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
@@ -119,7 +138,7 @@ export default function AssistantWidget({ clientId, clientName }: Props) {
 
       {/* Panel */}
       {open && (
-        <div className="fixed bottom-5 right-5 z-40 w-[min(92vw,400px)] h-[min(80vh,620px)] bg-sand-pale rounded-[22px] shadow-2xl border border-black/[0.08] flex flex-col overflow-hidden">
+        <div className="fixed z-40 left-3 right-3 bottom-3 sm:left-auto sm:right-5 sm:bottom-5 sm:w-[400px] h-[min(82vh,620px)] bg-sand-pale rounded-[22px] shadow-2xl border border-black/[0.08] flex flex-col overflow-hidden">
           {/* Header */}
           <div className="bg-ink text-sand px-5 py-4 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2.5">
@@ -129,7 +148,12 @@ export default function AssistantWidget({ clientId, clientName }: Props) {
                 <div className="text-[0.64rem] text-white/45 leading-tight">{clientName ? `firma ${clientName}` : 'váš finanční parťák'}</div>
               </div>
             </div>
-            <button onClick={() => setOpen(false)} className="text-white/50 hover:text-white text-lg leading-none px-1" aria-label="Zavřít">×</button>
+            <div className="flex items-center gap-1">
+              {messages.length > 0 && (
+                <button onClick={clearChat} className="text-white/45 hover:text-white text-[0.64rem] px-2 py-1 rounded-full border border-white/15" aria-label="Nová konverzace">Nová</button>
+              )}
+              <button onClick={() => setOpen(false)} className="text-white/50 hover:text-white text-lg leading-none px-1" aria-label="Zavřít">×</button>
+            </div>
           </div>
 
           {/* Zprávy */}
