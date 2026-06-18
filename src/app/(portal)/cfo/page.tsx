@@ -24,6 +24,7 @@ import ReceivablesTab from '@/components/cfo/ReceivablesTab'
 import WhatIfTab from '@/components/cfo/WhatIfTab'
 import PnlTab from '@/components/cfo/PnlTab'
 import FillMonthTab from '@/components/cfo/FillMonthTab'
+import AssistantWidget from '@/components/cfo/AssistantWidget'
 import { PeriodStrip, ledgerYearInfo } from '@/components/cfo/period'
 import {
   type Tier, type Extra, type CostItem, type Budget, type Ledger,
@@ -109,6 +110,7 @@ function CfoPageInner() {
   const [clientName, setClientName] = useState<string>('')
   const [isAdminView, setIsAdminView] = useState(false)
   const [isAdminNoPick, setIsAdminNoPick] = useState(false)
+  const [targetClientId, setTargetClientId] = useState<string>('')
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const reportIdRef = useRef<string>('')
   const supabase = createClient()
@@ -151,6 +153,7 @@ function CfoPageInner() {
         }
       }
 
+      setTargetClientId(targetId)
       const { data } = await supabase
         .from('reports').select('*')
         .eq('client_id', targetId).eq('type', 'cfo')
@@ -559,6 +562,7 @@ function CfoPageInner() {
         )}
         </div>
       </div>
+      <AssistantWidget clientId={targetClientId} clientName={isAdminView ? clientName : ''} />
     </>
   )
 }
