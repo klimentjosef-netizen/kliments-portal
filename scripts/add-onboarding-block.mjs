@@ -30,33 +30,11 @@ const onboardingBlocks = [
     body: 'Roky 2024 a 2025 jsou kompletně zpracované a striktně oddělené jako historie. Máš hotový finanční obraz · hospodaření po letech, tok hotovosti (cash bridge), rizika i plán ozdravení. NOVĚ je v portálu napojený AI poradce „CFO Klimentík" · rozumí číslům tvé firmy, sám upozorní na to podstatné a odpoví na dotazy typu „co kdyby zvednu hodinovku o 10 %". Najdeš ho vpravo dole na záložce CFO.' },
 
   { id: 'onb-wait', type: 'callout', intent: 'info', title: 'Než přepneme na živý měsíční režim',
-    body: 'Zbývají dvě věci. (1) Spustit data za rok 2026 · po uzávěrce každého měsíce stačí v záložce „Doplnit data" zadat tři čísla (tržby, materiál a díly, mzdy a režie) a portál se rozsvítí naživo. (2) Pár podkladů níže, ať model sedí na korunu. Projdi prosím seznam a napiš mi, co z toho máš po ruce.' },
-
-  { id: 'onb-need', type: 'data-completeness', title: 'Co od tebe ještě potřebujeme · seřazeno dle důležitosti', columns: cols,
-    summary: 'Bez bankovních výpisů jedeme jen z pokladny · proto je to priorita číslo jedna.',
-    rows: [
-      { label: '1. Bankovní výpisy (běžný účet)', cells: [C('missing'), C('missing'), C('missing', 'průběžně')] },
-      { label: '2. Přiznání k DPH', cells: [C('missing'), C('missing'), C('missing')] },
-      { label: '3. Měsíční obratová předvaha (účty 5xx)', cells: [C('partial', 'máme roční'), C('partial', 'máme roční'), C('missing')] },
-      { label: '4. Splátkové kalendáře úvěrů a leasingů', cells: [C('missing'), C('missing'), C('missing')] },
-      { label: '5. Rozpad tržeb: práce vs díly', cells: [C('missing', 'teď odhad 40 %'), C('missing'), C('missing')] },
-      { label: '6. Knihy faktur za 2024', cells: [C('missing'), C('complete'), C('missing')] },
-    ] },
-
-  { id: 'onb-have', type: 'data-completeness', title: 'Co už máme zpracované', columns: cols,
-    summary: '2024 a 2025 hotové · prázdný sloupec 2026 je přesně to, co teď spolu rozsvítíme.',
-    rows: [
-      { label: 'Výkaz zisku a ztráty', cells: [C('complete'), C('complete'), C('missing')] },
-      { label: 'Rozvaha (aktiva i pasiva)', cells: [C('complete'), C('complete'), C('missing')] },
-      { label: 'Mzdová rekapitulace', cells: [C('complete'), C('complete'), C('missing')] },
-      { label: 'Pokladní deník', cells: [C('complete'), C('complete'), C('missing')] },
-      { label: 'Open pohledávky / závazky', cells: [C('missing'), C('complete'), C('missing')] },
-      { label: 'Daňové přiznání (DPPO)', cells: [C('complete'), C('complete'), C('missing')] },
-    ] },
+    body: 'Zbývají dvě věci. (1) Spustit data za rok 2026 · po uzávěrce každého měsíce stačí v záložce „Doplnit data" zadat tři čísla (tržby, materiál a díly, mzdy a režie) a portál se rozsvítí naživo. (2) Pár podkladů, ať model sedí na korunu · pošlu ti seznam e-mailem.' },
 
   { id: 'onb-steps', type: 'step-list', title: 'Další kroky', layout: 'timeline',
     items: [
-      { num: '1', title: 'Projdi seznam „Co potřebujeme" a napiš, co máš', desc: 'Stačí krátká odpověď u každé položky · mám / nemám / dohledám.' },
+      { num: '1', title: 'Mrkni do e-mailu na seznam podkladů a napiš, co máš', desc: 'Stačí krátká odpověď u každé položky · mám / nemám / dohledám.' },
       { num: '2', title: 'Pošli bankovní výpisy 2024 a 2025', desc: 'Priorita · odemknou reálný tok peněz, ne jen pokladnu.', deadline: 'Priorita' },
       { num: '3', title: 'Po uzávěrce každého měsíce 2026 doplň tři čísla', desc: 'Záložka „Doplnit data" · tím portál přejde z historie do živého režimu.' },
     ] },
