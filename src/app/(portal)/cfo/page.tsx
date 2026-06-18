@@ -249,7 +249,10 @@ function CfoPageInner() {
     const result = { ...rawLedger, months: rawLedger.months.map(m => ({ ...m, items: [...m.items] })) }
     const startMonth = businessStartMonth || new Date().toISOString().slice(0, 7)
     const now = new Date()
-    for (let i = 0; i < 6; i++) {
+    // Transakční byznys NEdogeneruje žádné očekávané měsíce — letošní rok se plní
+    // jen ručně přes „Doplnit data". (Auto-generování je tarifové/předplatné a vyrábělo
+    // by 2026 měsíce jen z fixních nákladů → portál by tvrdil, že 2026 má data.)
+    if (!isTransaction) for (let i = 0; i < 6; i++) {
       const dt = new Date(now.getFullYear(), now.getMonth() + i, 1)
       const month = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`
       let ml = result.months.find(m => m.month === month)
