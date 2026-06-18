@@ -53,6 +53,12 @@ export default function DashboardPage() {
   const totalMembers = tiers.reduce((sum, t) => sum + t.members, 0)
   const capexRoi = ebitda !== null && ebitda > 0 && budget.capex_budget > 0 ? calcCapexRoi(budget.capex_budget, ebitda) : null
 
+  // Bezpečný fallback · některé reporty (transakční) mají v polích objekty
+  // (např. receivables = { invoices_issued, invoices_received }) · nikdy je
+  // nevykreslovat přímo jako text (React error #31).
+  const txt = (v: unknown, fb = '···'): string =>
+    typeof v === 'string' ? v : typeof v === 'number' ? String(v) : fb
+
   return (
     <>
       <Topbar title="Dashboard" />
@@ -93,16 +99,16 @@ export default function DashboardPage() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-7">
               <StatCard
                 label="Měsíční tržby"
-                value={rev ? fmtShort(rev.total) : (d.revenue || '···')}
+                value={rev ? fmtShort(rev.total) : txt(d.revenue)}
                 sub={rev ? `z ${totalMembers} členů` : 'Kč celkem'}
-                trend={rev && extras.length > 0 ? `+ ${fmtShort(rev.extraRevenue)} doplňkové` : d.revenue_trend}
+                trend={rev && extras.length > 0 ? `+ ${fmtShort(rev.extraRevenue)} doplňkové` : (typeof d.revenue_trend === 'string' ? d.revenue_trend : undefined)}
                 trendUp={rev ? (rev.total > 0) : d.revenue_trend_up}
               />
               <StatCard
                 label="EBITDA"
-                value={ebitda !== null ? fmtShort(ebitda) : (d.ebitda || '···')}
-                sub={ebitdaMargin !== null ? `${ebitdaMargin} % marže` : (d.ebitda_period || '')}
-                trend={ebitda !== null ? (ebitda >= 0 ? 'Ziskový' : 'Ztrátový') : d.ebitda_trend}
+                value={ebitda !== null ? fmtShort(ebitda) : txt(d.ebitda)}
+                sub={ebitdaMargin !== null ? `${ebitdaMargin} % marže` : (typeof d.ebitda_period === 'string' ? d.ebitda_period : '')}
+                trend={ebitda !== null ? (ebitda >= 0 ? 'Ziskový' : 'Ztrátový') : (typeof d.ebitda_trend === 'string' ? d.ebitda_trend : undefined)}
                 trendUp={ebitda !== null ? ebitda >= 0 : d.ebitda_trend_up}
               />
               <StatCard
@@ -114,8 +120,8 @@ export default function DashboardPage() {
               />
               <StatCard
                 label="Návratnost CAPEX"
-                value={capexRoi !== null ? `${Math.round(capexRoi)} měs.` : (d.receivables || '···')}
-                sub={budget.capex_budget > 0 ? `z ${fmtShort(budget.capex_budget)} investice` : (d.receivables_note || '')}
+                value={capexRoi !== null ? `${Math.round(capexRoi)} měs.` : txt(d.receivables)}
+                sub={budget.capex_budget > 0 ? `z ${fmtShort(budget.capex_budget)} investice` : (typeof d.receivables_note === 'string' ? d.receivables_note : '')}
                 trend={capexRoi !== null && capexRoi <= 24 ? 'Do 2 let' : capexRoi !== null ? `${Math.round(capexRoi / 12)} let` : undefined}
                 trendUp={capexRoi !== null ? capexRoi <= 24 : false}
               />
