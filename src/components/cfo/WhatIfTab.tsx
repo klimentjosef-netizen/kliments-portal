@@ -6,6 +6,7 @@ import {
   type WhatIfBase, type WhatIfLevers, ZERO_LEVERS,
   calcWhatIfAuto, breakEvenRevenue, TECHCARS_BASE,
 } from './calcWhatIfAuto'
+import { PeriodBadge } from './period'
 
 interface WhatIfTabProps {
   base?: Partial<WhatIfBase>
@@ -44,6 +45,7 @@ export default function WhatIfTab({ base, onBaseChange }: WhatIfTabProps) {
     <div className="space-y-6">
       {/* Intro */}
       <div className="bg-ink rounded-[20px] p-6 text-sand">
+        <div className="mb-2"><PeriodBadge kind="forecast" text="Výhled · simulace, ne data" /></div>
         <h3 className="font-serif text-xl font-light mb-1">Co kdyby… 🔮</h3>
         <p className="text-[0.82rem] text-white/55 leading-relaxed">
           Posouvej páky a hned uvidíš, co to udělá s ročním ziskem a cashem. Vychází to z informativních

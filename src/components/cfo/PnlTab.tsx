@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { type Ledger, fmt } from './calcEngine'
+import { PeriodBadge } from './period'
 
 interface PnlTabProps {
   ledger: Ledger
@@ -57,7 +58,13 @@ export default function PnlTab({ ledger }: PnlTabProps) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="font-serif text-xl text-ink font-light">Hospodaření</h3>
-          <p className="text-[0.78rem] text-mid">Kolik firma vydělala · tržby, náklady, zisk. Skutečnost za uzavřené roky.</p>
+          <p className="text-[0.78rem] text-mid mb-2">Kolik firma vydělala · tržby, náklady, zisk.</p>
+          {(() => {
+            const cy = new Date().getFullYear()
+            if (view === 'souhrn') return <PeriodBadge kind="actual" text="Skutečnost · uzavřené roky" />
+            const live = Number(view) >= cy
+            return <PeriodBadge kind={live ? 'live' : 'actual'} text={live ? `Živě · ${view}` : `Skutečnost · ${view} (uzavřený rok)`} />
+          })()}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {tabBtn('souhrn', 'Souhrn všech let')}

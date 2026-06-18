@@ -23,6 +23,7 @@ import TaxesTab from '@/components/cfo/TaxesTab'
 import ReceivablesTab from '@/components/cfo/ReceivablesTab'
 import WhatIfTab from '@/components/cfo/WhatIfTab'
 import PnlTab from '@/components/cfo/PnlTab'
+import { PeriodStrip } from '@/components/cfo/period'
 import {
   type Tier, type Extra, type CostItem, type Budget, type Ledger,
   type VatData, type TaxData, type ReceivablesData, type Actuals,
@@ -419,6 +420,9 @@ function CfoPageInner() {
         </div>
 
         {/* Tabs */}
+        {/* Pruh období — jasné roky + co je živě (jen transakční flow) */}
+        {isTransaction && <PeriodStrip ledger={ledger} />}
+
         <CfoTabs tabs={ALL_TABS.filter(t => {
           if (t.id === 'vat' && !profile.vat_payer && !profile.vat_transition_date) return false
           if (!isTransaction && TRANSACTION_ONLY.includes(t.id)) return false
