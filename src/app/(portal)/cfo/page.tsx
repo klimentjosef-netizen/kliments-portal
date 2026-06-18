@@ -23,7 +23,7 @@ import TaxesTab from '@/components/cfo/TaxesTab'
 import ReceivablesTab from '@/components/cfo/ReceivablesTab'
 import WhatIfTab from '@/components/cfo/WhatIfTab'
 import PnlTab from '@/components/cfo/PnlTab'
-import { PeriodStrip } from '@/components/cfo/period'
+import { PeriodStrip, ledgerYearInfo } from '@/components/cfo/period'
 import {
   type Tier, type Extra, type CostItem, type Budget, type Ledger,
   type VatData, type TaxData, type ReceivablesData, type Actuals,
@@ -103,6 +103,7 @@ function CfoPageInner() {
   const [report, setReport] = useState<Report | null>(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState(initialTab && TAB_IDS.includes(initialTab) ? initialTab : 'dashboard')
+  const [cfoYear, setCfoYear] = useState<string>('souhrn') // globální přepínač roku (Hospodaření)
   const [saveStatus, setSaveStatus] = useState<string>('')
   const [clientName, setClientName] = useState<string>('')
   const [isAdminView, setIsAdminView] = useState(false)
@@ -423,6 +424,26 @@ function CfoPageInner() {
         {/* Pruh období — jasné roky + co je živě (jen transakční flow) */}
         {isTransaction && <PeriodStrip ledger={ledger} />}
 
+        {/* Globální přepínač roku — vždy vidět; vede na Hospodaření daného roku */}
+        {isTransaction && (() => {
+          const { closedYears, currentYear, liveMonths } = ledgerYearInfo(ledger)
+          const opts = ['souhrn', ...closedYears, ...(liveMonths > 0 ? [String(currentYear)] : [])]
+          return (
+            <div className="flex flex-wrap items-center gap-2 mb-6">
+              <span className="text-[0.6rem] tracking-[0.14em] uppercase text-mid font-medium mr-1">Zobrazit rok</span>
+              {opts.map(y => (
+                <button key={y}
+                  onClick={() => { setCfoYear(y); handleTabChange('hospodareni') }}
+                  className={`px-4 py-1.5 rounded-full text-[0.78rem] font-medium transition-colors ${
+                    (tab === 'hospodareni' && cfoYear === y) ? 'bg-rose text-white' : 'bg-white border border-black/[0.08] text-mid hover:border-rose-pale'
+                  }`}>
+                  {y === 'souhrn' ? 'Souhrn všech let' : y}
+                </button>
+              ))}
+            </div>
+          )
+        })()}
+
         <CfoTabs tabs={ALL_TABS.filter(t => {
           if (t.id === 'vat' && !profile.vat_payer && !profile.vat_transition_date) return false
           if (!isTransaction && TRANSACTION_ONLY.includes(t.id)) return false
@@ -508,7 +529,7 @@ function CfoPageInner() {
         )}
         {tab === 'hospodareni' && (
           <div className="space-y-8">
-            <PnlTab ledger={ledger} />
+            <PnlTab ledger={ledger} view={cfoYear} onViewChange={setCfoYear} />
             {Array.isArray(d.blocks_pnl) && d.blocks_pnl.length > 0 && <BlockRenderer blocks={d.blocks_pnl as Block[]} />}
           </div>
         )}

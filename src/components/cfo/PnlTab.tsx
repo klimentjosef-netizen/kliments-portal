@@ -6,6 +6,8 @@ import { PeriodBadge } from './period'
 
 interface PnlTabProps {
   ledger: Ledger
+  view?: string
+  onViewChange?: (v: string) => void
 }
 
 const CZ_SHORT = ['Led', 'Úno', 'Bře', 'Dub', 'Kvě', 'Čvn', 'Čvc', 'Srp', 'Zář', 'Říj', 'Lis', 'Pro']
@@ -24,11 +26,13 @@ function aggItems(items: { category: string; description: string; status: string
 }
 const addAgg = (a: Agg, b: Agg): Agg => ({ trzby: a.trzby + b.trzby, material: a.material + b.material, rezie: a.rezie + b.rezie, zisk: a.zisk + b.zisk })
 
-export default function PnlTab({ ledger }: PnlTabProps) {
+export default function PnlTab({ ledger, view: viewProp, onViewChange }: PnlTabProps) {
   const years = Array.from(new Set(
     ledger.months.filter(m => m.items.length > 0).map(m => m.month.slice(0, 4))
   )).sort()
-  const [view, setView] = useState<string>('souhrn')
+  const [viewInternal, setViewInternal] = useState<string>('souhrn')
+  const view = viewProp ?? viewInternal
+  const setView = onViewChange ?? setViewInternal
 
   if (years.length === 0) {
     return <div className="bg-white rounded-[20px] p-8 border border-black/[0.06] text-center text-mid">Zatím tu nejsou žádná data hospodaření.</div>
