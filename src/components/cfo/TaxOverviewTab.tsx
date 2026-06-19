@@ -8,12 +8,13 @@ import { PeriodBadge } from './period'
 interface Props {
   ledger: Ledger
   whatifBase?: Partial<WhatIfBase>
+  eshop?: boolean
 }
 
 const DPPO = 0.21 // sazba daně z příjmu právnických osob
 const DPH = 0.21  // základní sazba DPH
 
-export default function TaxOverviewTab({ ledger, whatifBase }: Props) {
+export default function TaxOverviewTab({ ledger, whatifBase, eshop }: Props) {
   const base: WhatIfBase = { ...TECHCARS_BASE, ...whatifBase }
   const years = ledgerByYear({ ledger })
   const cy = new Date().getFullYear()
@@ -31,9 +32,13 @@ export default function TaxOverviewTab({ ledger, whatifBase }: Props) {
 
   const levers = [
     { t: 'Kapitalizace půjčky společníka', d: 'Vlož půjčku do vlastního kapitálu · řeší předlužení (záporný VK) a zjednoduší daňový obraz. Úroky z půjčky mají limity daňové uznatelnosti.' },
-    { t: 'Načasování investic a odpisy', d: 'Větší nákup techniky před koncem roku sníží základ daně přes odpisy. Zvaž jednorázový vs rozložený odpis podle toho, kdy potřebuješ snížit zisk.' },
-    { t: 'Osobní vs provozní náklady', d: 'Jen provozní náklady jsou daňově uznatelné. Štítek „osobní" v Doplnit data drží tuhle hranici čistou · neriskuj dodanění neuznatelných výdajů.' },
-    { t: 'Rezervy a opravy', d: 'Zákonná rezerva na opravy majetku rozloží náklad a sníží základ v ziskových letech. U autoservisu sedí na vybavení a vozový park.' },
+    eshop
+      ? { t: 'Ocenění a odpis zásob', d: 'Neprodejné nebo zastaralé zboží lze odepsat / vytvořit opravnou položku · sníží základ daně a uvolní sklad. Hlídat ocenění zásob ke konci roku.' }
+      : { t: 'Načasování investic a odpisy', d: 'Větší nákup techniky před koncem roku sníží základ daně přes odpisy. Zvaž jednorázový vs rozložený odpis podle toho, kdy potřebuješ snížit zisk.' },
+    { t: 'Osobní vs provozní náklady', d: 'Jen provozní náklady jsou daňově uznatelné. Štítek „osobní" v Doplnit data drží tuhle hranici čistou · neriskuj dodanění neuznatelných výdajů (auto, strava).' },
+    eshop
+      ? { t: 'DPH · nadměrný odpočet a OSS', d: 'Import a marketing v reverse-charge často znamenají nadměrný odpočet DPH (vratky od FÚ). Hlídat měsíční odpočet a režim OSS, pokud prodáváš do EU.' }
+      : { t: 'Rezervy a opravy', d: 'Zákonná rezerva na opravy majetku rozloží náklad a sníží základ v ziskových letech.' },
     { t: 'Uplatnění ztráty', d: 'Daňovou ztrátu z minulých let lze odečíst od základu v dalších až 5 letech · v roce, kdy se firma dostane do zisku, sníží daň.' },
   ]
 

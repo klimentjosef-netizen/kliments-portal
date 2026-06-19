@@ -128,7 +128,7 @@ const whatif_base = {
   other_income: 0,
   fixed_annual: r0(-(y25.marketing + y25.logistics + y25.rezie + y25.osobni)),
   depreciation_annual: 0,
-  labor_share_pct: 35,
+  labor_share_pct: 0, // e-shop · žádná hodinová práce
 }
 
 const kpiGrid = {
@@ -142,7 +142,7 @@ const kpiGrid = {
 const riskList = {
   type: 'risk-list', items: [
     { level: 'critical', title: `Marketing požírá marži · PNO ${pno(y25)} %`, desc: `Reklama stála ${fmt(-y25.marketing)} v 2025 (Meta dominuje). Na e-shop je zdravé 10–20 % obratu. Hlavní páka: vypnout neefektivní kampaně, řídit ROAS po kanálech a produktech.` },
-    { level: 'critical', title: 'Předlužení a vysoká dluhová služba', desc: `Leasing + investiční úvěr + neúčelový úvěr + Lemonero + kontokorent. Splátky a úroky ~35–40 tis. Kč měsíčně. Řešit kapitalizací půjček společníka do vlastního kapitálu a refinancováním.` },
+    { level: 'critical', title: 'Předlužení (záporný vlastní kapitál) + vysoká dluhová služba', desc: `Doloženo rozvahou 2023: vlastní kapitál −338 tis. Kč (2022: −351), cizí zdroje 1,46 mil. Kč. K tomu leasing + investiční úvěr + neúčelový úvěr + Lemonero + kontokorent · splátky a úroky ~35–40 tis. Kč/měs. Řešit kapitalizací půjček společníka do vlastního kapitálu a refinancováním.` },
     { level: 'critical', title: 'Provoz drží vklady majitele', desc: `Společníci dolévají ~780 tis. Kč ročně, jinak je firma cash-flow záporná. Cíl: provoz, který se uživí sám · marže × objem pokryjí fixní náklady i dluh.` },
     { level: 'medium', title: 'Silná sezónnost a kolísání tržeb', desc: 'Špička Q4 (listopad/prosinec), propad v létě. Plánovat zásoby, marketing i cashflow podle sezóny, držet rezervu na slabé měsíce.' },
     { level: 'medium', title: 'Závislost na jednom kanálu (Meta)', desc: 'Většina marketingu jde přes Facebook/Meta. Rozložit riziko · SEO/PPC, Heureka/Zboží.cz, e-mail, opakované nákupy.' },
@@ -183,7 +183,7 @@ const next = {
   whatif_base,
   business_profile: {
     industry: 'E-shop · florbalové vybavení', employees: '2/3', vat_payer: true, complexity: 'standard',
-    entity_type: 'sro', founding_date: '2022-01', annual_revenue: `${(y25.rev / 1e6).toFixed(1)} mil. Kč (2025, z banky)`,
+    entity_type: 'sro', founding_date: '2020-01', annual_revenue: `${(y25.rev / 1e6).toFixed(1)} mil. Kč (2025, z banky)`,
     fiscal_year_start: '01', vat_transition_date: '',
   },
   revenue: fmt(y25.rev / 12), revenue_trend: 'reálný obrat z banky', revenue_trend_up: true,

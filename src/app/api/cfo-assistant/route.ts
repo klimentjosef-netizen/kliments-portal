@@ -32,13 +32,19 @@ function ledgerPnl(ledger: any): string {
   for (const y of years) {
     const items = months.filter((m) => String(m.month).startsWith(y)).flatMap((m) => m.items)
     const trzby = items.filter((i: any) => i.category === 'revenue' && !i.manualCash).reduce((s: number, i: any) => s + val(i), 0)
-    const material = Math.abs(items.filter((i: any) => /materiál/i.test(i.description)).reduce((s: number, i: any) => s + val(i), 0))
-    const rezie = Math.abs(items.filter((i: any) => /mzd|režie/i.test(i.description)).reduce((s: number, i: any) => s + val(i), 0))
-    const zisk = trzby - material - rezie
+    const op = items.filter((i: any) => i.category !== 'revenue' && i.kind !== 'osobni' && !i.manualCash)
+    const material = Math.abs(op.filter((i: any) => /zboží|zbozi|materiál|material|díly|dily/i.test(i.description)).reduce((s: number, i: any) => s + val(i), 0))
+    const marketing = Math.abs(op.filter((i: any) => /marketing|reklam/i.test(i.description)).reduce((s: number, i: any) => s + val(i), 0))
+    const logistika = Math.abs(op.filter((i: any) => /logistik|balné|balne|doprav|přeprav|preprav|brán|brany/i.test(i.description)).reduce((s: number, i: any) => s + val(i), 0))
+    const rezie = Math.abs(op.reduce((s: number, i: any) => s + val(i), 0)) - material - marketing - logistika
+    const zisk = trzby - material - marketing - logistika - rezie
     const matPct = trzby > 0 ? Math.round((material / trzby) * 100) : 0
+    const eshop = marketing > 0 || logistika > 0
     const mCount = months.filter((m) => String(m.month).startsWith(y) && m.items.length > 0).length
     lines.push(
-      `  Rok ${y} (${mCount} měsíců): tržby ${fmtKc(trzby)}, materiál a díly ${fmtKc(material)} (${matPct} % tržeb), mzdy+režie ${fmtKc(rezie)}, provozní zisk ${fmtKc(zisk)}.`
+      eshop
+        ? `  Rok ${y} (${mCount} měsíců): tržby ${fmtKc(trzby)}, nákup zboží ${fmtKc(material)} (${matPct} % tržeb, hrubá marže ${100 - matPct} %), marketing ${fmtKc(marketing)} (PNO ${trzby > 0 ? Math.round(marketing / trzby * 100) : 0} %), logistika ${fmtKc(logistika)}, mzdy+režie ${fmtKc(rezie)}, provozní zisk ${fmtKc(zisk)}.`
+        : `  Rok ${y} (${mCount} měsíců): tržby ${fmtKc(trzby)}, materiál a díly ${fmtKc(material)} (${matPct} % tržeb), mzdy+režie ${fmtKc(rezie)}, provozní zisk ${fmtKc(zisk)}.`
     )
   }
   return lines.join('\n')

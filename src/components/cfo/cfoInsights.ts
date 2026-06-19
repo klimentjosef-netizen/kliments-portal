@@ -105,17 +105,34 @@ export function buildInsights(d: any): Insight[] {
       })
     }
 
-    // 3) Materiálová náročnost vs benchmark oboru
+    // 3) Materiálová / zbožní náročnost vs benchmark oboru
     if (last.matPct > 0) {
+      const eshop = /e-?shop|e-?commerce|ecommerce|retail|obchod|prodej zbož/.test(industryString(d))
       const bands = materialBands(d)
       const v = materialVerdict(last.matPct, bands)
       const bench = ` Zdravé pásmo${bands.label ? ` pro ${bands.label}` : ''} je zhruba ${bands.goodMax} až ${bands.healthyMax} % (orientačně).`
+      const nazev = eshop ? 'Zbožní náročnost' : 'Materiálová náročnost'
+      const co = eshop ? 'Nákup zboží spolkne' : 'Materiál a díly spolknou'
       out.push({
         id: 'material',
-        title: `Materiálová náročnost ${Math.round(last.matPct)} % · ${v.word}`,
-        detail: `Materiál a díly spolknou ${Math.round(last.matPct)} % tržeb (${last.year}).${bench}`,
+        title: `${nazev} ${Math.round(last.matPct)} % · ${v.word}${eshop ? ` (hrubá marže ${100 - Math.round(last.matPct)} %)` : ''}`,
+        detail: `${co} ${Math.round(last.matPct)} % tržeb (${last.year}).${bench}`,
         severity: v.sev,
-        prompt: `Materiálová náročnost je ${Math.round(last.matPct)} %. Je to moc? Jak ji snížit a co to udělá se ziskem?`,
+        prompt: `${nazev} je ${Math.round(last.matPct)} %. Je to v normě? Jak ji zlepšit a co to udělá se ziskem?`,
+      })
+    }
+
+    // 3b) PNO · podíl marketingu na obratu (jen e-shop / obchod)
+    const mkt = last.marketing || 0
+    if (mkt > 0 && last.trzby > 0) {
+      const pno = Math.round((mkt / last.trzby) * 100)
+      const sev: Insight['severity'] = pno > 40 ? 'critical' : pno > 25 ? 'warn' : pno > 18 ? 'info' : 'good'
+      out.push({
+        id: 'pno',
+        title: `PNO ${pno} % · marketing/obrat`,
+        detail: `Marketing stál ${kc(mkt)} = ${pno} % tržeb (${last.year}). Zdravé pásmo pro e-shop je zhruba 10–20 %. ${pno > 25 ? 'Nad 25 % reklama ukrajuje z marže — řešit ROAS po kanálech a produktech.' : 'Drž to v pásmu a hlídej ROAS.'}`,
+        severity: sev,
+        prompt: `PNO (marketing/obrat) je ${pno} %. Je to moc? Kde marketing seškrtat, aniž bych ztratil tržby?`,
       })
     }
   }
@@ -211,18 +228,30 @@ export function scenarioContext(d: any): string {
     const delta = r.ebitda - baseRes.ebitda
     return `  · ${label}: EBITDA ${kc(r.ebitda)} (${delta >= 0 ? '+' : ''}${kc(delta)} oproti dnešku)`
   }
+  const eshop = /e-?shop|e-?commerce|ecommerce|retail|obchod|prodej zbož/.test(industryString(d))
+  const rows = eshop
+    ? [
+        row('marže zboží lepší o 2 p.b.', { material_pp: 2 }),
+        row('marže zboží lepší o 4 p.b.', { material_pp: 4 }),
+        row('tržby +10 %', { revenue_pct: 10 }),
+        row('marketing / fixní −150 000 Kč/rok', { fixed_delta: -150000 }),
+        row('marketing / fixní −300 000 Kč/rok', { fixed_delta: -300000 }),
+      ]
+    : [
+        row('marže na dílech lepší o 2 p.b.', { material_pp: 2 }),
+        row('marže na dílech lepší o 4 p.b.', { material_pp: 4 }),
+        row('tržby +4 %', { revenue_pct: 4 }),
+        row('tržby +8 %', { revenue_pct: 8 }),
+        row('hodinová sazba +5 %', { hourly_pct: 5 }),
+        row('hodinová sazba +10 %', { hourly_pct: 10 }),
+        row('fixní náklady −100 000 Kč/rok', { fixed_delta: -100000 }),
+      ]
   return [
     `## SPOČÍTANÉ SCÉNÁŘE (přesná čísla z modelu · používej je u dotazů „co kdyby“)`,
-    `Výchozí stav (model): roční tržby ${kc(base.annual_revenue)}, materiálová náročnost ${base.material_pct} %, fixní náklady ${kc(base.fixed_annual)}, dnešní EBITDA ${kc(baseRes.ebitda)}.`,
+    `Výchozí stav (model): roční tržby ${kc(base.annual_revenue)}, ${eshop ? 'náklad na zboží' : 'materiálová náročnost'} ${base.material_pct} %, fixní náklady${eshop ? ' (vč. marketingu)' : ''} ${kc(base.fixed_annual)}, dnešní EBITDA ${kc(baseRes.ebitda)}.`,
     `Hranice rentability (EBIT = 0): tržby ~${kc(be)}.`,
     `Dopady jednotlivých pák na roční EBITDA:`,
-    row('marže na dílech lepší o 2 p.b.', { material_pp: 2 }),
-    row('marže na dílech lepší o 4 p.b.', { material_pp: 4 }),
-    row('tržby +4 %', { revenue_pct: 4 }),
-    row('tržby +8 %', { revenue_pct: 8 }),
-    row('hodinová sazba +5 %', { hourly_pct: 5 }),
-    row('hodinová sazba +10 %', { hourly_pct: 10 }),
-    row('fixní náklady −100 000 Kč/rok', { fixed_delta: -100000 }),
+    ...rows,
     `Pozn.: jde o modelové scénáře, ne realitu · při odpovědi to připomeň a odkaž na záložku „Co kdyby“.`,
   ].join('\n')
 }

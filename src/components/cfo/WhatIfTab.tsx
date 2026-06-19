@@ -11,18 +11,26 @@ import { PeriodBadge } from './period'
 interface WhatIfTabProps {
   base?: Partial<WhatIfBase>
   onBaseChange: (base: WhatIfBase) => void
+  eshop?: boolean
 }
 
-const PRESETS: { label: string; levers: WhatIfLevers }[] = [
+const PRESETS_AUTO: { label: string; levers: WhatIfLevers }[] = [
   { label: 'Bod zvratu (díly +4 p.b.)', levers: { ...ZERO_LEVERS, material_pp: 4 } },
   { label: 'Pokles tržeb −10 %', levers: { ...ZERO_LEVERS, revenue_pct: -10 } },
   { label: 'Růst +10 % + díly +2 p.b.', levers: { ...ZERO_LEVERS, revenue_pct: 10, material_pp: 2 } },
   { label: 'Úspora fixních −200k', levers: { ...ZERO_LEVERS, fixed_delta: -200000 } },
 ]
+const PRESETS_ESHOP: { label: string; levers: WhatIfLevers }[] = [
+  { label: 'Marketing −250k', levers: { ...ZERO_LEVERS, fixed_delta: -250000 } },
+  { label: 'Pokles tržeb −10 %', levers: { ...ZERO_LEVERS, revenue_pct: -10 } },
+  { label: 'Marže zboží +4 p.b.', levers: { ...ZERO_LEVERS, material_pp: 4 } },
+  { label: 'Marketing −150k + tržby +10 %', levers: { ...ZERO_LEVERS, fixed_delta: -150000, revenue_pct: 10 } },
+]
 
-export default function WhatIfTab({ base, onBaseChange }: WhatIfTabProps) {
+export default function WhatIfTab({ base, onBaseChange, eshop }: WhatIfTabProps) {
   const b: WhatIfBase = { ...TECHCARS_BASE, ...base }
   const [levers, setLevers] = useState<WhatIfLevers>(ZERO_LEVERS)
+  const PRESETS = eshop ? PRESETS_ESHOP : PRESETS_AUTO
 
   const now = calcWhatIfAuto(b, ZERO_LEVERS)
   const sc = calcWhatIfAuto(b, levers)
@@ -60,9 +68,9 @@ export default function WhatIfTab({ base, onBaseChange }: WhatIfTabProps) {
         <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-3">
           {[
             { k: 'annual_revenue' as const, label: 'Roční tržby (Kč)' },
-            { k: 'material_pct' as const, label: 'Materiál / díly (% tržeb)' },
-            { k: 'fixed_annual' as const, label: 'Fixní náklady ročně (Kč)' },
-            { k: 'labor_share_pct' as const, label: 'Z toho práce (% tržeb)' },
+            { k: 'material_pct' as const, label: eshop ? 'Náklad na zboží (% tržeb)' : 'Materiál / díly (% tržeb)' },
+            { k: 'fixed_annual' as const, label: eshop ? 'Fixní náklady ročně · vč. marketingu (Kč)' : 'Fixní náklady ročně (Kč)' },
+            ...(eshop ? [] : [{ k: 'labor_share_pct' as const, label: 'Z toho práce (% tržeb)' }]),
             { k: 'other_income' as const, label: 'Ostatní výnosy ročně (Kč)' },
             { k: 'depreciation_annual' as const, label: 'Odpisy ročně (Kč)' },
           ].map((f) => (
@@ -79,13 +87,15 @@ export default function WhatIfTab({ base, onBaseChange }: WhatIfTabProps) {
       <div className={card}>
         <h3 className="font-serif text-base text-ink mb-4">Páky · co když změním…</h3>
         <div className="space-y-5">
-          <Slider label="Marže na dílech" hint="lepší nákup / přirážka" value={levers.material_pp}
+          <Slider label={eshop ? 'Marže zboží' : 'Marže na dílech'} hint={eshop ? 'lepší nákup / ceny' : 'lepší nákup / přirážka'} value={levers.material_pp}
             min={-10} max={15} step={0.5} unit=" p.b." color="#7bbf8a" onChange={(v) => setLever('material_pp', v)} />
-          <Slider label="Tržby" hint="víc/míň zakázek" value={levers.revenue_pct}
+          <Slider label="Tržby" hint={eshop ? 'víc/míň objednávek' : 'víc/míň zakázek'} value={levers.revenue_pct}
             min={-30} max={30} step={1} unit=" %" color="#88aedd" onChange={(v) => setLever('revenue_pct', v)} />
-          <Slider label="Hodinová sazba práce" hint="zdražení práce" value={levers.hourly_pct}
-            min={-20} max={30} step={1} unit=" %" color="#c99" onChange={(v) => setLever('hourly_pct', v)} />
-          <Slider label="Fixní náklady" hint="mzdy, nájem, režie (Kč/rok)" value={levers.fixed_delta}
+          {!eshop && (
+            <Slider label="Hodinová sazba práce" hint="zdražení práce" value={levers.hourly_pct}
+              min={-20} max={30} step={1} unit=" %" color="#c99" onChange={(v) => setLever('hourly_pct', v)} />
+          )}
+          <Slider label={eshop ? 'Marketing a fixní náklady' : 'Fixní náklady'} hint={eshop ? 'reklama, mzdy, nájem (Kč/rok)' : 'mzdy, nájem, režie (Kč/rok)'} value={levers.fixed_delta}
             min={-1000000} max={1000000} step={25000} unit=" Kč" color="#e0a868" onChange={(v) => setLever('fixed_delta', v)} />
         </div>
         <div className="flex flex-wrap gap-2 mt-5 pt-4 border-t border-black/[0.06]">
@@ -125,8 +135,9 @@ export default function WhatIfTab({ base, onBaseChange }: WhatIfTabProps) {
       </div>
 
       <p className="text-[0.72rem] text-mid px-1">
-        Pozn.: model je zjednodušený (materiál škáluje s tržbami, zvýšení hodinové sazby zvedá jen práci).
-        Slouží k orientaci a rozhodování, ne jako přesná účetní projekce.
+        {eshop
+          ? 'Pozn.: model je zjednodušený · náklad na zboží škáluje s tržbami, marketing a fixní náklady jsou v „Marketing a fixní náklady“. Slouží k orientaci, ne jako účetní projekce.'
+          : 'Pozn.: model je zjednodušený (materiál škáluje s tržbami, zvýšení hodinové sazby zvedá jen práci). Slouží k orientaci a rozhodování, ne jako přesná účetní projekce.'}
       </p>
     </div>
   )

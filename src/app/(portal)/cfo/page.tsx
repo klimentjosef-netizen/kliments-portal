@@ -211,6 +211,8 @@ function CfoPageInner() {
   // Default subscription kvůli zpětné kompatibilitě stávajících reportů.
   const businessModel = (d.business_model as string) || 'subscription'
   const isTransaction = businessModel === 'transaction'
+  // E-shop vs ostatní transakční (autoservis…) · přepíná názvosloví páček, scénářů a daňových páků.
+  const eshop = /e-?shop|e-?commerce|\bshop\b/i.test(String(d.business_profile?.industry || ''))
   // Záložky nevhodné pro transakční byznys (postavené na tarifech/členech/CAPEX startupu)
   const HIDDEN_FOR_TRANSACTION = ['pricing', 'monthly', 'budget', 'risks', 'questions']
   // Hospodaření je jen pro transakční model
@@ -559,7 +561,7 @@ function CfoPageInner() {
         )}
         {tab === 'taxes' && (
           isTransaction
-            ? <TaxOverviewTab ledger={ledger} whatifBase={d.whatif_base} />
+            ? <TaxOverviewTab ledger={ledger} whatifBase={d.whatif_base} eshop={eshop} />
             : <TaxesTab taxes={taxesData} taxDeadlines={taxDeadlines} complexity={profile.complexity} onTaxesChange={v => updateData('taxes', v)} />
         )}
         {tab === 'hospodareni' && (
@@ -569,7 +571,7 @@ function CfoPageInner() {
           </div>
         )}
         {tab === 'whatif' && (
-          <WhatIfTab base={d.whatif_base} onBaseChange={v => updateData('whatif_base', v)} />
+          <WhatIfTab base={d.whatif_base} onBaseChange={v => updateData('whatif_base', v)} eshop={eshop} />
         )}
         {tab === 'receivables' && (
           <ReceivablesTab receivables={receivables} onReceivablesChange={v => updateData('receivables', v)} />

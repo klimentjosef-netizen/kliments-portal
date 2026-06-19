@@ -279,7 +279,7 @@ export default function DashboardTab({
           <div className="bg-white rounded-[14px] p-4 border border-black/[0.06]">
             <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid mb-1.5">Materiálová náročnost</div>
             <div className="font-serif text-xl font-light text-ink leading-none">{Math.round(wbase.material_pct)} %</div>
-            <div className="text-[0.68rem] mt-1 text-mid">díly/materiál z tržeb</div>
+            <div className="text-[0.68rem] mt-1 text-mid">zboží / materiál z tržeb</div>
           </div>
           <div className="bg-white rounded-[14px] p-4 border border-black/[0.06]">
             <div className="text-[0.6rem] tracking-[0.1em] uppercase text-mid mb-1.5">Bod zvratu</div>

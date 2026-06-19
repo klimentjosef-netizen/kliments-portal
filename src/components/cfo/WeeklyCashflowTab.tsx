@@ -161,7 +161,7 @@ export default function WeeklyCashflowTab({ ledger, whatifBase, schedule, onSche
           <button onClick={addItem} className="bg-rose text-white rounded-full px-4 py-2 text-[0.8rem] font-medium hover:bg-rose-deep transition-colors">Přidat</button>
         </div>
         {s.items.length === 0 ? (
-          <p className="text-[0.78rem] text-mid">Zatím žádné plánované platby. Přidej třeba splatnost DPH (25.), mzdy, nájem nebo plánovanou objednávku dílů.</p>
+          <p className="text-[0.78rem] text-mid">Zatím žádné plánované platby. Přidej třeba splatnost DPH (25.), mzdy, nájem, splátku úvěru nebo velkou objednávku zboží.</p>
         ) : (
           <div className="space-y-1.5">
             {[...s.items].sort((a, b) => a.date.localeCompare(b.date)).map((it) => (
