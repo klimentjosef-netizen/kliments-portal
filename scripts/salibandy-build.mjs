@@ -49,6 +49,8 @@ function categorize(r) {
   if (kat.includes('konverze') || kat.includes('fx spot') || has('fx spot', 'rb smenarna', 'rb směnárna')) return 'fx'
   if (has('facebk', 'meta pay', 'google*ads', 'google *ads', 'google ads', 'seznam', 'tiktok', 'ecomail', 'fiverr', 'canva', 'capcut', 'opus clip', 'raynet', 'clickfunnels', 'scribd', 'patreon', 'stape', 'leadhub', 'vintrica')) return 'marketing'
   if (has('bajgar', 'václavíková', 'vaclavikova', 'kuchař', 'kuchar', 'zuzka marketing', 'sprava ppc', 'sprava meta', 'sprava reklam', 'marketingove poradenstvi', 'simicek', 'nataceni', 'vytvareni strategie', 'dohled nad vyvojem', 'winitio', 'fit academy', 'eos media', 'story s animaci')) return 'marketing'
+  // Pravidelná měsíční fixní platba na účet ...797 ("SALIBANDY SRO", VS=období) — neidentifikovaná, ale reálný fixní náklad → režie
+  if (prot.startsWith('261043797')) return 'fixed_unknown'
   // KAPITÁL / vybavení (mimo provozní P&L): mantinely, elektronika, auto, fitko
   if (has('uher company', 'uher', 'mantinely', 'electro world', 'electroworld', 'alza', 'ikea', 'auto hruska', 'platba auto', 'salibandy - 1', 'clever fit', 'form factory')) return 'capex'
   // ZBOŽÍ (COGS) — jasní dodavatelé zboží a výrobní vstupy
@@ -83,7 +85,7 @@ for (const r of body) {
   else if (c === 'cogs') M[m].cogs += a
   else if (c === 'marketing') M[m].marketing += a
   else if (c === 'logistics') M[m].logistics += a
-  else if (c === 'payroll' || c === 'accounting' || c === 'saas') M[m].rezie += a
+  else if (c === 'payroll' || c === 'accounting' || c === 'saas' || c === 'fixed_unknown') M[m].rezie += a
   else if (c === 'fuel_travel' || c === 'personal') M[m].osobni += a
 }
 
@@ -153,6 +155,18 @@ const overview = [
   { id: 'sl-c1', type: 'callout', intent: 'warning', title: 'Tři věci, které firmu dusí', body: 'Marketing kolem 34 % obratu, těžká dluhová služba a závislost na vkladech majitele. Provoz je zatím cash-flow záporný. Dobrá zpráva: všechny tři páky jdou řešit a v portálu je teď vidíš černé na bílém.' },
   { id: 'sl-c2', type: 'callout', intent: 'info', title: 'Co je e-shop CFO', body: 'Hospodaření čteš jako e-shop: tržby → nákup zboží → hrubá marže → marketing → logistika → mzdy a režie. Osobní výdaje (auto, strava) jsou oddělené v reálné vrstvě. Klimentík (vpravo dole) zná celý obraz a spočítá „co kdyby".' },
   { id: 'sl-risk', ...riskList },
+  { id: 'sl-ph', type: 'heading', level: 2, eyebrow: 'Ozdravný plán', text: 'Jak Salibandy dostat zpátky do zisku', sub: 'Pět tahů v pořadí podle dopadu. Cíl: provoz, který se uživí sám, a konec dolévání z kapsy majitele.' },
+  {
+    id: 'sl-plan', type: 'step-list', title: 'Plán ozdravení · krok za krokem', layout: 'timeline',
+    items: [
+      { num: '1', title: `Srazit marketing na PNO ~25 % (z ${pno(y25)} %)`, desc: `Reklama je hlavní díra. Audit kampaní podle ROAS po produktech a kanálech, vypnout ztrátové, posílit retenci (e-mail, opakované nákupy) a levné kanály (SEO, Heureka/Zboží.cz). Z ~${fmt(-y25.marketing)} na ~270 tis./rok = úspora kolem 250 tis. To samo vrátí provoz blízko nuly.` },
+      { num: '2', title: 'Kapitalizovat půjčky společníků do vlastního kapitálu', desc: 'Vklady ~780 tis./rok přeměnit na základní/ostatní kapitál místo půjček. Řeší předlužení (záporný VK), uklidní rozvahu a zastaví část úroků. Pak refinancovat drahé úvěry (investiční + neúčelový + Lemonero) do jednoho levnějšího · dnešní dluhová služba ~35–40 tis./měs.' },
+      { num: '3', title: 'Řídit zásoby podle obrátky, ne nakupovat na sklad dopředu', desc: 'Velké nákupy z Alibaby vážou hotovost na měsíce dopředu (proto 2026 opticky propadlo). Objednávat podle prodejnosti a sezóny, držet jen rychloobrátkové. Uvolní desítky tisíc cash měsíčně.' },
+      { num: '4', title: 'Identifikovat fixní platbu ~30 tis./měs (účet …797) a stlačit fixní náklady', desc: 'Pravidelná platba „SALIBANDY SRO" ~30 tis./měs (~360 tis./rok) · zjistit co to je (sklad / služba / odměna) a vyjednat nebo zrušit. Spolu s ostatní režií je to největší páka po marketingu.' },
+      { num: '5', title: 'Týdenní cashflow režim a konec dolévání majitelem', desc: 'Sledovat hotovost, DPH (jste v nadměrném odpočtu = vratky od FÚ), splatnosti pohledávek i závazků. Cílový stav: provoz pokryje sám sebe i dluh, vklady majitele přestanou být nutné.' },
+    ],
+  },
+  { id: 'sl-target', type: 'callout', intent: 'success', title: 'Kam to může dojet', body: `Hrubá marže zboží je zdravá (~55 %), problém není v produktu ani cenách · je v nákladech nad marží. Když srazíš PNO na ~25 % a zkrotíš fixní náklady, provoz se dostane z dnešní ztráty do plusu řádově +100 až +150 tis./rok. To spolu s kapitalizací půjček a refinancováním dluhu firmu stabilizuje · bez dalších vkladů z kapsy.` },
 ]
 
 // ---- zápis ----
