@@ -20,7 +20,7 @@ function val(it: any) {
   return it.status === 'paid' || it.status === 'confirmed' ? (it.amount_actual ?? 0) : (it.amount_expected ?? 0)
 }
 
-type YearAgg = { year: string; months: number; trzby: number; material: number; rezie: number; zisk: number; matPct: number }
+type YearAgg = { year: string; months: number; trzby: number; material: number; marketing?: number; logistika?: number; rezie: number; zisk: number; matPct: number }
 
 export function ledgerByYear(d: any): YearAgg[] {
   const months: any[] = d?.ledger?.months?.filter((m: any) => m.items?.length > 0) || []
@@ -29,10 +29,14 @@ export function ledgerByYear(d: any): YearAgg[] {
     const ms = months.filter((m) => String(m.month).startsWith(y))
     const items = ms.flatMap((m) => m.items)
     const trzby = items.filter((i: any) => i.category === 'revenue' && !i.manualCash).reduce((s: number, i: any) => s + val(i), 0)
-    const material = Math.abs(items.filter((i: any) => /materiál/i.test(i.description)).reduce((s: number, i: any) => s + val(i), 0))
-    const rezie = Math.abs(items.filter((i: any) => /mzd|režie/i.test(i.description)).reduce((s: number, i: any) => s + val(i), 0))
-    const zisk = trzby - material - rezie
-    return { year: y, months: ms.length, trzby, material, rezie, zisk, matPct: trzby > 0 ? (material / trzby) * 100 : 0 }
+    // náklad → kbelík (autoservis materiál/režie i e-shop zboží/marketing/logistika); osobní a keš mimo provoz
+    const op = items.filter((i: any) => i.category !== 'revenue' && i.kind !== 'osobni' && !i.manualCash)
+    const material = Math.abs(op.filter((i: any) => /zboží|zbozi|materiál|material|díly|dily/i.test(i.description)).reduce((s: number, i: any) => s + val(i), 0))
+    const marketing = Math.abs(op.filter((i: any) => /marketing|reklam/i.test(i.description)).reduce((s: number, i: any) => s + val(i), 0))
+    const logistika = Math.abs(op.filter((i: any) => /logistik|balné|balne|doprav|přeprav|preprav|brán|brany/i.test(i.description)).reduce((s: number, i: any) => s + val(i), 0))
+    const rezie = Math.abs(op.reduce((s: number, i: any) => s + val(i), 0)) - material - marketing - logistika
+    const zisk = trzby - material - marketing - logistika - rezie
+    return { year: y, months: ms.length, trzby, material, marketing, logistika, rezie, zisk, matPct: trzby > 0 ? (material / trzby) * 100 : 0 }
   })
 }
 
