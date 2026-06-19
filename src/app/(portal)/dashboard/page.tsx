@@ -95,8 +95,22 @@ export default function DashboardPage() {
           <EmptyState service={profile?.service || undefined} />
         ) : (
           <>
-            {/* Stats: computed or fallback to legacy strings */}
+            {/* Stats: transakční (e-shop/servis) má jiné karty než předplatné */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-7">
+            {d.business_model === 'transaction' ? (
+              <>
+                <StatCard label="Měsíční tržby" value={txt(d.revenue)}
+                  sub={typeof d.revenue_trend === 'string' ? d.revenue_trend : 'ø z banky'} trendUp={d.revenue_trend_up} />
+                <StatCard label="Provozní výsledek (měs.)" value={txt(d.ebitda)}
+                  sub={typeof d.ebitda_period === 'string' ? d.ebitda_period : ''}
+                  trend={typeof d.ebitda_trend === 'string' ? d.ebitda_trend : undefined} trendUp={d.ebitda_trend_up} />
+                <StatCard label="Hrubá marže" value={typeof d.gross_margin_pct === 'number' ? `${d.gross_margin_pct} %` : '···'}
+                  sub="po nákupu zboží" trendUp={typeof d.gross_margin_pct === 'number' ? d.gross_margin_pct >= 50 : undefined} />
+                <StatCard label="PNO · marketing/obrat" value={typeof d.pno_pct === 'number' ? `${d.pno_pct} %` : '···'}
+                  sub="zdravé 10–20 %" trendUp={typeof d.pno_pct === 'number' ? d.pno_pct <= 20 : undefined} />
+              </>
+            ) : (
+              <>
               <StatCard
                 label="Měsíční tržby"
                 value={rev ? fmtShort(rev.total) : txt(d.revenue)}
@@ -125,6 +139,8 @@ export default function DashboardPage() {
                 trend={capexRoi !== null && capexRoi <= 24 ? 'Do 2 let' : capexRoi !== null ? `${Math.round(capexRoi / 12)} let` : undefined}
                 trendUp={capexRoi !== null ? capexRoi <= 24 : false}
               />
+              </>
+            )}
             </div>
 
             {/* Risks */}

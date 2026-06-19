@@ -188,6 +188,8 @@ const next = {
   },
   revenue: fmt(y25.rev / 12), revenue_trend: 'reálný obrat z banky', revenue_trend_up: true,
   ebitda: fmt(oper(y25) / 12), ebitda_period: 'provozní výsledek (měs. ø 2025)', ebitda_trend: oper(y25) < 0 ? 'ztrátový' : 'ziskový', ebitda_trend_up: oper(y25) >= 0,
+  gross_margin_pct: grossM(y25), pno_pct: pno(y25),
+  risks: riskList.items,
   blocks_overview: overview,
 }
 

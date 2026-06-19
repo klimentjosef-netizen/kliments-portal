@@ -9,6 +9,7 @@ interface FillMonthTabProps {
   ledger: Ledger
   whatifBase?: Partial<WhatIfBase>
   onLedgerChange: (l: Ledger) => void
+  eshop?: boolean
 }
 
 const CZ = ['leden', 'únor', 'březen', 'duben', 'květen', 'červen', 'červenec', 'srpen', 'září', 'říjen', 'listopad', 'prosinec']
@@ -26,12 +27,14 @@ const item = (date: string, description: string, category: 'revenue' | 'cost', a
   }
 }
 
-export default function FillMonthTab({ ledger, whatifBase, onLedgerChange }: FillMonthTabProps) {
+export default function FillMonthTab({ ledger, whatifBase, onLedgerChange, eshop }: FillMonthTabProps) {
   const year = new Date().getFullYear()
   const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`)
+  const cogsLabel = eshop ? 'Nákup zboží' : 'Materiál a díly'
   const [month, setMonth] = useState(months[0])
   const [trzby, setTrzby] = useState('')
   const [material, setMaterial] = useState('')
+  const [marketing, setMarketing] = useState('')
   const [rezie, setRezie] = useState('')
   const [osobni, setOsobni] = useState('')
   const [kes, setKes] = useState('')
@@ -45,28 +48,30 @@ export default function FillMonthTab({ ledger, whatifBase, onLedgerChange }: Fil
     const ex = ledger.months.find((m) => m.month === month && m.items.length > 0)
     if (ex) {
       const rev = ex.items.filter((i) => i.category === 'revenue' && !i.manualCash).reduce((s, i) => s + val(i), 0)
-      const mat = Math.abs(ex.items.filter((i) => /materiál/i.test(i.description)).reduce((s, i) => s + val(i), 0))
-      const rez = Math.abs(ex.items.filter((i) => /mzd|režie/i.test(i.description)).reduce((s, i) => s + val(i), 0))
+      const mat = Math.abs(ex.items.filter((i) => /zboží|zbozi|materiál|material|díly|dily/i.test(i.description)).reduce((s, i) => s + val(i), 0))
+      const mkt = Math.abs(ex.items.filter((i) => /marketing|reklam/i.test(i.description)).reduce((s, i) => s + val(i), 0))
+      const rez = Math.abs(ex.items.filter((i) => i.category !== 'revenue' && i.kind !== 'osobni' && !i.manualCash && !/zboží|zbozi|materiál|material|díly|dily|marketing|reklam/i.test(i.description)).reduce((s, i) => s + val(i), 0))
       const oso = Math.abs(ex.items.filter((i) => i.kind === 'osobni').reduce((s, i) => s + val(i), 0))
       const ke = ex.items.filter((i) => i.manualCash).reduce((s, i) => s + val(i), 0)
-      setTrzby(rev ? String(rev) : ''); setMaterial(mat ? String(mat) : ''); setRezie(rez ? String(rez) : '')
+      setTrzby(rev ? String(rev) : ''); setMaterial(mat ? String(mat) : ''); setMarketing(mkt ? String(mkt) : ''); setRezie(rez ? String(rez) : '')
       setOsobni(oso ? String(oso) : ''); setKes(ke ? String(ke) : '')
-    } else { setTrzby(''); setMaterial(''); setRezie(''); setOsobni(''); setKes('') }
+    } else { setTrzby(''); setMaterial(''); setMarketing(''); setRezie(''); setOsobni(''); setKes('') }
     setSaved(false)
   }, [month, ledger])
 
-  const t = parseFloat(trzby) || 0, m = parseFloat(material) || 0, r = parseFloat(rezie) || 0
+  const t = parseFloat(trzby) || 0, m = parseFloat(material) || 0, mk = parseFloat(marketing) || 0, r = parseFloat(rezie) || 0
   const o = parseFloat(osobni) || 0, k = parseFloat(kes) || 0
-  const ebitdaUcetni = t - m - r - o          // jak to vidí účetní (osobní je náklad)
-  const ebitdaReal = (t + Math.max(0, k)) - m - r + Math.min(0, k)  // provoz bez osobní + keš mimo banku
+  const ebitdaUcetni = t - m - mk - r - o          // jak to vidí účetní (osobní je náklad)
+  const ebitdaReal = (t + Math.max(0, k)) - m - mk - r + Math.min(0, k)  // provoz bez osobní + keš mimo banku
   const variance = ebitdaReal - planMonthEbitda
 
   function save() {
     const items = [
       item(`${month}-15`, 'Tržby', 'revenue', t),
-      item(`${month}-15`, 'Materiál a díly', 'cost', m),
+      item(`${month}-15`, cogsLabel, 'cost', m),
       item(`${month}-15`, 'Mzdy a režie', 'cost', r, { kind: 'provozni' }),
     ]
+    if (eshop && mk > 0) items.push(item(`${month}-15`, 'Marketing', 'cost', mk))
     if (o > 0) items.push(item(`${month}-15`, 'Osobní spotřeba majitele', 'cost', o, { kind: 'osobni' }))
     if (k !== 0) items.push(item(`${month}-15`, 'Ruční keš (mimo účetnictví)', k >= 0 ? 'revenue' : 'cost', Math.abs(k), { manualCash: true }))
     const rest = ledger.months.filter((mm) => mm.month !== month)
@@ -85,7 +90,7 @@ export default function FillMonthTab({ ledger, whatifBase, onLedgerChange }: Fil
         <div className="mb-2"><PeriodBadge kind="live" text={`Letošní rok ${year}: ${filled.length}/12 měsíců`} /></div>
         <h3 className="font-serif text-xl font-light mb-1">Doplnit měsíc · živá data {year}</h3>
         <p className="text-[0.82rem] text-white/55 leading-relaxed">
-          Po uzávěrce měsíce sem zadejte tři čísla. Portál měsíc rozsvítí naživo, doplní letošní rok
+          Po uzávěrce měsíce sem zadejte pár čísel. Portál měsíc rozsvítí naživo, doplní letošní rok
           a porovná ho s plánem. Naskenované doklady patří do záložky Dokumenty.
         </p>
       </div>
@@ -102,7 +107,12 @@ export default function FillMonthTab({ ledger, whatifBase, onLedgerChange }: Fil
               ))}
             </select>
           </label>
-          {([['Tržby (Kč)', trzby, setTrzby], ['Materiál a díly (Kč)', material, setMaterial], ['Mzdy a režie · provozní (Kč)', rezie, setRezie]] as [string, string, (v: string) => void][]).map(([label, v, set]) => (
+          {([
+            ['Tržby (Kč)', trzby, setTrzby],
+            [`${cogsLabel} (Kč)`, material, setMaterial],
+            ...(eshop ? [['Marketing (Kč)', marketing, setMarketing]] as [string, string, (v: string) => void][] : []),
+            ['Mzdy a režie · provozní (Kč)', rezie, setRezie],
+          ] as [string, string, (v: string) => void][]).map(([label, v, set]) => (
             <label key={label} className="block mb-3">
               <span className="text-[0.62rem] tracking-[0.1em] uppercase text-mid block mb-1">{label}</span>
               <input type="number" value={v} onChange={(e) => { set(e.target.value); setSaved(false) }} placeholder="0" className={inputCls} />
@@ -119,7 +129,7 @@ export default function FillMonthTab({ ledger, whatifBase, onLedgerChange }: Fil
             <input type="number" value={kes} onChange={(e) => { setKes(e.target.value); setSaved(false) }} placeholder="0" className={inputCls} />
           </label>
           <p className="text-[0.66rem] text-mid mb-3 px-1">Daněné toky evidované zvlášť (na papíře). Kladně příjem, záporně výdaj · vstupují do reálné hotovosti.</p>
-          <button onClick={save} disabled={t === 0 && m === 0 && r === 0 && o === 0 && k === 0}
+          <button onClick={save} disabled={t === 0 && m === 0 && mk === 0 && r === 0 && o === 0 && k === 0}
             className="w-full mt-2 bg-rose text-white rounded-full py-2.5 text-[0.82rem] font-medium hover:bg-rose-deep transition-colors disabled:opacity-40">
             {saved ? '✓ Uloženo' : 'Uložit měsíc'}
           </button>
@@ -130,7 +140,8 @@ export default function FillMonthTab({ ledger, whatifBase, onLedgerChange }: Fil
           <h4 className="font-serif text-base text-ink mb-4">Výsledek měsíce</h4>
           <div className="space-y-2 text-[0.85rem]">
             <Row label="Tržby" value={t} />
-            <Row label="− Materiál a díly" value={-m} />
+            <Row label={`− ${cogsLabel}`} value={-m} />
+            {eshop && mk > 0 && <Row label="− Marketing" value={-mk} />}
             <Row label="− Mzdy a režie (provozní)" value={-r} />
             {o > 0 && <Row label="− Osobní spotřeba majitele" value={-o} />}
             <div className="border-t border-black/10 pt-2 flex justify-between text-mid">

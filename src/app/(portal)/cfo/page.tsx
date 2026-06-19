@@ -580,7 +580,7 @@ function CfoPageInner() {
         {tab === 'questions' && <QuestionsTab data={d} onQuestionsChange={v => updateData('questions', v)} />}
         {tab === 'import' && (
           isTransaction ? (
-            <FillMonthTab ledger={ledger} whatifBase={d.whatif_base} onLedgerChange={v => updateData('ledger', v)} />
+            <FillMonthTab ledger={ledger} whatifBase={d.whatif_base} onLedgerChange={v => updateData('ledger', v)} eshop={eshop} />
           ) : (
           <ImportTab
             ledger={ledger}
