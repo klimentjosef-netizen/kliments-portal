@@ -9,7 +9,7 @@ export default function PortalError({ error, reset }: { error: Error & { digest?
     // do konzole i na server (Vercel logy)
     console.error('[portal-error]', error?.message, error?.stack)
     try {
-      fetch('/api/log-error', {
+      fetch('/portal/api/log-error', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

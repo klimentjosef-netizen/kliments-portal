@@ -65,7 +65,7 @@ export default function AssistantWidget({ clientId, clientName }: Props) {
     inputRef.current?.focus()
     if (insightsLoaded.current) return
     insightsLoaded.current = true
-    fetch('/api/cfo-assistant', {
+    fetch('/portal/api/cfo-assistant', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ clientId, mode: 'insights' }),
@@ -83,7 +83,7 @@ export default function AssistantWidget({ clientId, clientName }: Props) {
     setMessages([...history, { role: 'assistant', content: '' }])
     setBusy(true)
     try {
-      const res = await fetch('/api/cfo-assistant', {
+      const res = await fetch('/portal/api/cfo-assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clientId, messages: history }),
