@@ -60,6 +60,19 @@ export async function sparuj({ ico, nasucho = false }) {
     const { error } = await db.from('documents').update({ status: 'duplicate', note: 'Potvrzení o platbě k faktuře ze stejného e-mailu' }).in('id', potvrzeni)
     if (error) throw error
   }
+  // 0c. Stejný doklad poslaný víckrát jako jiný soubor (číslo + protistrana + částka)
+  const videno = new Map()
+  for (const d of docs.filter((x) => x.doc_number && x.amount_total != null && !potvrzeni.includes(x.id))) {
+    const klic = `${d.kind}|${norm(d.doc_number)}|${(d.counterparty_name ?? '').toLowerCase().slice(0, 8)}|${d.amount_total}`
+    if (videno.has(klic)) potvrzeni.push(d.id); else videno.set(klic, d.id)
+  }
+  if (!nasucho) {
+    const duplicitni = potvrzeni.filter((id) => !docs.find((d) => d.id === id && d.kind === 'receipt'))
+    if (duplicitni.length) {
+      const { error } = await db.from('documents').update({ status: 'duplicate', note: 'Stejný doklad přišel víckrát' }).in('id', duplicitni)
+      if (error) throw error
+    }
+  }
   const zbyle = docs.filter((d) => !potvrzeni.includes(d.id))
   docs.length = 0; docs.push(...zbyle)
 
@@ -81,14 +94,16 @@ export async function sparuj({ ico, nasucho = false }) {
   }
   // z více kandidátů vybrat fakturu, pokud je jediná
   const jeden = (hit) => (hit.length === 1 ? hit[0] : (hit.filter((d) => d.kind === 'received_invoice' || d.kind === 'issued_invoice').length === 1 ? hit.find((d) => d.kind === 'received_invoice' || d.kind === 'issued_invoice') : null))
-  const kandidati = (t) => docs.filter((d) => !docHotove.has(d.id) && (t.amount < 0 ? VYDAJ : PRIJEM).has(d.kind))
+  const kandidati = (t, i = false) => docs.filter((d) => !docHotove.has(d.id) &&
+    ((t.amount < 0 ? VYDAJ : PRIJEM).has(d.kind) || (i && d.kind === 'other')))
 
   // 1. symbol
   for (const t of volneTx) {
     if (txHotove.has(t.id)) continue
     const text = norm(`${t.var_symbol ?? ''} ${t.message ?? ''}`)
     const vs = norm(t.var_symbol)
-    const hit = kandidati(t).filter((d) => blizko(kc(d), t.amount, 1) && [d.var_symbol, d.doc_number].some((s) => {
+    // u shody čísla dokladu bereme i doklady "ostatní" (špatně rozpoznaný druh)
+    const hit = kandidati(t, true).filter((d) => blizko(kc(d), t.amount, 1) && [d.var_symbol, d.doc_number].some((s) => {
       const n = norm(s)
       return n.length >= 4 && (n === vs || text.includes(n))
     }))
@@ -112,7 +127,7 @@ export async function sparuj({ ico, nasucho = false }) {
       if (!vys) return false
       const konec = Math.max(dny(d.due_date ?? vys, vys), 0) + 45
       const r = dny(t.booked_on, vys)
-      return r >= -7 && r <= konec
+      return r >= (d.kind === 'advance' ? -30 : -7) && r <= konec // doklad k záloze se vystavuje až po platbě
     })
     if (hit.length === 1) pouzij(t, hit[0], 'amount', false)
   }
