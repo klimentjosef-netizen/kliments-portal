@@ -92,7 +92,7 @@ async function zpracujMail(imap, folder, uidvalidity, msg, klienti, klientSlozky
   let klient = klientSlozky.get(folder) ?? null
   let assignedBy = klient ? 'folder' : null
   if (!klient && ai.klient_ico) {
-    klient = klienti.find((k) => k.ico === ai.klient_ico) ?? null
+    klient = klienti.find((k) => k.ico === ai.klient_ico.replace(/\D/g, '').padStart(8, '0')) ?? null
     if (klient) assignedBy = 'ico'
   }
 
@@ -120,7 +120,10 @@ async function zpracujMail(imap, folder, uidvalidity, msg, klienti, klientSlozky
     // např. Geryla + ovasys). Doklad bez IČO zůstává firmě e-mailu.
     // Přeřazuje se jen doklad, který má IČO odběratele (účtenka bez odběratele zůstává).
     let vlastnik = klient
-    const ica = [d.odberatel_ico, d.dodavatel_ico].filter(Boolean).map((x) => x.replace(/\s/g, ''))
+    // IČO vždy jako 8 číslic (model někdy vynechá úvodní nulu: 7858680 → 07858680)
+    const ico8 = (x) => (x && /\d/.test(x) ? x.replace(/\D/g, '').padStart(8, '0') : null)
+    d.odberatel_ico = ico8(d.odberatel_ico); d.dodavatel_ico = ico8(d.dodavatel_ico); d.protistrana_ico = ico8(d.protistrana_ico)
+    const ica = [d.odberatel_ico, d.dodavatel_ico].filter(Boolean)
     if (d.odberatel_ico && d.ucetni_doklad && !(klient && ica.includes(klient.ico))) {
       vlastnik = klienti.find((k) => ica.includes(k.ico)) ?? null
       if (!vlastnik) {
