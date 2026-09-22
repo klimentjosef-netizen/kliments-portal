@@ -85,6 +85,15 @@ export async function sparuj({ ico, nasucho = false }) {
   }
   for (const t of statni) t.no_document_needed = true
 
+  // 0e. "Půjčka" ve zprávě = půjčka (závazek/pohledávka), ne tržba ani náklad, bez faktury
+  //     (pravidlo od Josefa 22. 9. 2026: když se to nejmenuje půjčka, jsou to faktury)
+  const pujcky = tx.filter((t) => !t.no_document_needed && /p[uů]j[cč]k/i.test(t.message ?? ''))
+  if (!nasucho && pujcky.length) {
+    const { error } = await db.from('bank_transactions').update({ category: 'loan', no_document_needed: true, note: 'Půjčka podle zprávy platby' }).in('id', pujcky.map((t) => t.id))
+    if (error) throw error
+  }
+  for (const t of pujcky) t.no_document_needed = true
+
   const txHotove = new Set(matches.map((m) => m.bank_transaction_id))
   const docHotove = new Set(matches.map((m) => m.document_id))
   const volneTx = tx.filter((t) => !txHotove.has(t.id) && !t.no_document_needed)
