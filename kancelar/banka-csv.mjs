@@ -81,7 +81,7 @@ export async function importujCsv({ ico, ucet, soubor, nasucho = false }) {
       client_id: klient.id, account_id: acc.id,
       booked_on: datum(g('datum')), amount: cislo(g('objem')),
       counterparty_account: protiucet?.includes('XXXX') ? null : protiucet, // maskovaná karta není protiúčet
-      counterparty_name: g('nazev') ?? g('obchodnik') ?? (protiucet && !g('typ')?.match(/kart/i) ? g('poznamka') : null),
+      counterparty_name: g('nazev') ?? g('obchodnik') ?? zprava?.match(/Nákup: ([^,]+)/)?.[1]?.trim() ?? (protiucet && !g('typ')?.match(/kart/i) ? g('poznamka') : null),
       var_symbol: g('vs'), const_symbol: g('ks'), spec_symbol: g('ss'),
       original_amount: g('puvodni') ? cislo(g('puvodni')) : null, original_currency: g('puvodniMena'),
       message: zprava, tx_type: g('typ'), bank_tx_id: g('id'),
