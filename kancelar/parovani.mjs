@@ -44,9 +44,32 @@ async function vse(dotaz) {
 
 export async function sparuj({ ico, nasucho = false }) {
   const { data: k } = await db.from('clients').select('id, name').eq('ico', ico).single()
-  const tx = await vse(() => db.from('bank_transactions').select('id, booked_on, amount, var_symbol, message, counterparty_name, original_amount, original_currency, no_document_needed').eq('client_id', k.id))
-  const docs = await vse(() => db.from('documents').select('id, kind, doc_number, var_symbol, issue_date, taxable_date, due_date, amount_total, amount_czk, currency, counterparty_name, status').eq('client_id', k.id).not('status', 'in', '(duplicate,rejected)'))
+  const tx = await vse(() => db.from('bank_transactions').select('id, booked_on, amount, var_symbol, message, counterparty_name, counterparty_account, original_amount, original_currency, no_document_needed').eq('client_id', k.id))
+  const docs = await vse(() => db.from('documents').select('id, kind, doc_number, var_symbol, issue_date, taxable_date, due_date, amount_total, amount_czk, currency, counterparty_name, status, mail_message_id').eq('client_id', k.id).not('status', 'in', '(duplicate,rejected)'))
   const matches = await vse(() => db.from('payment_matches').select('bank_transaction_id, document_id').eq('client_id', k.id))
+
+  // 0a. Účtenka poslaná spolu s fakturou na stejnou částku (Anthropic, Apple, ...)
+  //     je jen potvrzení o platbě: nepočítá se do nákladů ani do párování.
+  const potvrzeni = []
+  for (const r of docs.filter((d) => d.kind === 'receipt' && d.mail_message_id)) {
+    const f = docs.find((d) => d.kind === 'received_invoice' && d.mail_message_id === r.mail_message_id &&
+      d.currency === r.currency && blizko(d.amount_total, r.amount_total, 0.01))
+    if (f) potvrzeni.push(r.id)
+  }
+  if (!nasucho && potvrzeni.length) {
+    const { error } = await db.from('documents').update({ status: 'duplicate', note: 'Potvrzení o platbě k faktuře ze stejného e-mailu' }).in('id', potvrzeni)
+    if (error) throw error
+  }
+  const zbyle = docs.filter((d) => !potvrzeni.includes(d.id))
+  docs.length = 0; docs.push(...zbyle)
+
+  // 0b. Platby na účty ČNB (…/0710) jsou platby státu (FÚ): doklad je přiznání, ne faktura
+  const statni = tx.filter((t) => t.amount < 0 && !t.no_document_needed && /\/0710$/.test(t.counterparty_account ?? ''))
+  if (!nasucho && statni.length) {
+    const { error } = await db.from('bank_transactions').update({ category: 'tax', no_document_needed: true, note: 'Platba státu na účet ČNB, dokladem je přiznání' }).in('id', statni.map((t) => t.id))
+    if (error) throw error
+  }
+  for (const t of statni) t.no_document_needed = true
 
   const txHotove = new Set(matches.map((m) => m.bank_transaction_id))
   const docHotove = new Set(matches.map((m) => m.document_id))
@@ -56,6 +79,8 @@ export async function sparuj({ ico, nasucho = false }) {
     txHotove.add(t.id); docHotove.add(d.id)
     nove.push({ client_id: k.id, bank_transaction_id: t.id, document_id: d.id, amount: Math.abs(t.amount), method, confirmed })
   }
+  // z více kandidátů vybrat fakturu, pokud je jediná
+  const jeden = (hit) => (hit.length === 1 ? hit[0] : (hit.filter((d) => d.kind === 'received_invoice' || d.kind === 'issued_invoice').length === 1 ? hit.find((d) => d.kind === 'received_invoice' || d.kind === 'issued_invoice') : null))
   const kandidati = (t) => docs.filter((d) => !docHotove.has(d.id) && (t.amount < 0 ? VYDAJ : PRIJEM).has(d.kind))
 
   // 1. symbol
@@ -67,7 +92,7 @@ export async function sparuj({ ico, nasucho = false }) {
       const n = norm(s)
       return n.length >= 4 && (n === vs || text.includes(n))
     }))
-    if (hit.length === 1) pouzij(t, hit[0], 'var_symbol', true)
+    if (jeden(hit)) pouzij(t, jeden(hit), 'var_symbol', true)
   }
   // 2. původní měna u kartových plateb
   for (const t of volneTx) {
@@ -76,7 +101,7 @@ export async function sparuj({ ico, nasucho = false }) {
     if (!p || p.mena === 'CZK') continue
     const hit = kandidati(t).filter((d) => d.currency === p.mena && blizko(d.amount_total, p.castka, 0.01) &&
       Math.abs(dny(t.booked_on, d.taxable_date ?? d.issue_date ?? t.booked_on)) <= 20)
-    if (hit.length === 1) pouzij(t, hit[0], 'amount', true)
+    if (jeden(hit)) pouzij(t, jeden(hit), 'amount', true)
   }
   // 3. stejná částka v CZK v časovém okně, jediný kandidát
   for (const t of volneTx) {

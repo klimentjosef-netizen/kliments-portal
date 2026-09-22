@@ -116,9 +116,10 @@ async function zpracujMail(imap, folder, uidvalidity, msg, klienti, klientSlozky
 
     // Komu doklad patří: podle IČO na dokladu (složky míchají sesterské firmy,
     // např. Geryla + ovasys). Doklad bez IČO zůstává firmě e-mailu.
+    // Přeřazuje se jen doklad, který má IČO odběratele (účtenka bez odběratele zůstává).
     let vlastnik = klient
     const ica = [d.odberatel_ico, d.dodavatel_ico].filter(Boolean).map((x) => x.replace(/\s/g, ''))
-    if (ica.length && d.ucetni_doklad && !(klient && ica.includes(klient.ico))) {
+    if (d.odberatel_ico && d.ucetni_doklad && !(klient && ica.includes(klient.ico))) {
       vlastnik = klienti.find((k) => ica.includes(k.ico)) ?? null
       if (!vlastnik) {
         vysledek.cizich++
