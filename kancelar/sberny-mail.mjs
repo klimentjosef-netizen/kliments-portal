@@ -17,6 +17,7 @@ import { simpleParser } from 'mailparser'
 import { createClient } from '@supabase/supabase-js'
 import { need } from './lib/env.mjs'
 import { rozpoznej } from './lib/rozpoznani.mjs'
+import { posliUpozorneni } from './upozorneni.mjs'
 
 const args = process.argv.slice(2)
 const arg = (n) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : undefined }
@@ -148,7 +149,10 @@ async function zpracujMail(imap, folder, uidvalidity, msg, klienti, klientSlozky
       vysledek.dokladu++
     }
   }
-  await db.from('mail_messages').update({ documents: vysledek.dokladu + vysledek.doplneno }).eq('id', mm.id)
+  await db.from('mail_messages').update({
+    documents: vysledek.dokladu + vysledek.doplneno,
+    ai: { ...zaznam.ai, varovani: vysledek.varovani },
+  }).eq('id', mm.id)
   if (klient) await imap.messageFlagsAdd({ uid: msg.uid }, ['\\Seen'], { uid: true })
   return vysledek
 }
@@ -197,6 +201,10 @@ async function main() {
   }
   const sum = (k) => souhrn.reduce((s, v) => s + v[k], 0)
   console.log(`\nHotovo: e-mailů ${souhrn.length}, nových dokladů ${sum('dokladu')}, doplněných ${sum('doplneno')}, duplicit ${sum('duplicit')}`)
+  if (!NASUCHO && !args.includes('--bez-upozorneni')) {
+    const n = await posliUpozorneni()
+    console.log(n ? `Upozornění odesláno (${n} e-mailů).` : 'Nic nového k oznámení.')
+  }
 }
 
 main().catch((e) => { console.error(e); process.exit(1) })
