@@ -7,6 +7,7 @@
 //   node sberny-mail.mjs --slozka Maliiisa     jen jedna složka
 //   node sberny-mail.mjs                        všechny složky klientů
 //   --limit N    nejvýš N e-mailů na složku     --nasucho  nic neukládá ani neoznačuje
+//   --od YYYY-MM-DD  jen e-maily přijaté od data  --bez-upozorneni  neposílat souhrn
 //
 // Přihlášení ke schránce: IMAP_USER / IMAP_PASS (spouštěč sberny-mail.ps1 je
 // vezme ze Správce přihlašovacích údajů Windows, položka firsen-imap).
@@ -24,6 +25,7 @@ const arg = (n) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : un
 const NASUCHO = args.includes('--nasucho')
 const LIMIT = Number(arg('--limit') ?? Infinity)
 const JEN_SLOZKA = arg('--slozka')
+const OD = arg('--od') // YYYY-MM-DD: jen e-maily přijaté od tohoto dne (automat: od spuštění provozu)
 const MAILBOX = need('IMAP_USER')
 
 const db = createClient(need('NEXT_PUBLIC_SUPABASE_URL'), need('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } })
@@ -173,7 +175,7 @@ async function main() {
       const lock = await imap.getMailboxLock(folder, { readOnly: NASUCHO })
       try {
         const uidvalidity = Number(imap.mailbox.uidValidity)
-        const uids = (await imap.search({ all: true }, { uid: true })) || []
+        const uids = (await imap.search(OD ? { since: new Date(`${OD}T00:00:00`) } : { all: true }, { uid: true })) || []
         let hotovo = 0
         for (const uid of uids) {
           if (hotovo >= LIMIT) break
