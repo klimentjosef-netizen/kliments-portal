@@ -102,7 +102,19 @@ export async function sparuj({ ico, nasucho = false }) {
     txHotove.add(t.id); docHotove.add(d.id)
     nove.push({ client_id: k.id, bank_transaction_id: t.id, document_id: d.id, amount: Math.abs(t.amount), method, confirmed })
   }
-  // z více kandidátů vybrat fakturu, pokud je jediná
+  // Z více kandidátů: přednost faktura; když jsou kandidáti rovnocenní (stejná protistrana,
+  // částka a měna, např. 2× Anthropic 5 EUR), vezme se datem nejbližší. Jinak nic (nejisté).
+  const vyber = (t, hit) => {
+    if (hit.length <= 1) return hit[0] ?? null
+    const fakt = hit.filter((d) => d.kind === 'received_invoice' || d.kind === 'issued_invoice')
+    const h = fakt.length ? fakt : hit
+    if (h.length === 1) return h[0]
+    const stejne = h.every((d) => d.currency === h[0].currency && d.amount_total === h[0].amount_total &&
+      (d.counterparty_name ?? '').slice(0, 6).toLowerCase() === (h[0].counterparty_name ?? '').slice(0, 6).toLowerCase())
+    if (!stejne) return null
+    const vzd = (d) => Math.abs(dny(t.booked_on, d.taxable_date ?? d.issue_date ?? t.booked_on))
+    return [...h].sort((a, b) => vzd(a) - vzd(b))[0]
+  }
   const jeden = (hit) => (hit.length === 1 ? hit[0] : (hit.filter((d) => d.kind === 'received_invoice' || d.kind === 'issued_invoice').length === 1 ? hit.find((d) => d.kind === 'received_invoice' || d.kind === 'issued_invoice') : null))
   const kandidati = (t, i = false) => docs.filter((d) => !docHotove.has(d.id) &&
     ((t.amount < 0 ? VYDAJ : PRIJEM).has(d.kind) || (i && d.kind === 'other')))
@@ -137,7 +149,8 @@ export async function sparuj({ ico, nasucho = false }) {
     if (!p || p.mena === 'CZK') continue
     const hit = kandidati(t).filter((d) => d.currency === p.mena && blizko(d.amount_total, p.castka, 0.01) &&
       Math.abs(dny(t.booked_on, d.taxable_date ?? d.issue_date ?? t.booked_on)) <= 20)
-    if (jeden(hit)) pouzij(t, jeden(hit), 'amount', true)
+    const v2 = vyber(t, hit)
+    if (v2) pouzij(t, v2, 'amount', true)
   }
   // 3. stejná částka v CZK v časovém okně, jediný kandidát
   for (const t of volneTx) {
@@ -150,7 +163,8 @@ export async function sparuj({ ico, nasucho = false }) {
       const r = dny(t.booked_on, vys)
       return r >= (d.kind === 'advance' ? -30 : -7) && r <= konec // doklad k záloze se vystavuje až po platbě
     })
-    if (hit.length === 1) pouzij(t, hit[0], 'amount', false)
+    const v3 = vyber(t, hit)
+    if (v3) pouzij(t, v3, 'amount', false)
   }
 
   if (!nasucho && nove.length) {
