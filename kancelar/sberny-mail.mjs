@@ -44,7 +44,7 @@ const TEXTOVE = /^(text\/|application\/(xml|json|x-isdoc))|\.(isdoc|xml|csv|txt)
 const MAX_TEXT = 400_000 // větší textové přílohy (exporty e-shopu) se modelu neposílají celé
 
 function slug(s) {
-  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9._-]+/g, '_').replace(/_+/g, '_').slice(0, 120)
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9._-]+/g, '_').replace(/_+/g, '_').slice(0, 120)
 }
 
 async function nactiKlienty() {
@@ -205,7 +205,7 @@ async function main() {
   console.log(`\nHotovo: e-mailů ${souhrn.length}, nových dokladů ${sum('dokladu')}, doplněných ${sum('doplneno')}, duplicit ${sum('duplicit')}`)
   if (!NASUCHO && !args.includes('--bez-upozorneni')) {
     const n = await posliUpozorneni()
-    console.log(n ? `Upozornění odesláno (${n} e-mailů).` : 'Nic nového k oznámení.')
+    console.log(n ? `Odesláno upozornění: ${n}.` : 'Nic, co by potřebovalo rozhodnutí.')
   }
 }
 

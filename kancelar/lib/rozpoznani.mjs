@@ -38,6 +38,8 @@ export const Rozpoznani = z.object({
   akce: z.string().describe('Co má účetní udělat, česky; prázdné když nic'),
   klient_ico: z.string().describe('IČO klienta kanceláře, kterému e-mail patří; jen ze seznamu klientů, jinak prázdné'),
   klient_duvod: z.string().describe('Podle čeho jsi klienta určil'),
+  potrebuje_pokyn: z.boolean().describe('true, když e-mail není běžná faktura, účtenka ani výpis a účetní musí rozhodnout, co s ním'),
+  otazka: z.string().describe('Když potrebuje_pokyn: konkrétní otázka pro účetního, česky; jinak prázdné'),
   doklady: z.array(Doklad),
 })
 
@@ -51,7 +53,8 @@ U každého e-mailu:
 1. Urči kategorii a stručně česky shrň, co to je a od koho.
 2. Napiš, co má účetní udělat (např. "zaúčtovat přijatou fakturu", "odpovědět klientovi na dotaz", "doplnit chybějící přílohu"). Newsletter či reklama: akce prázdná.
 3. Urči klienta kanceláře, kterému e-mail patří: podle IČO odběratele nebo dodavatele na dokladu, podle textu e-mailu nebo odesílatele. Vybírej jen ze seznamu. Když si nejsi jistý, nech prázdné.
-4. Z každé přílohy, která je dokladem (faktura, účtenka, dobropis, výpis, smlouva, mzdy, daně, vyúčtování platební brány), vytěž údaje. Loga, podpisy a obrázky z patičky vynech. Údaje opisuj přesně z dokladu; textový údaj, který na dokladu není, nech prázdný, částku dej null; nic nedopočítávej ani neodhaduj.`
+4. Z každé přílohy, která je dokladem (faktura, účtenka, dobropis, výpis, smlouva, mzdy, daně, vyúčtování platební brány), vytěž údaje. Loga, podpisy a obrázky z patičky vynech. Údaje opisuj přesně z dokladu; textový údaj, který na dokladu není, nech prázdný, částku dej null; nic nedopočítávej ani neodhaduj.
+5. Běžné přijaté a vydané faktury, účtenky, zálohové faktury, výpisy a vyúčtování platebních bran se zpracují samy (potrebuje_pokyn = false). Všechno ostatní potřebuje pokyn účetního: smlouvy a dodatky, dopisy a výzvy úřadů (finanční úřad, ČSSZ, zdravotní pojišťovna, soud, exekutor), dotazy a žádosti klienta, upomínky, mzdové změny, cokoli nejasného. Tehdy napiš jednu konkrétní otázku, na kterou stačí krátce odpovědět (např. "Smlouva o nájmu skladu od 1. 10. 2026 za 12 000 Kč měsíčně: mám z ní udělat rozpis nájemného a hlídat úhrady?").`
 }
 
 function bloky(mail, prilohy) {
