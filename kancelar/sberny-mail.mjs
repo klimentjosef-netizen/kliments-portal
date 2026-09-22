@@ -28,6 +28,7 @@ const LIMIT = Number(arg('--limit') ?? Infinity)
 const JEN_SLOZKA = arg('--slozka')
 const OD = arg('--od') // YYYY-MM-DD: jen e-maily přijaté od tohoto dne (automat: od spuštění provozu)
 const MAILBOX = need('IMAP_USER')
+const SOUBEZNE = Number(arg('--soubezne') ?? 6) // kolik e-mailů rozpoznávat najednou
 
 const db = createClient(need('NEXT_PUBLIC_SUPABASE_URL'), need('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } })
 
@@ -158,6 +159,8 @@ async function zpracujMail(imap, folder, uidvalidity, msg, klienti, klientSlozky
       vysledek.doplneno++
     } else {
       const { error } = await db.from('documents').insert(radek)
+      // stejný soubor mohl právě uložit souběžně zpracovávaný e-mail
+      if (error?.code === '23505') { vysledek.duplicit++; continue }
       if (error) throw new Error(`documents insert: ${error.message}`)
       vysledek.dokladu++
     }
@@ -187,10 +190,13 @@ async function main() {
       try {
         const uidvalidity = Number(imap.mailbox.uidValidity)
         const uids = (await imap.search(OD ? { since: new Date(`${OD}T00:00:00`) } : { all: true }, { uid: true })) || []
-        let hotovo = 0
+        const nove = []
         for (const uid of uids) {
-          if (hotovo >= LIMIT) break
-          if (await uzZpracovano(folder, uidvalidity, uid)) continue
+          if (nove.length >= LIMIT) break
+          if (!(await uzZpracovano(folder, uidvalidity, uid))) nove.push(uid)
+        }
+        // Stažení postupně (jedno IMAP spojení), rozpoznání souběžně po SOUBEZNE
+        const zpracuj = async (uid) => {
           const msg = await imap.fetchOne(String(uid), { source: true }, { uid: true })
           try {
             const v = await zpracujMail(imap, folder, uidvalidity, msg, klienti, klientSlozky)
@@ -204,8 +210,11 @@ async function main() {
               await db.from('mail_messages').insert({ mailbox: MAILBOX, folder, uidvalidity, uid, status: 'error', error: e.message })
             }
           }
-          hotovo++
         }
+        const fronta = [...nove]
+        await Promise.all(Array.from({ length: Math.min(SOUBEZNE, fronta.length) }, async () => {
+          while (fronta.length) await zpracuj(fronta.shift())
+        }))
       } finally {
         lock.release()
       }
