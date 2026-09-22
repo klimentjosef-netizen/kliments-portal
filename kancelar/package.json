@@ -1,0 +1,16 @@
+{
+  "name": "kliments-kancelar",
+  "private": true,
+  "type": "module",
+  "description": "Lokální nástroje kanceláře Kliments (běží u Josefa v PC)",
+  "scripts": {
+    "sberny-mail": "node sberny-mail.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.104.2",
+    "@supabase/supabase-js": "^2.100.0",
+    "imapflow": "^2.0.5",
+    "mailparser": "^3.9.28",
+    "zod": "^4.6.5"
+  }
+}
