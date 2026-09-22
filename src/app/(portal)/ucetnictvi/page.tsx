@@ -136,6 +136,65 @@ function Hledani({ clientId }: { clientId: string }) {
   )
 }
 
+type Chybi = {
+  bank_transaction_id: string; booked_on: string; amount: number
+  counterparty_name: string | null; counterparty_account: string | null; message: string | null
+}
+
+// Celý seznam plateb bez dokladu (pohled v_missing_documents, RLS klienta)
+function SeznamChybi({ clientId, pocet }: { clientId: string; pocet: number }) {
+  const [otevreno, setOtevreno] = useState(false)
+  const [radky, setRadky] = useState<Chybi[] | null>(null)
+
+  async function otevri() {
+    setOtevreno(!otevreno)
+    if (radky) return
+    const { data } = await createClient().from('v_missing_documents')
+      .select('bank_transaction_id, booked_on, amount, counterparty_name, counterparty_account, message')
+      .eq('client_id', clientId).order('booked_on', { ascending: false }).limit(1000)
+    setRadky((data as Chybi[]) ?? [])
+  }
+
+  const popis = (r: Chybi) => {
+    const zprava = (r.message ?? '').replace(/^Nákup:\s*/, '').split(',')[0].replace(/\+/g, ' ').replace(/\s{2,}/g, ' ').trim()
+    const jmeno = (r.counterparty_name ?? '').replace(/\s{2,}/g, ' ').trim()
+    if (!jmeno) return zprava || r.counterparty_account || 'bez popisu'
+    return !zprava || zprava.toLowerCase().startsWith(jmeno.toLowerCase()) ? jmeno : `${jmeno} · ${zprava}`
+  }
+
+  return (
+    <div className="mt-4">
+      <button onClick={otevri} className="text-[0.8rem] text-rose hover:text-rose-deep">
+        {otevreno ? 'Skrýt seznam' : `Zobrazit všech ${pocet} plateb`}
+      </button>
+      {otevreno && (
+        <div className="mt-3 overflow-x-auto">
+          {!radky ? <p className="text-[0.8rem] text-mid/60">Načítám</p> : (
+            <table className="w-full text-[0.8rem]">
+              <thead>
+                <tr className="text-left text-mid/60 border-b border-black/[0.06]">
+                  <th className="py-2 pr-4 font-normal">Datum</th>
+                  <th className="py-2 pr-4 font-normal">Komu / za co</th>
+                  <th className="py-2 text-right font-normal">Částka</th>
+                </tr>
+              </thead>
+              <tbody>
+                {radky.map((r) => (
+                  <tr key={r.bank_transaction_id} className="border-b border-black/[0.04]">
+                    <td className="py-2 pr-4 whitespace-nowrap tabular-nums">{den(r.booked_on)}</td>
+                    <td className="py-2 pr-4">{popis(r)}</td>
+                    <td className="py-2 text-right whitespace-nowrap tabular-nums">{kc(-r.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function Obsah() {
   const params = useSearchParams()
   const router = useRouter()
@@ -268,6 +327,7 @@ function Obsah() {
                 <Radek key={p.protistrana} label={`${p.protistrana} (${p.pocet}×)`} value={kc(p.castka)} />
               ))}
             </div>
+            {clientId && <SeznamChybi key={clientId} clientId={clientId} pocet={chybi.pocet} />}
           </>
         )}
       </Dlazdice>

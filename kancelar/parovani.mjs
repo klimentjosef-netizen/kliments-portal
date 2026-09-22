@@ -181,6 +181,8 @@ export async function sparuj({ ico, nasucho = false }) {
     const { error } = await db.from('payment_matches').upsert(nove, { onConflict: 'bank_transaction_id,document_id', ignoreDuplicates: true })
     if (error) throw error
   }
+  // protistrana nespárovaných plateb podle účtu (kdo je za účtem u spárovaných plateb)
+  if (!nasucho) await db.rpc('kl_doplnit_protistrany', { p_client: k.id })
   const vydaje = volneTx.filter((t) => t.amount < 0)
   return {
     klient: k.name, pohybu: tx.length, dokladu: docs.length,
