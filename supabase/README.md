@@ -1,6 +1,10 @@
 # Supabase schema management
 
-Project ref: **`zvrxkvglvidifbrbruem`** → `https://zvrxkvglvidifbrbruem.supabase.co`
+**Od 2026-09-22 běží portál v samostatném projektu `kliments`: ref `amvfqwyfnhktyemqmqza` (Frankfurt).**
+Pořadí migrací v novém projektu: `0001` → `0003` → `0002`. Heslo DB: `%USERPROFILE%\.kliments\supabase-db-password.txt`.
+Starý sdílený projekt `zvrxkvglvidifbrbruem` (Londýn) patří dál vPlusu; data portálu v něm zůstala jako záloha.
+
+Původní project ref: **`zvrxkvglvidifbrbruem`** → `https://zvrxkvglvidifbrbruem.supabase.co`
 
 ## Baseline (2026-05-19)
 
