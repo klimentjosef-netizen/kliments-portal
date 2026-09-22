@@ -8,10 +8,12 @@
 //   2. měna     kartová platba: původní částka a měna ze zprávy = doklad,
 //               datum do 20 dnů od vystavení                                  → potvrzeno
 //   3. částka   stejná částka v CZK, jediný doklad v časovém okně             → návrh k potvrzení
+//   4. předplatné online služba kartou bez faktury > 7 dnů → náklad z banky (bank_expense)
 // Doklad i pohyb se párují nejvýš jednou (1:1); částečné úhrady zatím ručně.
 import './lib/env.mjs'
 import { createClient } from '@supabase/supabase-js'
 import { need } from './lib/env.mjs'
+import { jePredplatne } from './lib/predplatne.mjs'
 
 const args = process.argv.slice(2)
 const arg = (n) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : undefined }
@@ -166,6 +168,14 @@ export async function sparuj({ ico, nasucho = false }) {
     const v3 = vyber(t, hit)
     if (v3) pouzij(t, v3, 'amount', false)
   }
+
+  // 4. Online předplatné bez faktury starší 7 dnů → náklad přímo z banky
+  const predplatne = volneTx.filter((t) => !txHotove.has(t.id) && t.amount < 0 && jePredplatne(t) && dny(new Date(), t.booked_on) > 7)
+  if (!nasucho && predplatne.length) {
+    const { error } = await db.from('bank_transactions').update({ category: 'bank_expense', no_document_needed: true, note: 'Online předplatné bez faktury: náklad přímo z banky' }).in('id', predplatne.map((t) => t.id))
+    if (error) throw error
+  }
+  for (const t of predplatne) txHotove.add(t.id)
 
   if (!nasucho && nove.length) {
     const { error } = await db.from('payment_matches').upsert(nove, { onConflict: 'bank_transaction_id,document_id', ignoreDuplicates: true })

@@ -30,7 +30,7 @@ const Doklad = z.object({
   duzp: z.string().describe('Datum uskutečnění zdanitelného plnění, YYYY-MM-DD'),
   datum_splatnosti: z.string().describe('YYYY-MM-DD'),
   mena: z.string().describe('ISO kód, např. CZK, EUR'),
-  castka_celkem: z.number().nullable().describe('Celkem k úhradě včetně DPH'),
+  castka_celkem: z.number().nullable().describe('Celková částka plnění včetně DPH. U konečné faktury po záloze (k úhradě 0) uveď celkovou cenu plnění, ne nulu.'),
   castka_dph: z.number().nullable(),
   popis: z.string().describe('Co se kupovalo nebo fakturovalo, česky, konkrétně (pro vyhledávání, např. "lednice Bosch KGN39")'),
   poznamka: z.string().describe('Cokoli nejasného nebo podezřelého, jinak prázdné'),
@@ -57,7 +57,7 @@ U každého e-mailu:
 1. Urči kategorii a stručně česky shrň, co to je a od koho.
 2. Napiš, co má účetní udělat (např. "zaúčtovat přijatou fakturu", "odpovědět klientovi na dotaz", "doplnit chybějící přílohu"). Newsletter či reklama: akce prázdná.
 3. Urči klienta kanceláře, kterému e-mail patří: podle IČO odběratele nebo dodavatele na dokladu, podle textu e-mailu nebo odesílatele. Vybírej jen ze seznamu. Když si nejsi jistý, nech prázdné.
-4. Z každé přílohy, která je dokladem (faktura, účtenka, dobropis, výpis, smlouva, mzdy, daně, vyúčtování platební brány), vytěž údaje. Loga, podpisy a obrázky z patičky vynech. Údaje opisuj přesně z dokladu; textový údaj, který na dokladu není, nech prázdný, částku dej null; nic nedopočítávej ani neodhaduj.
+4. Z každé přílohy, která je dokladem (faktura, účtenka, dobropis, výpis, smlouva, mzdy, daně, vyúčtování platební brány), vytěž údaje. Loga, podpisy a obrázky z patičky vynech. Údaje opisuj přesně z dokladu; textový údaj, který na dokladu není, nech prázdný, částku dej null; nic nedopočítávej ani neodhaduj. Konečná faktura, ze které se odečítá záloha (k úhradě 0), má jako částku celkovou cenu plnění a do poznámky napiš, že byla uhrazena zálohou.
 5. Běžné přijaté a vydané faktury, účtenky, zálohové faktury, výpisy a vyúčtování platebních bran se zpracují samy (potrebuje_pokyn = false). Všechno ostatní potřebuje pokyn účetního: smlouvy a dodatky, dopisy a výzvy úřadů (finanční úřad, ČSSZ, zdravotní pojišťovna, soud, exekutor), dotazy a žádosti klienta, upomínky, mzdové změny, cokoli nejasného. Tehdy napiš jednu konkrétní otázku, na kterou stačí krátce odpovědět (např. "Smlouva o nájmu skladu od 1. 10. 2026 za 12 000 Kč měsíčně: mám z ní udělat rozpis nájemného a hlídat úhrady?").`
 }
 
