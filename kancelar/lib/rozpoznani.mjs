@@ -3,6 +3,10 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod'
 import { z } from 'zod'
+import { spawn } from 'node:child_process'
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
 
 const client = new Anthropic()
 const MODEL = 'claude-opus-5'
@@ -84,7 +88,7 @@ ${mail.text || '(bez textu)'}`,
   return obsah
 }
 
-export async function rozpoznej(mail, prilohy, klienti) {
+async function rozpoznejApi(mail, prilohy, klienti) {
   const res = await client.beta.messages.parse({
     model: MODEL,
     max_tokens: 16000,
@@ -97,7 +101,68 @@ export async function rozpoznej(mail, prilohy, klienti) {
   })
   if (res.stop_reason === 'refusal') throw new Error('Model odmítl zpracovat e-mail')
   if (!res.parsed_output) throw new Error(`Nečitelná odpověď modelu (${res.stop_reason})`)
-  const prazdne = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v === '' ? null : v]))
-  const out = res.parsed_output
-  return { ...prazdne(out), doklady: out.doklady.map(prazdne), _usage: res.usage, _model: res.model }
+  return uklid(res.parsed_output, { _usage: res.usage, _model: res.model })
+}
+
+const prazdne = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v === '' ? null : v]))
+const uklid = (out, meta) => ({ ...prazdne(out), doklady: out.doklady.map(prazdne), ...meta })
+
+// Varianta přes Claude Code (předplatné, žádný API kredit): přílohy se uloží do
+// dočasné složky, Claude Code je přečte nástrojem Read a vrátí JSON podle schématu.
+const CLAUDE_EXE = process.env.CLAUDE_EXE || path.join(process.env.APPDATA ?? '', 'npm/node_modules/@anthropic-ai/claude-code/bin/claude.exe')
+const { $schema, ...schemaBezHlavicky } = z.toJSONSchema(Rozpoznani)
+const SCHEMA = JSON.stringify(schemaBezHlavicky)
+
+async function rozpoznejCli(mail, prilohy, klienti) {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'kliments-mail-'))
+  try {
+    const soubory = []
+    for (const [i, p] of prilohy.entries()) {
+      const ext = (p.filename.match(/\.[A-Za-z0-9]{1,6}$/) ?? [''])[0].toLowerCase()
+      const jmeno = `priloha-${i + 1}${ext}`
+      await fs.writeFile(path.join(dir, jmeno), p.content)
+      soubory.push(`Příloha ${i + 1}: soubor ${jmeno} (původně ${p.filename}, ${p.contentType}, ${p.size} B)`)
+    }
+    const zadani = `${system(klienti)}
+
+Přílohy jsou v aktuální složce, každou si přečti nástrojem Read (PDF i obrázky umí):
+${soubory.join('\n') || '(bez příloh)'}
+
+E-mail
+Složka: ${mail.folder}
+Od: ${mail.from}
+Předmět: ${mail.subject}
+Datum: ${mail.date?.toISOString() ?? ''}
+
+${mail.text || '(bez textu)'}
+
+Odpověz jen strukturovaným výstupem podle schématu.`
+    const env = { ...process.env }
+    delete env.ANTHROPIC_API_KEY // jinak by Claude Code účtoval přes API místo předplatného
+    const out = await new Promise((resolve, reject) => {
+      const proc = spawn(CLAUDE_EXE, ['-p', '--output-format', 'json', '--json-schema', SCHEMA,
+        '--allowedTools', 'Read', '--model', process.env.KLIMENTS_MODEL || 'sonnet', '--max-turns', String(prilohy.length + 8)], { cwd: dir, env })
+      let o = '', e = ''
+      const casovac = setTimeout(() => { proc.kill(); reject(new Error('Claude Code: vypršel čas')) }, 10 * 60_000)
+      proc.stdout.on('data', (d) => (o += d))
+      proc.stderr.on('data', (d) => (e += d))
+      proc.on('error', reject)
+      proc.on('close', (code) => { clearTimeout(casovac); code === 0 ? resolve(o) : reject(new Error(`Claude Code skončil ${code}: ${(e || o).slice(0, 300)}`)) })
+      proc.stdin.end(zadani)
+    })
+    const r = JSON.parse(out)
+    if (r.is_error || !r.structured_output) {
+      const err = new Error(`Claude Code bez výsledku: ${r.subtype ?? ''} ${String(r.result ?? '').slice(0, 200)}`)
+      err.status = r.api_error_status ?? 'cli' // jako výpadek: e-mail se zkusí znovu příště
+      throw err
+    }
+    return uklid(Rozpoznani.parse(r.structured_output), { _cli: { turns: r.num_turns, duration_ms: r.duration_ms, cost_equiv_usd: r.total_cost_usd, model: Object.keys(r.modelUsage ?? {}) } })
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true })
+  }
+}
+
+// KLIMENTS_AI=api přepne zpět na Claude API (placený kredit); výchozí je Claude Code
+export function rozpoznej(mail, prilohy, klienti) {
+  return (process.env.KLIMENTS_AI === 'api' ? rozpoznejApi : rozpoznejCli)(mail, prilohy, klienti)
 }

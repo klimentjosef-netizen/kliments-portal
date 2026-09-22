@@ -1,9 +1,9 @@
-﻿# Naplánuje sběrný mail ve Windows: každých 15 minut, jen když je Josef přihlášený
+﻿# Naplánuje sběrný mail ve Windows: denně v 8:00, 12:00, 14:00 a 17:00, jen když je Josef přihlášený
 # (heslo ke schránce je ve Správci přihlašovacích údajů jeho účtu), bez okna.
 # Výstup každého běhu jde do kancelar\logy\sberny-mail.log.
 #   .\naplanovat.ps1            zapne / přenastaví
 #   .\naplanovat.ps1 -Vypnout   odstraní úlohu
-param([switch]$Vypnout, [string]$Od = "2026-09-22", [int]$Minut = 15)
+param([switch]$Vypnout, [string]$Od = "2026-09-22", [string[]]$Casy = @("08:00", "12:00", "14:00", "17:00"))
 
 $nazev = "Kliments sberny mail"
 if ($Vypnout) { Unregister-ScheduledTask -TaskName $nazev -Confirm:$false; "Úloha odstraněna."; return }
@@ -21,8 +21,8 @@ $vbsCmd = $cmd.Replace("$q", "$q$q")
 Set-Content -Path $vbs -Encoding ASCII -Value "CreateObject($($q)WScript.Shell$q).Run $q$vbsCmd$q, 0, True"
 
 $akce = New-ScheduledTaskAction -Execute "wscript.exe" -Argument "`"$vbs`""
-$spoust = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes $Minut)
-$nast = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 30)
+$spoust = $Casy | ForEach-Object { New-ScheduledTaskTrigger -Daily -At $_ }
+$nast = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Hours 2)
 $kdo = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive
 Register-ScheduledTask -TaskName $nazev -Action $akce -Trigger $spoust -Settings $nast -Principal $kdo -Force | Out-Null
-"Naplánováno: '$nazev' každých $Minut min, e-maily od $Od. Log: $log"
+"Naplánováno: '$nazev' denně v $($Casy -join ', '), e-maily od $Od. Log: $log"
