@@ -20,6 +20,8 @@ import { need } from './lib/env.mjs'
 import { rozpoznej } from './lib/rozpoznani.mjs'
 import { posliUpozorneni } from './upozorneni.mjs'
 import { prepocitejKurzy } from './kurzy.mjs'
+import { synchronizujIdoklad } from './idoklad.mjs'
+import { sparuj } from './parovani.mjs'
 
 const args = process.argv.slice(2)
 const arg = (n) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : undefined }
@@ -226,7 +228,20 @@ async function main() {
   }
   const sum = (k) => souhrn.reduce((s, v) => s + v[k], 0)
   console.log(`\nHotovo: e-mailů ${souhrn.length}, nových dokladů ${sum('dokladu')}, doplněných ${sum('doplneno')}, duplicit ${sum('duplicit')}`)
-  if (!NASUCHO) await prepocitejKurzy()
+  if (!NASUCHO) {
+    await prepocitejKurzy()
+    // Vydané faktury z iDokladu (kde má klient klíče) a párování plateb u všech klientů
+    for (const k of klienti) {
+      try {
+        const s = await synchronizujIdoklad({ ico: k.ico })
+        console.log(`iDoklad ${k.name}: faktur ${s.faktur}, dobropisů ${s.dobropisu}`)
+      } catch (e) {
+        if (!/Chybí přihlašovací údaje/.test(e.message)) console.error(`iDoklad ${k.name}: ${e.message}`)
+      }
+      const p = await sparuj({ ico: k.ico })
+      if (p.nove) console.log(`Párování ${k.name}: nově ${p.nove} (jistě ${p.jiste}, k potvrzení ${p.navrhy})`)
+    }
+  }
   if (!NASUCHO && !args.includes('--bez-upozorneni')) {
     const n = await posliUpozorneni()
     console.log(n ? `Odesláno upozornění: ${n}.` : 'Nic, co by potřebovalo rozhodnutí.')
