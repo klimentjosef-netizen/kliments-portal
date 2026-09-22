@@ -206,7 +206,8 @@ async function main() {
    JINÉ FIRMĚ: ${v.jinam.join('; ')}` : ''}${v.varovani.length ? `\n   POZOR: ${v.varovani.join('; ')}` : ''}`)
           } catch (e) {
             console.error(`[${folder}] UID ${uid}: CHYBA ${e.message}`)
-            if (!NASUCHO) {
+            // Chyby Claude API (kredit, limity, výpadek) nezapisovat: e-mail se zkusí znovu příště
+            if (!NASUCHO && !e.status) {
               await db.from('mail_messages').insert({ mailbox: MAILBOX, folder, uidvalidity, uid, status: 'error', error: e.message })
             }
           }
