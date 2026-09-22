@@ -24,6 +24,7 @@ const K = [
   ['10901779', 'HROM Instal s.r.o.',             's.r.o.', 'Haškova 668/3, Ráj, 73401 Karviná',                        'CZ10901779', true,  null],
   ['09448331', 'FOREMVA REALITY a.s.',           'a.s.',   'Na Pankráci 332/14, Nusle, 14000 Praha 4',                 null,         false, null],
   ['09049592', 'Foremva Constructions s.r.o.',   's.r.o.', 'Na Pankráci 332/14, Nusle, 14000 Praha 4',                 null,         false, null],
+  ['17347670', 'MB&AL, s.r.o.',                  's.r.o.', 'Čujkovova 1714/21, Zábřeh, 70030 Ostrava',                 null,         false, null],
 ]
 
 const rows = K.map(([ico, name, legal_form, address, dic, vat_payer, mail_folder]) =>
