@@ -103,7 +103,7 @@ async function zpracujMail(imap, folder, uidvalidity, msg, klienti, klientSlozky
     status: klient ? 'processed' : (ai.kategorie === 'marketing' ? 'ignored' : 'needs_review'),
     ai: { ...ai, prilohy: prilohy.map((p) => ({ filename: p.filename, sha: p.sha, size: p.size })) },
   }
-  const vysledek = { zaznam, dokladu: 0, doplneno: 0, duplicit: 0, varovani: [] }
+  const vysledek = { zaznam, dokladu: 0, doplneno: 0, duplicit: 0, cizich: 0, cizi: [], jinam: [], varovani: [] }
   if (NASUCHO) return vysledek
 
   const { data: mm, error: me } = await db.from('mail_messages').insert(zaznam).select('id').single()
@@ -112,21 +112,31 @@ async function zpracujMail(imap, folder, uidvalidity, msg, klienti, klientSlozky
   for (const d of ai.doklady) {
     const p = prilohy[d.priloha - 1]
     if (!p) { vysledek.varovani.push(`model odkázal na neexistující přílohu ${d.priloha}`); continue }
-    if (!klient) {
+
+    // Komu doklad patří: podle IČO na dokladu (složky míchají sesterské firmy,
+    // např. Geryla + ovasys). Doklad bez IČO zůstává firmě e-mailu.
+    let vlastnik = klient
+    const ica = [d.odberatel_ico, d.dodavatel_ico].filter(Boolean).map((x) => x.replace(/\s/g, ''))
+    if (ica.length && d.ucetni_doklad && !(klient && ica.includes(klient.ico))) {
+      vlastnik = klienti.find((k) => ica.includes(k.ico)) ?? null
+      if (!vlastnik) {
+        vysledek.cizich++
+        vysledek.cizi.push(`${p.filename} (odběratel IČO ${d.odberatel_ico ?? '?'})`)
+        continue
+      }
+      if (klient && vlastnik.id !== klient.id) vysledek.jinam.push(`${p.filename} → ${vlastnik.name}`)
+    }
+    if (!vlastnik) {
       // bez klienta jen uschovat soubor, přiřadí se ručně
       await ulozSoubor(null, mail.date, p.sha, p)
       continue
     }
-    const { data: dup } = await db.from('documents').select('id').eq('client_id', klient.id).eq('file_sha256', p.sha).maybeSingle()
+    const { data: dup } = await db.from('documents').select('id').eq('client_id', vlastnik.id).eq('file_sha256', p.sha).maybeSingle()
     if (dup) { vysledek.duplicit++; continue }
 
-    if (d.odberatel_ico && d.dodavatel_ico && ![d.odberatel_ico, d.dodavatel_ico].includes(klient.ico) && d.ucetni_doklad) {
-      vysledek.varovani.push(`${p.filename}: na dokladu není IČO klienta ${klient.ico} (odběratel ${d.odberatel_ico})`)
-    }
-
-    const cesta = await ulozSoubor(klient.id, mail.date, p.sha, p)
+    const cesta = await ulozSoubor(vlastnik.id, mail.date, p.sha, p)
     const radek = {
-      client_id: klient.id, kind: d.druh, source: 'email', status: 'extracted',
+      client_id: vlastnik.id, kind: d.druh, source: 'email', status: 'extracted',
       storage_path: cesta, file_name: p.filename, mime_type: p.contentType, file_sha256: p.sha,
       email_message_id: mail.messageId ?? null, email_from: info.from, mail_message_id: mm.id,
       received_at: mail.date?.toISOString() ?? new Date().toISOString(),
@@ -140,7 +150,7 @@ async function zpracujMail(imap, folder, uidvalidity, msg, klienti, klientSlozky
 
     // Doklad už evidovaný bez souboru (import) → doplnit, nevytvářet nový
     const { data: cekajici } = await db.from('documents').select('id, amount_total')
-      .eq('client_id', klient.id).eq('file_name', p.filename).is('storage_path', null).limit(1).maybeSingle()
+      .eq('client_id', vlastnik.id).eq('file_name', p.filename).is('storage_path', null).limit(1).maybeSingle()
     if (cekajici) {
       const { source, status, ...doplnek } = radek
       const { error } = await db.from('documents').update({ ...doplnek, status: 'reviewed', updated_at: new Date().toISOString() }).eq('id', cekajici.id)
@@ -154,7 +164,7 @@ async function zpracujMail(imap, folder, uidvalidity, msg, klienti, klientSlozky
   }
   await db.from('mail_messages').update({
     documents: vysledek.dokladu + vysledek.doplneno,
-    ai: { ...zaznam.ai, varovani: vysledek.varovani },
+    ai: { ...zaznam.ai, varovani: vysledek.varovani, cizi: vysledek.cizi, jinam: vysledek.jinam },
   }).eq('id', mm.id)
   if (klient) await imap.messageFlagsAdd({ uid: msg.uid }, ['\\Seen'], { uid: true })
   return vysledek
@@ -186,7 +196,8 @@ async function main() {
             const v = await zpracujMail(imap, folder, uidvalidity, msg, klienti, klientSlozky)
             souhrn.push(v)
             const z = v.zaznam
-            console.log(`[${folder}] ${z.subject}\n   → ${z.summary}${z.action_needed ? `\n   ÚKOL: ${z.action_needed}` : ''}\n   doklady nové ${v.dokladu}, doplněné ${v.doplneno}, duplicity ${v.duplicit}${v.varovani.length ? `\n   POZOR: ${v.varovani.join('; ')}` : ''}`)
+            console.log(`[${folder}] ${z.subject}\n   → ${z.summary}${z.action_needed ? `\n   ÚKOL: ${z.action_needed}` : ''}\n   doklady nové ${v.dokladu}, doplněné ${v.doplneno}, duplicity ${v.duplicit}${v.cizich ? `, cizí ${v.cizich}: ${v.cizi.join('; ')}` : ''}${v.jinam.length ? `
+   JINÉ FIRMĚ: ${v.jinam.join('; ')}` : ''}${v.varovani.length ? `\n   POZOR: ${v.varovani.join('; ')}` : ''}`)
           } catch (e) {
             console.error(`[${folder}] UID ${uid}: CHYBA ${e.message}`)
             if (!NASUCHO) {
