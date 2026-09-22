@@ -1,6 +1,7 @@
 // Service → allowed routes mapping
 
 export const SERVICE_ROUTES: Record<string, string[]> = {
+  'Účetnictví': ['/dashboard', '/ucetnictvi', '/dokumenty', '/zpravy'],
   'CFO na volné noze': ['/dashboard', '/cfo', '/dokumenty', '/zpravy'],
   'Finanční diagnóza': ['/dashboard', '/diagnoza', '/dokumenty', '/zpravy'],
   'Prodej za maximum': ['/dashboard', '/valuace', '/dokumenty', '/zpravy'],

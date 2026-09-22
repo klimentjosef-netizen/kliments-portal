@@ -19,8 +19,9 @@ async function upsert(table, rows, onConflict = 'id') {
   console.log(`${table}: ${rows.length}`)
 }
 
-await upsert('clients', [data.client])
-await upsert('bank_accounts', [data.account])
-await upsert('bank_transactions', data.tx)
-await upsert('documents', data.docs)
-await upsert('payment_matches', data.matches, 'bank_transaction_id,document_id')
+// každá část je nepovinná (např. jen vydané faktury z exportu)
+if (data.client) await upsert('clients', [data.client])
+if (data.account) await upsert('bank_accounts', [data.account])
+if (data.tx) await upsert('bank_transactions', data.tx)
+if (data.docs) await upsert('documents', data.docs)
+if (data.matches) await upsert('payment_matches', data.matches, 'bank_transaction_id,document_id')

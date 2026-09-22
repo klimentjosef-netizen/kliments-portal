@@ -8,6 +8,7 @@ import type { Profile } from '@/lib/types'
 
 const NAV_ITEMS = [
   { label: 'Dashboard', href: '/dashboard', icon: '📊' },
+  { label: 'Účetnictví', href: '/ucetnictvi', icon: '🧾' },
   { label: 'Finanční diagnóza', href: '/diagnoza', icon: '🔍' },
   { label: 'CFO na volné noze', href: '/cfo', icon: '📈' },
   { label: 'Prodej za maximum', href: '/valuace', icon: '⭐' },

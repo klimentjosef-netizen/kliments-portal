@@ -19,6 +19,7 @@ import { createClient } from '@supabase/supabase-js'
 import { need } from './lib/env.mjs'
 import { rozpoznej } from './lib/rozpoznani.mjs'
 import { posliUpozorneni } from './upozorneni.mjs'
+import { prepocitejKurzy } from './kurzy.mjs'
 
 const args = process.argv.slice(2)
 const arg = (n) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : undefined }
@@ -203,6 +204,7 @@ async function main() {
   }
   const sum = (k) => souhrn.reduce((s, v) => s + v[k], 0)
   console.log(`\nHotovo: e-mailů ${souhrn.length}, nových dokladů ${sum('dokladu')}, doplněných ${sum('doplneno')}, duplicit ${sum('duplicit')}`)
+  if (!NASUCHO) await prepocitejKurzy()
   if (!NASUCHO && !args.includes('--bez-upozorneni')) {
     const n = await posliUpozorneni()
     console.log(n ? `Odesláno upozornění: ${n}.` : 'Nic, co by potřebovalo rozhodnutí.')
