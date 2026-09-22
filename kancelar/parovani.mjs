@@ -3,6 +3,7 @@
 //   node parovani.mjs --ico 07858680 [--nasucho]
 //
 // Pořadí pravidel (od nejjistějšího):
+//   0. smlouva  platba na účet protistrany ze smlouvy (nájem, leasing)             → potvrzeno
 //   1. symbol   VS pohybu nebo číslo dokladu / VS ve zprávě + stejná částka    → potvrzeno
 //   2. měna     kartová platba: původní částka a měna ze zprávy = doklad,
 //               datum do 20 dnů od vystavení                                  → potvrzeno
@@ -45,7 +46,7 @@ async function vse(dotaz) {
 export async function sparuj({ ico, nasucho = false }) {
   const { data: k } = await db.from('clients').select('id, name').eq('ico', ico).single()
   const tx = await vse(() => db.from('bank_transactions').select('id, booked_on, amount, var_symbol, message, counterparty_name, counterparty_account, original_amount, original_currency, no_document_needed').eq('client_id', k.id))
-  const docs = await vse(() => db.from('documents').select('id, kind, doc_number, var_symbol, issue_date, taxable_date, due_date, amount_total, amount_czk, currency, counterparty_name, status, mail_message_id').eq('client_id', k.id).not('status', 'in', '(duplicate,rejected)'))
+  const docs = await vse(() => db.from('documents').select('id, kind, doc_number, var_symbol, issue_date, taxable_date, due_date, amount_total, amount_czk, currency, counterparty_name, status, mail_message_id, extracted').eq('client_id', k.id).not('status', 'in', '(duplicate,rejected)'))
   const matches = await vse(() => db.from('payment_matches').select('bank_transaction_id, document_id').eq('client_id', k.id))
 
   // 0a. Účtenka poslaná spolu s fakturou na stejnou částku (Anthropic, Apple, ...)
@@ -96,6 +97,17 @@ export async function sparuj({ ico, nasucho = false }) {
   const jeden = (hit) => (hit.length === 1 ? hit[0] : (hit.filter((d) => d.kind === 'received_invoice' || d.kind === 'issued_invoice').length === 1 ? hit.find((d) => d.kind === 'received_invoice' || d.kind === 'issued_invoice') : null))
   const kandidati = (t, i = false) => docs.filter((d) => !docHotove.has(d.id) &&
     ((t.amount < 0 ? VYDAJ : PRIJEM).has(d.kind) || (i && d.kind === 'other')))
+
+  // 0d. Smlouvy (nájem, leasing, ...): každá platba na účet protistrany ze smlouvy
+  //     je doložená smlouvou (kontrolujeme i částku, pokud ji smlouva má)
+  for (const s of docs.filter((d) => d.kind === 'contract' && d.extracted?.ucet_protistrany)) {
+    for (const t of volneTx) {
+      if (txHotove.has(t.id) || t.amount >= 0 || t.counterparty_account !== s.extracted.ucet_protistrany) continue
+      if (s.extracted.castka && !blizko(s.extracted.castka, t.amount, 1)) continue
+      txHotove.add(t.id)
+      nove.push({ client_id: k.id, bank_transaction_id: t.id, document_id: s.id, amount: Math.abs(t.amount), method: 'manual', confirmed: true })
+    }
+  }
 
   // 1. symbol
   for (const t of volneTx) {
