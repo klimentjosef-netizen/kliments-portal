@@ -136,6 +136,89 @@ function Hledani({ clientId }: { clientId: string }) {
   )
 }
 
+type Saldo = {
+  document_id: string; kind: string; counterparty_name: string | null; doc_number: string | null
+  issue_date: string | null; due_date: string | null; amount: number; paid: number
+  open_amount: number; state: string
+  soubor?: { storage_path: string | null; file_name: string | null }
+}
+
+// Neuhrazené faktury s možností otevřít originál
+function SeznamFaktur({ clientId, druh, nadpis }: { clientId: string; druh: 'issued_invoice' | 'received_invoice'; nadpis: string }) {
+  const [otevreno, setOtevreno] = useState(false)
+  const [radky, setRadky] = useState<Saldo[] | null>(null)
+
+  async function otevri() {
+    setOtevreno(!otevreno)
+    if (radky) return
+    const supabase = createClient()
+    const { data } = await supabase.from('v_document_balance')
+      .select('document_id, kind, counterparty_name, doc_number, issue_date, due_date, amount, paid, open_amount, state')
+      .eq('client_id', clientId).eq('kind', druh).in('state', ['open', 'overdue'])
+      .order('due_date', { ascending: true, nullsFirst: false }).limit(500)
+    const saldo = (data as Saldo[]) ?? []
+    if (saldo.length) {
+      const { data: soubory } = await supabase.from('documents')
+        .select('id, storage_path, file_name').in('id', saldo.map((s) => s.document_id))
+      const mapa = new Map((soubory ?? []).map((s) => [s.id, s]))
+      for (const s of saldo) s.soubor = mapa.get(s.document_id)
+    }
+    setRadky(saldo)
+  }
+
+  async function otevriOriginal(cesta: string) {
+    const { data } = await createClient().storage.from('documents').createSignedUrl(cesta, 120)
+    if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+  }
+
+  return (
+    <div className="mt-3">
+      <button onClick={otevri} className="text-[0.78rem] text-rose hover:text-rose-deep">
+        {otevreno ? 'Skrýt seznam' : nadpis}
+      </button>
+      {otevreno && (
+        <div className="mt-2 overflow-x-auto">
+          {!radky ? <p className="text-[0.78rem] text-mid/60">Načítám</p> : radky.length === 0 ? (
+            <p className="text-[0.78rem] text-mid/60">Nic neuhrazeného.</p>
+          ) : (
+            <table className="w-full text-[0.78rem]">
+              <thead>
+                <tr className="text-left text-mid/60 border-b border-black/[0.06]">
+                  <th className="py-1.5 pr-3 font-normal">Splatnost</th>
+                  <th className="py-1.5 pr-3 font-normal">Protistrana</th>
+                  <th className="py-1.5 pr-3 font-normal">Číslo</th>
+                  <th className="py-1.5 pr-3 font-normal text-right">Zbývá</th>
+                  <th className="py-1.5 font-normal">Doklad</th>
+                </tr>
+              </thead>
+              <tbody>
+                {radky.map((r) => (
+                  <tr key={r.document_id} className="border-b border-black/[0.04]">
+                    <td className={`py-1.5 pr-3 whitespace-nowrap tabular-nums ${r.state === 'overdue' ? 'text-rose-deep' : ''}`}>
+                      {den(r.due_date)}
+                    </td>
+                    <td className="py-1.5 pr-3">{r.counterparty_name ?? '·'}</td>
+                    <td className="py-1.5 pr-3 whitespace-nowrap">{r.doc_number ?? '·'}</td>
+                    <td className="py-1.5 pr-3 text-right whitespace-nowrap tabular-nums">
+                      {kc(r.open_amount)}
+                      {r.paid > 0 && <span className="text-mid/50"> z {kc(r.amount)}</span>}
+                    </td>
+                    <td className="py-1.5 whitespace-nowrap">
+                      {r.soubor?.storage_path ? (
+                        <button onClick={() => otevriOriginal(r.soubor!.storage_path!)} className="text-rose hover:text-rose-deep">Otevřít</button>
+                      ) : <span className="text-mid/40">bez souboru</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 type Mesic = {
   mesic: string; na_vystupu: number; na_vstupu: number; vysledek: number; dokladu: number
   zaplaceno: number; datum_platby: string | null; rozdil: number; splatnost: string
@@ -346,6 +429,12 @@ function Obsah() {
           <Radek label="z toho po splatnosti" value={kc(saldo.vydane_po_splatnosti)} warn={saldo.vydane_po_splatnosti > 0} />
           <Radek label={`Přijaté neuhrazené (${saldo.prijate_otevrene_pocet})`} value={kc(saldo.prijate_otevrene)} />
           <Radek label="z toho po splatnosti" value={kc(saldo.prijate_po_splatnosti)} warn={saldo.prijate_po_splatnosti > 0} />
+          {clientId && (
+            <>
+              <SeznamFaktur key={`v-${clientId}`} clientId={clientId} druh="issued_invoice" nadpis="Zobrazit neuhrazené vydané faktury" />
+              <SeznamFaktur key={`p-${clientId}`} clientId={clientId} druh="received_invoice" nadpis="Zobrazit neuhrazené přijaté faktury" />
+            </>
+          )}
         </Dlazdice>
 
         <Dlazdice nadpis="DPH">
