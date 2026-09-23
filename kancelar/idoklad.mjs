@@ -64,6 +64,15 @@ export async function synchronizujIdoklad({ ico, od = '2026-01-01', nasucho = fa
     currency: meny[f.CurrencyId] ?? 'CZK',
     amount_total: f.Prices.TotalWithVat, amount_vat: f.Prices.TotalVat, amount_czk: f.Prices.TotalWithVatHc,
     description: [f.Description, ...(f.Items ?? []).map((i) => i.Name)].filter((x, i, a) => x && a.indexOf(x) === i).join(', '),
+    // rozpis DPH a položky přímo z iDokladu (přesné, bez čtení PDF)
+    vat_breakdown: (f.Prices.VatRateSummary ?? []).map((v) => ({ sazba: v.VatRate, zaklad: v.TotalWithoutVatHc, dph: v.TotalVatHc })),
+    vat_regime: f.HasVatRegimeOss ? 'oss' : f.VatReverseChargeCodeId ? 'pdp_stavebnictvi' : f.Prices.TotalVat > 0 ? 'tuzemsko' : null,
+    items: (f.Items ?? []).map((i) => ({
+      nazev: i.Name, mnozstvi: i.Amount, mj: i.Unit ?? '',
+      cena_bez_dph: i.Prices?.TotalWithoutVatHc ?? i.Prices?.TotalWithoutVat ?? 0,
+      sazba_dph: i.VatRate ?? 0,
+      cena_s_dph: i.Prices?.TotalWithVatHc ?? i.Prices?.TotalWithVat ?? 0,
+    })),
     extraction_method: 'idoklad', note: 'Vydaná faktura z iDokladu',
     extracted: { idoklad_id: f.Id, stav_uhrady: f.PaymentStatus, uhrazeno: f.Prices.TotalPaidHc, datum_uhrady: den(f.DateOfPayment) },
     updated_at: new Date().toISOString(),

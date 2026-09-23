@@ -40,7 +40,7 @@ const Doklad = z.object({
   rezim_dph: z.enum(['tuzemsko', 'reverse_charge', 'pdp_stavebnictvi', 'oss', 'osvobozeno', 'mimo_predmet', 'neuvedeno'])
     .describe('Režim DPH: tuzemsko = běžný český doklad s DPH; reverse_charge = služba nebo zboží ze zahraničí, kde daň přiznává odběratel; pdp_stavebnictvi = přenesená daňová povinnost ve stavebnictví (§ 92e); oss = zahraniční dodavatel účtoval českou DPH v režimu OSS; osvobozeno = osvobozené plnění; mimo_predmet = není předmětem daně'),
   ucet_dodavatele: z.string().describe('Bankovní účet dodavatele z dokladu, ve tvaru číslo/kód banky nebo IBAN'),
-  navrh_uctu: z.string().describe('Návrh nákladového nebo majetkového účtu podle českého rozvrhu: 501 materiál, 504 zboží, 511 opravy, 512 cestovné, 513 reprezentace, 518 ostatní služby (software, hosting, nájem, marketing), 521 mzdy, 538 daně a poplatky, 548 pojištění, 042 majetek nad 80 000 Kč. Prázdné, když si nejsi jistý'),
+  navrh_uctu: z.string().describe('Návrh nákladového nebo majetkového účtu podle českého rozvrhu: 501 materiál, 504 zboží, 511 opravy, 512 cestovné, 513 reprezentace, 518 ostatní služby (software, hosting, nájem, marketing), 521 mzdy, 538 daně a poplatky, 548 pojištění, 042 majetek nad 80 000 Kč, 545 pokuty a penále, 314 poskytnuté zálohy. Vyplň JEN číslo účtu (tři číslice), nic jiného; vysvětlení nebo rozdělení mezi víc účtů napiš do poznámky. Prázdné, když si nejsi jistý'),
   navrh_cleneni_dph: z.string().describe('Návrh členění DPH pro Pohodu: UD tuzemský doklad s nárokem na odpočet, UN bez DPH nebo od neplátce, PD přenesená daňová povinnost, RCH reverse charge ze zahraničí. Prázdné, když si nejsi jistý'),
   polozky: z.array(z.object({
     nazev: z.string(),
