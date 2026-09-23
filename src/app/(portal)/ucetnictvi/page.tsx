@@ -136,6 +136,76 @@ function Hledani({ clientId }: { clientId: string }) {
   )
 }
 
+type Mesic = {
+  mesic: string; na_vystupu: number; na_vstupu: number; vysledek: number; dokladu: number
+  zaplaceno: number; datum_platby: string | null; rozdil: number; splatnost: string
+  stav: 'prazdny' | 'sedi' | 'ceka' | 'nezaplaceno' | 'nesedi'
+}
+
+const STAV: Record<Mesic['stav'], { text: string; barva: string }> = {
+  prazdny: { text: 'bez dokladů', barva: 'text-mid/40' },
+  sedi: { text: 'odvedeno', barva: 'text-green' },
+  ceka: { text: 'čeká na odvod', barva: 'text-mid/70' },
+  nezaplaceno: { text: 'neodvedeno', barva: 'text-rose-deep' },
+  nesedi: { text: 'nesedí', barva: 'text-amber' },
+}
+
+// DPH po měsících: co za měsíc vyšlo z dokladů a co se odvedlo z účtu
+function DphMesice({ clientId, rok }: { clientId: string; rok: number }) {
+  const [radky, setRadky] = useState<Mesic[] | null>(null)
+
+  useEffect(() => {
+    let platne = true
+    createClient().rpc('kl_dph_mesice', { p_client: clientId, p_rok: rok })
+      .then(({ data }) => { if (platne) setRadky((data as Mesic[]) ?? []) })
+    return () => { platne = false }
+  }, [clientId, rok])
+
+  const vyplnene = (radky ?? []).filter((m) => m.stav !== 'prazdny')
+  if (!vyplnene.length) return null
+
+  return (
+    <Dlazdice nadpis={`DPH po měsících · ${rok}`}>
+      <div className="overflow-x-auto">
+        <table className="w-full text-[0.8rem]">
+          <thead>
+            <tr className="text-left text-mid/60 border-b border-black/[0.06]">
+              <th className="py-2 pr-4 font-normal">Měsíc</th>
+              <th className="py-2 pr-4 font-normal text-right">Na výstupu</th>
+              <th className="py-2 pr-4 font-normal text-right">Na vstupu</th>
+              <th className="py-2 pr-4 font-normal text-right">Vyšlo</th>
+              <th className="py-2 pr-4 font-normal text-right">Odvedeno</th>
+              <th className="py-2 font-normal">Stav</th>
+            </tr>
+          </thead>
+          <tbody>
+            {vyplnene.map((m) => (
+              <tr key={m.mesic} className="border-b border-black/[0.04]">
+                <td className="py-2 pr-4 whitespace-nowrap">
+                  {new Date(m.mesic).toLocaleDateString('cs-CZ', { month: 'long' })}
+                  <span className="text-mid/50"> · {m.dokladu} dokladů</span>
+                </td>
+                <td className="py-2 pr-4 text-right tabular-nums">{kc(m.na_vystupu)}</td>
+                <td className="py-2 pr-4 text-right tabular-nums">{kc(m.na_vstupu)}</td>
+                <td className="py-2 pr-4 text-right tabular-nums font-medium">{kc(m.vysledek)}</td>
+                <td className="py-2 pr-4 text-right tabular-nums">{m.zaplaceno ? kc(m.zaplaceno) : '·'}</td>
+                <td className={`py-2 whitespace-nowrap ${STAV[m.stav].barva}`}>
+                  {STAV[m.stav].text}
+                  {m.stav === 'nesedi' && <span className="text-mid/50"> o {kc(Math.abs(m.rozdil))}</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-[0.72rem] text-mid/60 mt-3">
+        Předpis je z dokladů podle data plnění, odvod z plateb na účet finančního úřadu s předčíslím 705.
+        Samovyměření u zahraničních služeb zatím není započítané.
+      </p>
+    </Dlazdice>
+  )
+}
+
 type Chybi = {
   bank_transaction_id: string; booked_on: string; amount: number
   counterparty_name: string | null; counterparty_account: string | null; message: string | null
@@ -313,6 +383,12 @@ function Obsah() {
           <p className="text-[0.72rem] text-mid/60 mt-2">Předběžně z dokladů, bez účetních úprav a odpisů.</p>
         </Dlazdice>
       </div>
+
+      {dph.platce && clientId && (
+        <div className="mb-4">
+          <DphMesice key={clientId} clientId={clientId} rok={data.rok} />
+        </div>
+      )}
 
       <Dlazdice nadpis="Co chybí">
         {chybi.pocet === 0 ? (
