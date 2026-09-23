@@ -103,10 +103,12 @@ async function zpracujMail(imap, folder, uidvalidity, msg, klienti, klientSlozky
     client_id: klient?.id ?? null, assigned_by: assignedBy,
     category: ai.kategorie, summary: ai.shrnuti, action_needed: ai.akce,
     attachments: prilohy.length, documents: 0,
-    status: klient ? 'processed' : (ai.kategorie === 'marketing' ? 'ignored' : 'needs_review'),
+    // Notifikace z datové schránky firmy, která není klientem, se jen založí (bez upozornění)
+    status: klient ? 'processed'
+      : (ai.kategorie === 'marketing' || (/datov[aá] zpr[aá]va/i.test(info.subject) && !prilohy.length) ? 'ignored' : 'needs_review'),
     ai: { ...ai, prilohy: prilohy.map((p) => ({ filename: p.filename, sha: p.sha, size: p.size })) },
   }
-  const vysledek = { zaznam, dokladu: 0, doplneno: 0, duplicit: 0, cizich: 0, cizi: [], jinam: [], varovani: [] }
+  const vysledek = { zaznam, dokladu: 0, doplneno: 0, duplicit: 0, cizich: 0, cizi: [], jinam: [], varovani: [], presunuto: null }
   if (NASUCHO) return vysledek
 
   const { data: mm, error: me } = await db.from('mail_messages').insert(zaznam).select('id').single()
@@ -175,14 +177,26 @@ async function zpracujMail(imap, folder, uidvalidity, msg, klienti, klientSlozky
     documents: vysledek.dokladu + vysledek.doplneno,
     ai: { ...zaznam.ai, varovani: vysledek.varovani, cizi: vysledek.cizi, jinam: vysledek.jinam },
   }).eq('id', mm.id)
-  if (klient) await imap.messageFlagsAdd({ uid: msg.uid }, ['\\Seen'], { uid: true })
+  // Úklid schránky: reklama do koše, doklad zařazené firmy z doručené pošty do její
+  // složky, ostatní zůstane na místě. Zpracovaný mail je vždy přečtený.
+  await imap.messageFlagsAdd({ uid: msg.uid }, ['\\Seen'], { uid: true })
+  const cil = ai.kategorie === 'marketing' ? 'trash' : (folder === 'INBOX' ? klient?.mail_folder ?? null : null)
+  if (cil) {
+    try {
+      await imap.messageMove({ uid: msg.uid }, cil, { uid: true })
+      vysledek.presunuto = cil
+    } catch (e) {
+      vysledek.varovani.push(`přesun do ${cil} se nepovedl: ${e.message}`)
+    }
+  }
   return vysledek
 }
 
 async function main() {
   const klienti = await nactiKlienty()
   const klientSlozky = new Map(klienti.filter((k) => k.mail_folder).map((k) => [k.mail_folder, k]))
-  const slozky = JEN_SLOZKA ? [JEN_SLOZKA] : [...klientSlozky.keys()]
+  // Kromě složek firem i doručená pošta: maily se zařadí podle IČO na dokladu
+  const slozky = JEN_SLOZKA ? [JEN_SLOZKA] : [...klientSlozky.keys(), 'INBOX']
 
   const imap = new ImapFlow({
     host: 'imap.seznam.cz', port: 993, secure: true, logger: false,
@@ -208,7 +222,7 @@ async function main() {
             const v = await zpracujMail(imap, folder, uidvalidity, msg, klienti, klientSlozky)
             souhrn.push(v)
             const z = v.zaznam
-            console.log(`[${folder}] ${z.subject}\n   → ${z.summary}${z.action_needed ? `\n   ÚKOL: ${z.action_needed}` : ''}\n   doklady nové ${v.dokladu}, doplněné ${v.doplneno}, duplicity ${v.duplicit}${v.cizich ? `, cizí ${v.cizich}: ${v.cizi.join('; ')}` : ''}${v.jinam.length ? `
+            console.log(`[${folder}] ${z.subject}\n   → ${z.summary}${z.action_needed ? `\n   ÚKOL: ${z.action_needed}` : ''}\n   doklady nové ${v.dokladu}, doplněné ${v.doplneno}, duplicity ${v.duplicit}${v.presunuto ? `, přesunuto do ${v.presunuto}` : ''}${v.cizich ? `, cizí ${v.cizich}: ${v.cizi.join('; ')}` : ''}${v.jinam.length ? `
    JINÉ FIRMĚ: ${v.jinam.join('; ')}` : ''}${v.varovani.length ? `\n   POZOR: ${v.varovani.join('; ')}` : ''}`)
           } catch (e) {
             console.error(`[${folder}] UID ${uid}: CHYBA ${e.message}`)
