@@ -28,8 +28,9 @@ const K = [
   ['17347670', 'MB&AL, s.r.o.',                  's.r.o.', 'Čujkovova 1714/21, Zábřeh, 70030 Ostrava',                 null,         false, 'MB and AL'],
 ]
 
+// všichni plátci jsou měsíční (potvrzeno uživatelem 23. 9. 2026)
 const rows = K.map(([ico, name, legal_form, address, dic, vat_payer, mail_folder]) =>
-  ({ ico, name, legal_form, address, dic, vat_payer, mail_folder }))
+  ({ ico, name, legal_form, address, dic, vat_payer, mail_folder, vat_period: vat_payer ? 'month' : null }))
 const { data, error } = await db.from('clients').upsert(rows, { onConflict: 'ico', defaultToNull: false }).select('name, mail_folder')
 if (error) throw error
 console.log(`klientů: ${data.length}`)

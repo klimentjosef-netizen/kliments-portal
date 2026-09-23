@@ -32,6 +32,24 @@ const Doklad = z.object({
   mena: z.string().describe('ISO kód, např. CZK, EUR'),
   castka_celkem: z.number().nullable().describe('Celková částka plnění včetně DPH. U konečné faktury po záloze (k úhradě 0) uveď celkovou cenu plnění, ne nulu.'),
   castka_dph: z.number().nullable(),
+  sazby_dph: z.array(z.object({
+    sazba: z.number().describe('Sazba DPH v procentech: 21, 12 nebo 0'),
+    zaklad: z.number().describe('Základ daně v měně dokladu'),
+    dph: z.number().describe('DPH v měně dokladu'),
+  })).describe('Rozpis podle sazeb DPH ze souhrnu dokladu; u neplátce nebo bez DPH prázdné pole'),
+  rezim_dph: z.enum(['tuzemsko', 'reverse_charge', 'pdp_stavebnictvi', 'oss', 'osvobozeno', 'mimo_predmet', 'neuvedeno'])
+    .describe('Režim DPH: tuzemsko = běžný český doklad s DPH; reverse_charge = služba nebo zboží ze zahraničí, kde daň přiznává odběratel; pdp_stavebnictvi = přenesená daňová povinnost ve stavebnictví (§ 92e); oss = zahraniční dodavatel účtoval českou DPH v režimu OSS; osvobozeno = osvobozené plnění; mimo_predmet = není předmětem daně'),
+  ucet_dodavatele: z.string().describe('Bankovní účet dodavatele z dokladu, ve tvaru číslo/kód banky nebo IBAN'),
+  navrh_uctu: z.string().describe('Návrh nákladového nebo majetkového účtu podle českého rozvrhu: 501 materiál, 504 zboží, 511 opravy, 512 cestovné, 513 reprezentace, 518 ostatní služby (software, hosting, nájem, marketing), 521 mzdy, 538 daně a poplatky, 548 pojištění, 042 majetek nad 80 000 Kč. Prázdné, když si nejsi jistý'),
+  navrh_cleneni_dph: z.string().describe('Návrh členění DPH pro Pohodu: UD tuzemský doklad s nárokem na odpočet, UN bez DPH nebo od neplátce, PD přenesená daňová povinnost, RCH reverse charge ze zahraničí. Prázdné, když si nejsi jistý'),
+  polozky: z.array(z.object({
+    nazev: z.string(),
+    mnozstvi: z.number(),
+    mj: z.string().describe('Měrná jednotka, např. ks, hod, m2'),
+    cena_bez_dph: z.number().describe('Cena celkem za položku bez DPH'),
+    sazba_dph: z.number(),
+    cena_s_dph: z.number(),
+  })).describe('Jednotlivé řádky dokladu. U dokladu s mnoha řádky uveď všechny.'),
   popis: z.string().describe('Co se kupovalo nebo fakturovalo, česky, konkrétně (pro vyhledávání, např. "lednice Bosch KGN39")'),
   poznamka: z.string().describe('Cokoli nejasného nebo podezřelého, jinak prázdné'),
 })
@@ -47,7 +65,7 @@ export const Rozpoznani = z.object({
   doklady: z.array(Doklad),
 })
 
-function system(klienti) {
+function system(klienti, pamet = []) {
   return `Jsi asistent účetní kanceláře Kliments. Čteš e-maily ze sběrné schránky, kam klienti a jejich dodavatelé posílají účetní doklady.
 
 Klienti kanceláře (název · IČO):
@@ -58,7 +76,14 @@ U každého e-mailu:
 2. Napiš, co má účetní udělat (např. "zaúčtovat přijatou fakturu", "odpovědět klientovi na dotaz", "doplnit chybějící přílohu"). Newsletter či reklama: akce prázdná.
 3. Urči klienta kanceláře, kterému e-mail patří: podle IČO odběratele nebo dodavatele na dokladu, podle textu e-mailu nebo odesílatele. Vybírej jen ze seznamu. Když si nejsi jistý, nech prázdné.
 4. Z každé přílohy, která je dokladem (faktura, účtenka, dobropis, výpis, smlouva, mzdy, daně, vyúčtování platební brány), vytěž údaje. Loga, podpisy a obrázky z patičky vynech. Údaje opisuj přesně z dokladu; textový údaj, který na dokladu není, nech prázdný, částku dej null; nic nedopočítávej ani neodhaduj. Konečná faktura, ze které se odečítá záloha (k úhradě 0), má jako částku celkovou cenu plnění a do poznámky napiš, že byla uhrazena zálohou.
-5. Běžné přijaté a vydané faktury, účtenky, zálohové faktury, výpisy a vyúčtování platebních bran se zpracují samy (potrebuje_pokyn = false). Všechno ostatní potřebuje pokyn účetního: smlouvy a dodatky, dopisy a výzvy úřadů (finanční úřad, ČSSZ, zdravotní pojišťovna, soud, exekutor), dotazy a žádosti klienta, upomínky, mzdové změny, cokoli nejasného. Tehdy napiš jednu konkrétní otázku, na kterou stačí krátce odpovědět (např. "Smlouva o nájmu skladu od 1. 10. 2026 za 12 000 Kč měsíčně: mám z ní udělat rozpis nájemného a hlídat úhrady?").`
+5. Rozpis DPH ber ze souhrnu dokladu, ne z položek; když sazby nesedí na celkovou částku, napiš to do poznámky.
+6. Režim DPH: doklad od zahraničního dodavatele bez české DPH = reverse_charge; stavební a montážní práce mezi plátci v tuzemsku = pdp_stavebnictvi; zahraniční dodavatel, který účtuje českou DPH (OSS) = oss; doklad od neplátce = tuzemsko bez DPH.
+7. Návrh účtu a členění DPH je návrh k potvrzení účetní. Pokud je dodavatel v seznamu níže, drž se toho, jak se účtoval minule, pokud plnění neodpovídá něčemu jinému.
+${pamet.length ? `
+Jak se dodavatelé tohoto klienta účtovali minule (IČO · dodavatel · účet · členění · režim):
+${pamet.map((x) => `- ${x.counterparty_ico} · ${x.counterparty_name} · ${x.ucet ?? '?'} · ${x.cleneni_dph ?? '?'} · ${x.rezim_dph ?? '?'}`).join('\n')}` : ''}
+
+8. Běžné přijaté a vydané faktury, účtenky, zálohové faktury, výpisy a vyúčtování platebních bran se zpracují samy (potrebuje_pokyn = false). Všechno ostatní potřebuje pokyn účetního: smlouvy a dodatky, dopisy a výzvy úřadů (finanční úřad, ČSSZ, zdravotní pojišťovna, soud, exekutor), dotazy a žádosti klienta, upomínky, mzdové změny, cokoli nejasného. Tehdy napiš jednu konkrétní otázku, na kterou stačí krátce odpovědět (např. "Smlouva o nájmu skladu od 1. 10. 2026 za 12 000 Kč měsíčně: mám z ní udělat rozpis nájemného a hlídat úhrady?").`
 }
 
 function bloky(mail, prilohy) {
@@ -88,7 +113,7 @@ ${mail.text || '(bez textu)'}`,
   return obsah
 }
 
-async function rozpoznejApi(mail, prilohy, klienti) {
+async function rozpoznejApi(mail, prilohy, klienti, pamet) {
   const res = await client.beta.messages.parse({
     model: MODEL,
     max_tokens: 16000,
@@ -96,7 +121,7 @@ async function rozpoznejApi(mail, prilohy, klienti) {
     output_config: { effort: 'medium', format: betaZodOutputFormat(Rozpoznani) },
     betas: ['server-side-fallback-2026-06-01'],
     fallbacks: [{ model: 'claude-opus-4-8' }],
-    system: system(klienti),
+    system: system(klienti, pamet),
     messages: [{ role: 'user', content: bloky(mail, prilohy) }],
   })
   if (res.stop_reason === 'refusal') throw new Error('Model odmítl zpracovat e-mail')
@@ -113,7 +138,7 @@ const CLAUDE_EXE = process.env.CLAUDE_EXE || path.join(process.env.APPDATA ?? ''
 const { $schema, ...schemaBezHlavicky } = z.toJSONSchema(Rozpoznani)
 const SCHEMA = JSON.stringify(schemaBezHlavicky)
 
-async function rozpoznejCli(mail, prilohy, klienti) {
+async function rozpoznejCli(mail, prilohy, klienti, pamet) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'kliments-mail-'))
   try {
     const soubory = []
@@ -123,7 +148,7 @@ async function rozpoznejCli(mail, prilohy, klienti) {
       await fs.writeFile(path.join(dir, jmeno), p.content)
       soubory.push(`Příloha ${i + 1}: soubor ${jmeno} (původně ${p.filename}, ${p.contentType}, ${p.size} B)`)
     }
-    const zadani = `${system(klienti)}
+    const zadani = `${system(klienti, pamet)}
 
 Přílohy jsou v aktuální složce, každou si přečti nástrojem Read (PDF i obrázky umí):
 ${soubory.join('\n') || '(bez příloh)'}
@@ -163,6 +188,6 @@ Odpověz jen strukturovaným výstupem podle schématu.`
 }
 
 // KLIMENTS_AI=api přepne zpět na Claude API (placený kredit); výchozí je Claude Code
-export function rozpoznej(mail, prilohy, klienti) {
-  return (process.env.KLIMENTS_AI === 'api' ? rozpoznejApi : rozpoznejCli)(mail, prilohy, klienti)
+export function rozpoznej(mail, prilohy, klienti, pamet = []) {
+  return (process.env.KLIMENTS_AI === 'api' ? rozpoznejApi : rozpoznejCli)(mail, prilohy, klienti, pamet)
 }

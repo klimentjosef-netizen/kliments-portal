@@ -57,6 +57,19 @@ async function nactiKlienty() {
   return data
 }
 
+// Jak se dodavatelé klienta účtovali minule (podklad pro návrh předkontace)
+const pametCache = new Map()
+async function pametDodavatelu(klientId) {
+  if (!klientId) return []
+  if (!pametCache.has(klientId)) {
+    const { data } = await db.from('v_supplier_memory')
+      .select('counterparty_ico, counterparty_name, ucet, cleneni_dph, rezim_dph, dokladu')
+      .eq('client_id', klientId).order('dokladu', { ascending: false }).limit(60)
+    pametCache.set(klientId, data ?? [])
+  }
+  return pametCache.get(klientId)
+}
+
 async function uzZpracovano(folder, uidvalidity, uid) {
   const { data } = await db.from('mail_messages').select('id')
     .eq('mailbox', MAILBOX).eq('folder', folder).eq('uidvalidity', uidvalidity).eq('uid', uid).maybeSingle()
@@ -86,7 +99,8 @@ async function zpracujMail(imap, folder, uidvalidity, msg, klienti, klientSlozky
   }))
   const info = { folder, from: mail.from?.text ?? '', subject: mail.subject ?? '', date: mail.date, text: (mail.text ?? '').slice(0, 20_000) }
 
-  const ai = await rozpoznej(info, prilohy, klienti)
+  const pamet = await pametDodavatelu(klientSlozky.get(folder)?.id ?? null)
+  const ai = await rozpoznej(info, prilohy, klienti, pamet)
 
   // Komu mail patří: složka má přednost, jinak IČO od modelu (musí být v seznamu)
   let klient = klientSlozky.get(folder) ?? null
@@ -154,6 +168,12 @@ async function zpracujMail(imap, folder, uidvalidity, msg, klienti, klientSlozky
       order_number: d.cislo_objednavky, issue_date: datum(d.datum_vystaveni), taxable_date: datum(d.duzp),
       due_date: datum(d.datum_splatnosti), currency: d.mena || 'CZK', amount_total: d.castka_celkem,
       amount_vat: d.castka_dph, description: d.popis, note: d.poznamka,
+      vat_breakdown: d.sazby_dph?.length ? d.sazby_dph : null,
+      vat_regime: d.rezim_dph && d.rezim_dph !== 'neuvedeno' ? d.rezim_dph : null,
+      items: d.polozky?.length ? d.polozky : null,
+      suggested_account: d.navrh_uctu || null,
+      suggested_vat_class: d.navrh_cleneni_dph || null,
+      supplier_bank_account: d.ucet_dodavatele || null,
       extracted: d, extraction_method: 'ai',
     }
 
