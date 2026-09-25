@@ -289,6 +289,94 @@ function DphMesice({ clientId, rok }: { clientId: string; rok: number }) {
   )
 }
 
+type Priznani = {
+  mesic: string
+  radky: Record<string, { zaklad?: number; dan?: number }>
+  dan_na_vystupu: number; odpocet: number; vysledek: number; dokladu: number
+  kh: { a1: unknown[]; a4: unknown[]; a5: number; b1: unknown[]; b2: unknown[]; b3: number }
+  upozorneni: { dokladu_bez_rozpisu_dph: number }
+}
+
+const RADKY: { klic: string; popis: string }[] = [
+  { klic: 'r1', popis: 'Ř. 1 · Dodání zboží a služeb v tuzemsku, 21 %' },
+  { klic: 'r2', popis: 'Ř. 2 · Dodání zboží a služeb v tuzemsku, 12 %' },
+  { klic: 'r5', popis: 'Ř. 5 · Služby od osoby neusazené v tuzemsku' },
+  { klic: 'r10', popis: 'Ř. 10 · Přenesená daňová povinnost, odběratel' },
+  { klic: 'r20', popis: 'Ř. 20 · Dodání zboží do jiného členského státu' },
+  { klic: 'r25', popis: 'Ř. 25 · Přenesená daňová povinnost, dodavatel' },
+  { klic: 'r40', popis: 'Ř. 40 · Odpočet z tuzemských plnění, 21 %' },
+  { klic: 'r41', popis: 'Ř. 41 · Odpočet z tuzemských plnění, 12 %' },
+  { klic: 'r43', popis: 'Ř. 43 · Odpočet z plnění podle ř. 3 až 13' },
+]
+
+// Podklad k přiznání k DPH a ke kontrolnímu hlášení za zvolený měsíc
+function PriznaniDph({ clientId }: { clientId: string }) {
+  const minuly = new Date(); minuly.setDate(1); minuly.setMonth(minuly.getMonth() - 1)
+  const [mesic, setMesic] = useState(minuly.toISOString().slice(0, 7))
+  const [data, setData] = useState<Priznani | null>(null)
+
+  useEffect(() => {
+    let platne = true
+    setData(null)
+    createClient().rpc('kl_dph_priznani', { p_client: clientId, p_mesic: `${mesic}-01` })
+      .then(({ data: d }) => { if (platne) setData(d as Priznani) })
+    return () => { platne = false }
+  }, [clientId, mesic])
+
+  const posun = (o: number) => {
+    const d = new Date(`${mesic}-01`); d.setMonth(d.getMonth() + o)
+    setMesic(d.toISOString().slice(0, 7))
+  }
+  const nazevMesice = new Date(`${mesic}-01`).toLocaleDateString('cs-CZ', { month: 'long', year: 'numeric' })
+
+  return (
+    <Dlazdice nadpis="Podklad k přiznání k DPH">
+      <div className="flex items-center gap-3 mb-3">
+        <button onClick={() => posun(-1)} className="text-rose hover:text-rose-deep text-[0.8rem]">←</button>
+        <span className="text-[0.9rem] text-ink">{nazevMesice}</span>
+        <button onClick={() => posun(1)} className="text-rose hover:text-rose-deep text-[0.8rem]">→</button>
+      </div>
+      {!data ? <p className="text-[0.8rem] text-mid/60">Počítám</p> : (
+        <>
+          <table className="w-full text-[0.8rem]">
+            <thead>
+              <tr className="text-left text-mid/60 border-b border-black/[0.06]">
+                <th className="py-1.5 pr-3 font-normal">Řádek</th>
+                <th className="py-1.5 pr-3 font-normal text-right">Základ</th>
+                <th className="py-1.5 font-normal text-right">Daň</th>
+              </tr>
+            </thead>
+            <tbody>
+              {RADKY.filter((r) => (data.radky[r.klic]?.zaklad ?? 0) !== 0 || (data.radky[r.klic]?.dan ?? 0) !== 0).map((r) => (
+                <tr key={r.klic} className="border-b border-black/[0.04]">
+                  <td className="py-1.5 pr-3">{r.popis}</td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums">{data.radky[r.klic]?.zaklad != null ? kc(data.radky[r.klic].zaklad) : '·'}</td>
+                  <td className="py-1.5 text-right tabular-nums">{data.radky[r.klic]?.dan != null ? kc(data.radky[r.klic].dan) : '·'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="mt-3 pt-3 border-t border-black/[0.08]">
+            <Radek label="Daň na výstupu" value={kc(data.dan_na_vystupu)} />
+            <Radek label="Odpočet celkem" value={kc(data.odpocet)} />
+            <Radek label={data.vysledek >= 0 ? 'Vlastní daň k odvodu' : 'Nadměrný odpočet'} value={kc(Math.abs(data.vysledek))} strong />
+          </div>
+          <p className="text-[0.75rem] text-mid/70 mt-3">
+            Kontrolní hlášení: A4 {data.kh.a4.length} řádků, A5 {kc(data.kh.a5)}, B2 {data.kh.b2.length} řádků, B3 {kc(data.kh.b3)}
+            {data.kh.a1.length + data.kh.b1.length > 0 && `, přenesená daňová povinnost A1 ${data.kh.a1.length} a B1 ${data.kh.b1.length}`}
+          </p>
+          {data.upozorneni.dokladu_bez_rozpisu_dph > 0 && (
+            <p className="text-[0.75rem] text-amber mt-1">
+              {data.upozorneni.dokladu_bez_rozpisu_dph} dokladů nemá přečtený rozpis DPH, do podkladu nevstupují.
+            </p>
+          )}
+          <p className="text-[0.72rem] text-mid/60 mt-2">Podklad ke kontrole, ne podání. Podává se z účetního programu.</p>
+        </>
+      )}
+    </Dlazdice>
+  )
+}
+
 type Chybi = {
   bank_transaction_id: string; booked_on: string; amount: number
   counterparty_name: string | null; counterparty_account: string | null; message: string | null
@@ -474,8 +562,9 @@ function Obsah() {
       </div>
 
       {dph.platce && clientId && (
-        <div className="mb-4">
-          <DphMesice key={clientId} clientId={clientId} rok={data.rok} />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+          <DphMesice key={`m-${clientId}`} clientId={clientId} rok={data.rok} />
+          <PriznaniDph key={`p-${clientId}`} clientId={clientId} />
         </div>
       )}
 
