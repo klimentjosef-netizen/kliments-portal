@@ -11,6 +11,14 @@ const env = Object.fromEntries(
 const db = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
 const data = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'))
 
+// doklady mohou přijít bez id klienta, dohledá se podle IČO
+if (data.client_ico) {
+  const { data: k, error } = await db.from('clients').select('id, name').eq('ico', data.client_ico).single()
+  if (error || !k) throw new Error(`klient s IČO ${data.client_ico} není v evidenci`)
+  for (const d of data.docs ?? []) d.client_id = k.id
+  console.log(`klient: ${k.name}`)
+}
+
 async function upsert(table, rows, onConflict = 'id') {
   for (let i = 0; i < rows.length; i += 500) {
     const { error } = await db.from(table).upsert(rows.slice(i, i + 500), { onConflict, defaultToNull: false })
