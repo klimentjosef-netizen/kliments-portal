@@ -7,5 +7,5 @@ UPDATE storage.buckets SET allowed_mime_types = ARRAY[
   'application/vnd.oasis.opendocument.text','application/vnd.oasis.opendocument.spreadsheet',
   'text/csv','text/plain','application/xml','text/xml','application/json','application/zip',
   'image/png','image/jpeg','image/gif','image/webp','image/heic','image/heif','image/tiff',
-  'message/rfc822','application/vnd.ms-outlook'
+  'message/rfc822','application/vnd.ms-outlook','text/html','application/rtf','image/bmp','application/x-isdoc'
 ] WHERE id = 'documents';

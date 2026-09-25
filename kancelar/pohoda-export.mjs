@@ -69,8 +69,10 @@ function partner(d) {
 const zahranicni = (d) => !!d.counterparty_ico && !/^\d{8}$/.test(String(d.counterparty_ico))
 
 // Evidenční číslo daňového dokladu pro kontrolní hlášení. Bez něj hlásí Pohoda u položek
-// KH „Není vyplněné evidenční číslo“ — finanční správa páruje doklad s dodavatelem právě
+// KH „Není vyplněné evidenční číslo“ — finanční správa páruje doklad s protistranou právě
 // podle něj, ne podle variabilního symbolu (ten bývá jiný, viz Zaslat nebo Seznam.cz).
+// U vydaných musí sedět číslo, které klient skutečně vystavil (iDoklad, e-shop Upgates),
+// ne číslo z řady Pohody, jinak A.4 neodpovídá tomu, co uvede odběratel.
 const evCislo = (d) => String(d.doc_number ?? d.var_symbol ?? '').trim().slice(0, 32)
 
 // Variabilní symbol snese jen číslice; u dokladů placených kartou žádné nejsou (např.
@@ -90,7 +92,7 @@ function faktura(d, poradi, platce) {
         <inv:dateTax>${datum}</inv:dateTax>
         ${d.due_date ? `<inv:dateDue>${d.due_date}</inv:dateDue>` : ''}
         <inv:classificationVAT><typ:ids>${cleneni(d, platce)}</typ:ids></inv:classificationVAT>
-        ${prijata && evCislo(d) ? `<inv:numberKHDPH>${esc(evCislo(d))}</inv:numberKHDPH>` : ''}
+        ${evCislo(d) ? `<inv:numberKHDPH>${esc(evCislo(d))}</inv:numberKHDPH>` : ''}
         <inv:text>${esc((d.description ?? d.file_name ?? 'Doklad').slice(0, 240))}</inv:text>
         ${partner(d)}
         <inv:note>${esc(`Kliments: ${d.doc_number ?? ''}${zahranicni(d) ? ' | PROVĚŘIT členění DPH (zahraniční plnění)' : ''} ${d.note ?? ''}`.trim().slice(0, 240))}</inv:note>
