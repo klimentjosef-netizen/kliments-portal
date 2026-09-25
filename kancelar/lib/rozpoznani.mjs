@@ -166,7 +166,7 @@ Odpověz jen strukturovaným výstupem podle schématu.`
     delete env.ANTHROPIC_API_KEY // jinak by Claude Code účtoval přes API místo předplatného
     const out = await new Promise((resolve, reject) => {
       const proc = spawn(CLAUDE_EXE, ['-p', '--output-format', 'json', '--json-schema', SCHEMA,
-        '--allowedTools', 'Read', '--model', process.env.KLIMENTS_MODEL || 'sonnet', '--max-turns', String(prilohy.length + 8)], { cwd: dir, env })
+        '--allowedTools', 'Read', '--model', process.env.KLIMENTS_MODEL || 'sonnet', '--max-turns', String(prilohy.length * 2 + 14)], { cwd: dir, env })
       let o = '', e = ''
       const casovac = setTimeout(() => { proc.kill(); reject(new Error('Claude Code: vypršel čas')) }, 10 * 60_000)
       proc.stdout.on('data', (d) => (o += d))
