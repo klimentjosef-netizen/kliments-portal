@@ -4,8 +4,8 @@
 //
 //   node pohoda-export.mjs --ico 07858680 --od 2026-08-01 --do 2026-08-31 [--slozka C:\...]
 //
-// Pozn.: číslo dokladu si přiděluje Pohoda z řady, číslo od dodavatele jde do
-// variabilního symbolu (dohodnuto dřív u vytěžovače faktur).
+// Pozn.: číslo dokladu si přiděluje Pohoda z řady, platební údaj jde do variabilního
+// symbolu a číslo dokladu od dodavatele do evidenčního čísla pro kontrolní hlášení.
 import './lib/env.mjs'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -68,6 +68,15 @@ function partner(d) {
 
 const zahranicni = (d) => !!d.counterparty_ico && !/^\d{8}$/.test(String(d.counterparty_ico))
 
+// Evidenční číslo daňového dokladu pro kontrolní hlášení. Bez něj hlásí Pohoda u položek
+// KH „Není vyplněné evidenční číslo“ — finanční správa páruje doklad s dodavatelem právě
+// podle něj, ne podle variabilního symbolu (ten bývá jiný, viz Zaslat nebo Seznam.cz).
+const evCislo = (d) => String(d.doc_number ?? d.var_symbol ?? '').trim().slice(0, 32)
+
+// Variabilní symbol snese jen číslice; u dokladů placených kartou žádné nejsou (např.
+// „QNNX-KHK1-E4KX“ u Zaslat) a prázdný element by import zbytečně shodil.
+const symVar = (d) => String(d.var_symbol ?? d.doc_number ?? '').replace(/\D/g, '').slice(0, 20)
+
 function faktura(d, poradi, platce) {
   const prijata = d.kind !== 'issued_invoice'
   const typ = d.kind === 'credit_note' ? (prijata ? 'receivedCreditNotice' : 'issuedCreditNotice') : (prijata ? 'receivedInvoice' : 'issuedInvoice')
@@ -76,11 +85,12 @@ function faktura(d, poradi, platce) {
     <inv:invoice version="2.0">
       <inv:invoiceHeader>
         <inv:invoiceType>${typ}</inv:invoiceType>
-        ${d.var_symbol || d.doc_number ? `<inv:symVar>${esc(String(d.var_symbol ?? d.doc_number).replace(/\D/g, '').slice(0, 20))}</inv:symVar>` : ''}
+        ${symVar(d) ? `<inv:symVar>${symVar(d)}</inv:symVar>` : ''}
         <inv:date>${d.issue_date ?? datum}</inv:date>
         <inv:dateTax>${datum}</inv:dateTax>
         ${d.due_date ? `<inv:dateDue>${d.due_date}</inv:dateDue>` : ''}
         <inv:classificationVAT><typ:ids>${cleneni(d, platce)}</typ:ids></inv:classificationVAT>
+        ${prijata && evCislo(d) ? `<inv:numberKHDPH>${esc(evCislo(d))}</inv:numberKHDPH>` : ''}
         <inv:text>${esc((d.description ?? d.file_name ?? 'Doklad').slice(0, 240))}</inv:text>
         ${partner(d)}
         <inv:note>${esc(`Kliments: ${d.doc_number ?? ''}${zahranicni(d) ? ' | PROVĚŘIT členění DPH (zahraniční plnění)' : ''} ${d.note ?? ''}`.trim().slice(0, 240))}</inv:note>
