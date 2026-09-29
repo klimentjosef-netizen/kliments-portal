@@ -104,18 +104,21 @@ function faktura(d, poradi, platce) {
   </dat:dataPackItem>`
 }
 
-export async function exportujDoPohody({ ico, od, do: doDne, slozka }) {
+export async function exportujDoPohody({ ico, od, do: doDne, slozka, ids, nazev }) {
   const { data: k } = await db.from('clients').select('*').eq('ico', ico).single()
-  const { data: doklady, error } = await db.from('documents')
+  let dotaz = db.from('documents')
     .select('*').eq('client_id', k.id).not('status', 'in', '(duplicate,rejected)')
     .in('kind', ['received_invoice', 'issued_invoice', 'credit_note', 'receipt'])
-    .or(`taxable_date.gte.${od},and(taxable_date.is.null,issue_date.gte.${od})`)
-    .order('taxable_date', { ascending: true })
+  dotaz = ids?.length ? dotaz.in('id', ids) : dotaz.or(`taxable_date.gte.${od},and(taxable_date.is.null,issue_date.gte.${od})`)
+  const { data: doklady, error } = await dotaz.order('taxable_date', { ascending: true })
   if (error) throw error
   const vObdobi = doklady.filter((d) => {
     const den = d.taxable_date ?? d.issue_date
-    return den && den >= od && den <= doDne && (d.amount_czk ?? d.amount_total) != null
+    if (!den || (d.amount_czk ?? d.amount_total) == null) return false
+    return ids?.length ? true : den >= od && den <= doDne
   })
+  od ??= vObdobi[0]?.taxable_date ?? vObdobi[0]?.issue_date
+  doDne ??= vObdobi.at(-1)?.taxable_date ?? vObdobi.at(-1)?.issue_date
 
   const polozky = vObdobi.map((d, i) => faktura(d, i + 1, k.vat_payer)).join('\n')
   const xml = `<?xml version="1.0" encoding="windows-1250"?>
@@ -128,7 +131,7 @@ ${polozky}
 
   const dir = slozka ?? path.join(process.env.USERPROFILE ?? '.', 'Downloads', 'pohoda')
   fs.mkdirSync(dir, { recursive: true })
-  const soubor = path.join(dir, `${k.ico}-${od}-${doDne}.xml`)
+  const soubor = path.join(dir, nazev ? `${nazev}.xml` : `${k.ico}-${od}-${doDne}.xml`)
   fs.writeFileSync(soubor, iconv.encode(xml, 'win1250'))
 
   const souhrn = {
@@ -142,7 +145,7 @@ ${polozky}
 }
 
 if (import.meta.url === `file:///${process.argv[1].replace(/\\/g, '/')}`) {
-  exportujDoPohody({ ico: arg('--ico'), od: arg('--od'), do: arg('--do'), slozka: arg('--slozka') })
+  exportujDoPohody({ ico: arg('--ico'), od: arg('--od'), do: arg('--do'), slozka: arg('--slozka'), ids: arg('--id')?.split(','), nazev: arg('--nazev') })
     .then((s) => console.log(`${s.klient}: ${s.dokladu} dokladů (přijaté ${s.prijate}, vydané ${s.vydane}), celkem ${s.celkem.toFixed(2)} Kč\n${s.soubor}`))
     .catch((e) => { console.error(e); process.exit(1) })
 }
