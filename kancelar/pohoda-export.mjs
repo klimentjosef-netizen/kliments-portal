@@ -21,7 +21,13 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const cislo = (n) => (Math.round(Number(n ?? 0) * 100) / 100).toFixed(2)
 
 // Členění DPH v Pohodě podle režimu a plátcovství
-function cleneni(d, platce) {
+function cleneni(d, platce, prijata) {
+  const c = zakladniCleneni(d, platce)
+  // UD je v Pohodě uskutečněné plnění; přijaté tuzemské s nárokem na odpočet je PD
+  return prijata && c === 'UD' ? 'PD' : c
+}
+
+function zakladniCleneni(d, platce) {
   if (d.suggested_vat_class) return d.suggested_vat_class
   if (!platce) return 'UN'
   if (d.vat_regime === 'pdp_stavebnictvi') return 'PD'
@@ -53,13 +59,42 @@ function ceny(d, prefix) {
       </${prefix}:homeCurrency>`
 }
 
-function partner(d) {
+// Sídlo české firmy z ARES, aby měl doklad v Pohodě úplnou adresu partnera
+const aresCache = new Map()
+async function ares(ico) {
+  if (aresCache.has(ico)) return aresCache.get(ico)
+  let v = null
+  try {
+    const r = await fetch(`https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/${ico}`)
+    if (r.ok) {
+      const j = await r.json()
+      const s = j.sidlo ?? {}
+      const cislo = [s.cisloDomovni, s.cisloOrientacni ? `${s.cisloOrientacni}${s.cisloOrientacniPismeno ?? ''}` : null].filter(Boolean).join('/')
+      const psc = s.psc ? String(s.psc).padStart(5, '0') : ''
+      v = {
+        nazev: j.obchodniJmeno,
+        dic: j.dic ?? null,
+        ulice: [s.nazevUlice ?? s.nazevCastiObce, cislo].filter(Boolean).join(' '),
+        mesto: s.nazevObce === 'Praha' && s.nazevMestskehoObvodu ? s.nazevMestskehoObvodu : s.nazevObce,
+        psc: psc ? `${psc.slice(0, 3)} ${psc.slice(3)}` : '',
+      }
+    }
+  } catch { /* bez ARES jde doklad jen s IČO a DIČ */ }
+  aresCache.set(ico, v)
+  return v
+}
+
+async function partner(d) {
   // do pole IČO patří jen české osmičíslí, zahraniční identifikace jde do DIČ
   const ico = /^\d{8}$/.test(String(d.counterparty_ico ?? '')) ? d.counterparty_ico : null
-  const dic = d.counterparty_dic ?? (ico ? null : d.counterparty_ico)
+  const a = ico ? await ares(ico) : null
+  const dic = d.counterparty_dic ?? a?.dic ?? (ico ? null : d.counterparty_ico)
   return `<inv:partnerIdentity>
         <typ:address>
-          <typ:company>${esc(d.counterparty_name ?? '')}</typ:company>
+          <typ:company>${esc(d.counterparty_name ?? a?.nazev ?? '')}</typ:company>
+          ${a?.mesto ? `<typ:city>${esc(a.mesto)}</typ:city>` : ''}
+          ${a?.ulice ? `<typ:street>${esc(a.ulice)}</typ:street>` : ''}
+          ${a?.psc ? `<typ:zip>${esc(a.psc)}</typ:zip>` : ''}
           ${ico ? `<typ:ico>${esc(ico)}</typ:ico>` : ''}
           ${dic ? `<typ:dic>${esc(dic)}</typ:dic>` : ''}
         </typ:address>
@@ -79,22 +114,25 @@ const evCislo = (d) => String(d.doc_number ?? d.var_symbol ?? '').trim().slice(0
 // „QNNX-KHK1-E4KX“ u Zaslat) a prázdný element by import zbytečně shodil.
 const symVar = (d) => String(d.var_symbol ?? d.doc_number ?? '').replace(/\D/g, '').slice(0, 20)
 
-function faktura(d, poradi, platce) {
+async function faktura(d, poradi, platce) {
   const prijata = d.kind !== 'issued_invoice'
   const typ = d.kind === 'credit_note' ? (prijata ? 'receivedCreditNotice' : 'issuedCreditNotice') : (prijata ? 'receivedInvoice' : 'issuedInvoice')
   const datum = d.taxable_date ?? d.issue_date
+  // Číslo dokladu dodavatele jde u přijatých do pole „Doklad“ (originalDocument): z něj Pohoda
+  // bere evidenční číslo pro kontrolní hlášení i párování úhrady. numberKHDPH bere jen u vydaných.
   return `  <dat:dataPackItem id="${prijata ? 'FP' : 'FV'}-${poradi}" version="2.0">
     <inv:invoice version="2.0">
       <inv:invoiceHeader>
         <inv:invoiceType>${typ}</inv:invoiceType>
         ${symVar(d) ? `<inv:symVar>${symVar(d)}</inv:symVar>` : ''}
+        ${prijata && evCislo(d) ? `<inv:originalDocument>${esc(evCislo(d))}</inv:originalDocument>` : ''}
         <inv:date>${d.issue_date ?? datum}</inv:date>
         <inv:dateTax>${datum}</inv:dateTax>
         ${d.due_date ? `<inv:dateDue>${d.due_date}</inv:dateDue>` : ''}
-        <inv:classificationVAT><typ:ids>${cleneni(d, platce)}</typ:ids></inv:classificationVAT>
-        ${evCislo(d) ? `<inv:numberKHDPH>${esc(evCislo(d))}</inv:numberKHDPH>` : ''}
+        <inv:classificationVAT><typ:ids>${cleneni(d, platce, prijata)}</typ:ids></inv:classificationVAT>
+        ${!prijata && evCislo(d) ? `<inv:numberKHDPH>${esc(evCislo(d))}</inv:numberKHDPH>` : ''}
         <inv:text>${esc((d.description ?? d.file_name ?? 'Doklad').slice(0, 240))}</inv:text>
-        ${partner(d)}
+        ${await partner(d)}
         <inv:note>${esc(`Kliments: ${d.doc_number ?? ''}${zahranicni(d) ? ' | PROVĚŘIT členění DPH (zahraniční plnění)' : ''} ${d.note ?? ''}`.trim().slice(0, 240))}</inv:note>
       </inv:invoiceHeader>
       <inv:invoiceSummary>
@@ -120,13 +158,14 @@ export async function exportujDoPohody({ ico, od, do: doDne, slozka, ids, nazev 
   od ??= vObdobi[0]?.taxable_date ?? vObdobi[0]?.issue_date
   doDne ??= vObdobi.at(-1)?.taxable_date ?? vObdobi.at(-1)?.issue_date
 
-  const polozky = vObdobi.map((d, i) => faktura(d, i + 1, k.vat_payer)).join('\n')
+  const polozky = []
+  for (const [i, d] of vObdobi.entries()) polozky.push(await faktura(d, i + 1, k.vat_payer))
   const xml = `<?xml version="1.0" encoding="windows-1250"?>
 <dat:dataPack xmlns:dat="http://www.stormware.cz/schema/version_2/data.xsd"
   xmlns:typ="http://www.stormware.cz/schema/version_2/type.xsd"
   xmlns:inv="http://www.stormware.cz/schema/version_2/invoice.xsd"
   version="2.0" id="kliments-${od}" ico="${esc(k.ico)}" application="Kliments" note="Export z evidence Kliments ${od} až ${doDne}">
-${polozky}
+${polozky.join('\n')}
 </dat:dataPack>`
 
   const dir = slozka ?? path.join(process.env.USERPROFILE ?? '.', 'Downloads', 'pohoda')
