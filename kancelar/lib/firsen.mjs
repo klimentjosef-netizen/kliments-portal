@@ -16,4 +16,30 @@ export const FIRSEN = {
   vystavil: 'Josef Kliment',
   konstantni_symbol: '0308',
   sazba_dph: 21,
+  platce: true,
+  paticka: 'firsen s.r.o.',
+  veta: 'Fakturu vystavil Josef Kliment za firsen s.r.o., zapsanou v obchodním rejstříku vedeném Městským soudem v Praze, oddíl C, vložka 259717.',
 }
+
+// Josef Kliment, OSVČ, neplátce DPH. Opsáno z faktury 2026038 pro MB&AL.
+export const KLIMENT = {
+  nazev: 'Josef Kliment',
+  ulice: 'Na Jízdárně 3024/14',
+  mesto: '702 00 Ostrava',
+  ico: '05408091',
+  dic: null,
+  telefon: '+420 777 136 553',
+  email: 'kliment.josef@email.cz',
+  ucet: '316960518/0300',
+  iban: 'CZ9003000000000316960518',
+  swift: 'CEKOCZPP',
+  banka: 'Československá obchodní banka, a.s.',
+  vystavil: 'Josef Kliment',
+  konstantni_symbol: '0308',
+  sazba_dph: 0,
+  platce: false,
+  paticka: 'Josef Kliment',
+  veta: 'Fakturu vystavil Josef Kliment. Dodavatel není plátcem daně z přidané hodnoty.',
+}
+
+export const DODAVATELE = { firsen: FIRSEN, kliment: KLIMENT }
