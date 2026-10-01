@@ -3,6 +3,7 @@
 // k faktuře.
 //
 //   node chybejici.mjs --ico 24051705 --mesic 2026-09 [--poznamka "text"]... [--vystaveni 2026-10-01] [--ven slozka]
+//   --bez-vratek  nevypisovat vrácené platby zákazníkům (dobropisy dodá kancelář sama)
 import './lib/env.mjs'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -55,7 +56,9 @@ async function main() {
   const { data: pary } = await db.from('payment_matches').select('bank_transaction_id').in('bank_transaction_id', pohyby.map((t) => t.id))
   const sparovano = new Set((pary ?? []).map((p) => p.bank_transaction_id))
 
-  const chybi = pohyby.filter((t) => Number(t.amount) < 0 && !sparovano.has(t.id) && !t.no_document_needed && !NASE_UCTY.has(t.counterparty_account))
+  const jeVratka = (t) => /vraceni platby|vrácení platby/i.test(`${t.counterparty_name ?? ''} ${t.message ?? ''}`)
+  const chybi = pohyby.filter((t) => Number(t.amount) < 0 && !sparovano.has(t.id) && !t.no_document_needed && !NASE_UCTY.has(t.counterparty_account)
+    && !(args.includes('--bez-vratek') && jeVratka(t)))
   const vyplaty = k.pricing?.gopay_rozpad
     ? pohyby.filter((t) => Number(t.amount) > 0 && /gopay|vyuctovani/i.test(`${t.counterparty_name ?? ''} ${t.message ?? ''}`))
     : []
