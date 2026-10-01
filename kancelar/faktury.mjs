@@ -44,10 +44,22 @@ async function dalsiCislo(rok) {
 }
 
 const DRUH = {
-  received_invoice: 'Přijatá faktura', issued_invoice: 'Vydaná faktura', receipt: 'Účtenka',
-  bank_statement: 'Bankovní výpis', credit_note: 'Dobropis', advance_invoice: 'Zálohová faktura',
-  payroll: 'Mzdový doklad', internal: 'Interní doklad', other: 'Ostatní doklad',
+  received_invoice: ['přijatá faktura', 'přijaté faktury', 'přijatých faktur'],
+  issued_invoice: ['vydaná faktura', 'vydané faktury', 'vydaných faktur'],
+  receipt: ['účtenka', 'účtenky', 'účtenek'],
+  bank_statement: ['bankovní výpis', 'bankovní výpisy', 'bankovních výpisů'],
+  credit_note: ['dobropis', 'dobropisy', 'dobropisů'],
+  advance_invoice: ['zálohová faktura', 'zálohové faktury', 'zálohových faktur'],
+  payroll: ['mzdový doklad', 'mzdové doklady', 'mzdových dokladů'],
+  internal: ['interní doklad', 'interní doklady', 'interních dokladů'],
+  other: ['ostatní doklad', 'ostatní doklady', 'ostatních dokladů'],
 }
+const tvar = (n, [a, b, c]) => (n === 1 ? a : n >= 2 && n <= 4 ? b : c)
+const druhN = (k, n) => tvar(n, DRUH[k] ?? [k, k, k])
+const velke = (s) => s.charAt(0).toUpperCase() + s.slice(1)
+const MESICE = ['leden', 'únor', 'březen', 'duben', 'květen', 'červen', 'červenec', 'srpen', 'září', 'říjen', 'listopad', 'prosinec']
+const CSS = fs.readFileSync(new URL('./sablony/kliments.css', import.meta.url), 'utf8')
+const kc0 = (n) => Math.round(n).toLocaleString('cs-CZ')
 
 // Stejný výběr jako kl_podklady_mesic (0016_vyuctovani.sql)
 async function podkladyMesice(clientId, mesic) {
@@ -56,7 +68,7 @@ async function podkladyMesice(clientId, mesic) {
   const docs = []
   for (let od2 = 0; ; od2 += 1000) {
     const { data, error: e1 } = await db.from('documents')
-      .select('kind, status, counterparty_name, doc_number, taxable_date, issue_date, received_at, amount_czk, amount_total, currency')
+      .select('kind, status, counterparty_name, counterparty_ico, doc_number, taxable_date, issue_date, received_at, amount_czk, amount_total, currency')
       .eq('client_id', clientId).neq('kind', 'contract').not('status', 'in', '(duplicate,rejected)')
       .order('id').range(od2, od2 + 999)
     if (e1) throw new Error(`doklady: ${e1.message}`)
@@ -66,148 +78,244 @@ async function podkladyMesice(clientId, mesic) {
   const doklady = docs
     .map((d) => ({ ...d, datum: String(d.taxable_date ?? d.issue_date ?? d.received_at ?? '').slice(0, 10) }))
     .filter((d) => d.datum >= od && d.datum < doo)
-    .sort((a, b) => a.datum.localeCompare(b.datum) || String(a.kind).localeCompare(String(b.kind)))
   const { data: pohyby, error: e2 } = await db.from('bank_transactions')
-    .select('booked_on, amount, counterparty_name, var_symbol, message')
-    .eq('client_id', clientId).gte('booked_on', od).lt('booked_on', doo).order('booked_on')
+    .select('booked_on, amount').eq('client_id', clientId).gte('booked_on', od).lt('booked_on', doo)
   if (e2) throw new Error(`pohyby: ${e2.message}`)
   return { doklady, pohyby }
 }
 
-function prehled({ obdobi, doklady, pohyby, zamestnanci }) {
-  const souhrn = {}
-  for (const d of doklady) souhrn[d.kind] = (souhrn[d.kind] ?? 0) + 1
-  const radkySouhrnu = Object.entries(souhrn).sort((a, b) => b[1] - a[1])
-    .map(([k, n]) => `<tr><td>${esc(DRUH[k] ?? k)}</td><td class="cislice">${n}</td></tr>`).join('')
-  const castka = (d) => d.amount_czk ?? (d.currency === 'CZK' || !d.currency ? d.amount_total : null)
-  return `
-  <div class="zlom"></div>
-  <div class="hlava">
-    <div><div class="znacka"><b>firsen</b> s.r.o.</div><div class="pozn">Příloha k faktuře</div></div>
-    <div class="cislo">Přehled zpracovaných podkladů<br><b>${esc(obdobi)}</b></div>
-  </div>
-  <table class="souhrn levy">
-    ${radkySouhrnu}
-    <tr><td>Bankovní pohyby</td><td class="cislice">${pohyby.length}</td></tr>
-    <tr class="celkem"><td>Účetní podklady celkem</td><td class="cislice">${doklady.length + pohyby.length}</td></tr>
-  </table>
-  ${zamestnanci.length ? `<p class="pozn">Mzdová agenda: ${esc(zamestnanci.join(', '))}.</p>` : ''}
-  <h3>Doklady (${doklady.length})</h3>
-  <table class="polozky male">
-    <thead><tr><th>Datum</th><th>Druh</th><th>Protistrana</th><th>Číslo dokladu</th><th class="cislice">Částka Kč</th></tr></thead>
-    <tbody>${doklady.map((d) => `<tr><td>${den(d.datum)}</td><td>${esc(DRUH[d.kind] ?? d.kind)}</td><td>${esc(d.counterparty_name ?? '')}</td><td>${esc(d.doc_number ?? '')}</td><td class="cislice">${castka(d) != null ? kc(Number(castka(d))) : esc(d.currency ?? '')}</td></tr>`).join('')}</tbody>
-  </table>
-  <h3>Bankovní pohyby (${pohyby.length})</h3>
-  <table class="polozky male">
-    <thead><tr><th>Datum</th><th>Protistrana</th><th>VS</th><th>Zpráva</th><th class="cislice">Částka Kč</th></tr></thead>
-    <tbody>${pohyby.map((t) => `<tr><td>${den(t.booked_on)}</td><td>${esc(t.counterparty_name ?? '')}</td><td>${esc(t.var_symbol ?? '')}</td><td>${esc(String(t.message ?? '').slice(0, 60))}</td><td class="cislice">${kc(Number(t.amount))}</td></tr>`).join('')}</tbody>
-  </table>`
+function hlavicka() {
+  return `<header>
+    <div class="logo">Kliments<span>.</span></div>
+    <div class="contact">Josef Kliment · Business architekt<br><a>kliments.cz</a> · kliment.josef@email.cz · Ostrava</div>
+  </header>`
 }
 
-function html({ f, klient, polozky, zaklad, dph, celkem, qr, priloha = '' }) {
-  return `<!doctype html><html lang="cs"><head><meta charset="utf-8"><style>
-  @page { size: A4; margin: 16mm 14mm; }
-  * { box-sizing: border-box; }
-  body { font-family: 'Segoe UI', Arial, sans-serif; color: #1f1a18; font-size: 10.5pt; margin: 0; }
-  .hlava { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1f1a18; padding-bottom: 10px; }
-  .znacka { font-size: 20pt; font-weight: 300; letter-spacing: .01em; }
-  .znacka b { font-weight: 600; }
-  .tecka { color: #c97b84; }
-  .cislo { text-align: right; font-size: 13pt; }
-  .cislo b { font-size: 16pt; }
-  .strany { display: flex; gap: 24px; margin-top: 18px; }
-  .strana { flex: 1; }
-  .popisek { font-size: 7.5pt; letter-spacing: .12em; text-transform: uppercase; color: #8a807c; margin-bottom: 4px; }
-  .nazev { font-weight: 600; font-size: 11.5pt; }
-  table { width: 100%; border-collapse: collapse; }
-  .udaje td { padding: 2px 0; font-size: 9.5pt; }
-  .udaje td:first-child { color: #6b625e; padding-right: 12px; }
-  .polozky { margin-top: 22px; }
-  .polozky th { text-align: left; font-size: 8pt; letter-spacing: .08em; text-transform: uppercase; color: #8a807c; border-bottom: 1px solid #ddd6d2; padding: 6px 8px 6px 0; font-weight: 400; }
-  .polozky td { padding: 8px 8px 8px 0; border-bottom: 1px solid #f0eae6; vertical-align: top; }
-  .cislice { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .souhrn { margin-top: 14px; margin-left: auto; width: 62%; }
-  .souhrn td { padding: 3px 0; font-size: 10pt; }
-  .souhrn .celkem td { border-top: 2px solid #1f1a18; padding-top: 8px; font-size: 13pt; font-weight: 600; }
-  .paticka { margin-top: 26px; display: flex; justify-content: space-between; gap: 20px; align-items: flex-end; }
-  .pozn { font-size: 8pt; color: #6b625e; line-height: 1.45; }
-  .qr { text-align: center; font-size: 7.5pt; color: #6b625e; }
-  .qr img { width: 96px; height: 96px; }
-  .zlom { page-break-before: always; }
-  .souhrn.levy { margin-left: 0; width: 45%; margin-top: 18px; }
-  h3 { font-size: 10pt; letter-spacing: .06em; text-transform: uppercase; color: #6b625e; margin: 22px 0 0; font-weight: 600; }
-  .polozky.male { margin-top: 6px; }
-  .polozky.male td { font-size: 8.5pt; padding: 4px 8px 4px 0; }
-  .polozky.male th { font-size: 7pt; }
-  </style></head><body>
-  <div class="hlava">
-    <div>
-      <div class="znacka"><b>firsen</b> s.r.o.</div>
-      <div class="pozn">${esc(FIRSEN.rejstrik)}</div>
-    </div>
-    <div class="cislo">Faktura, daňový doklad<br><b>č. ${esc(f.cislo)}</b></div>
+function stranaFaktura({ f, klient, polozky, zaklad, dph, celkem, qr }) {
+  const adresa = esc(klient.address ?? '').replace(/, (\d{3} ?\d{2})/, '<br>$1')
+  return `<div class="page">
+  ${hlavicka()}
+  <div class="inv-head">
+    <div><div class="eyebrow">Faktura, daňový doklad</div><h1>Faktura <em>č. ${esc(f.cislo)}</em></h1></div>
+    <div class="inv-no"><div class="k">K úhradě</div><div class="v">${kc(celkem)} Kč</div></div>
   </div>
 
-  <div class="strany">
-    <div class="strana">
-      <div class="popisek">Dodavatel</div>
-      <div class="nazev">${esc(FIRSEN.nazev)}</div>
-      <div>${esc(FIRSEN.ulice)}<br>${esc(FIRSEN.mesto)}</div>
-      <table class="udaje"><tr><td>IČ</td><td>${esc(FIRSEN.ico)}</td></tr>
-      <tr><td>DIČ</td><td>${esc(FIRSEN.dic)}</td></tr>
-      <tr><td>Telefon</td><td>${esc(FIRSEN.telefon)}</td></tr>
-      <tr><td>E-mail</td><td>${esc(FIRSEN.email)}</td></tr></table>
+  <div class="grid2" style="margin-top:4mm">
+    <div class="card white party">
+      <div class="k">Dodavatel</div>
+      <div class="n">${esc(FIRSEN.nazev)}</div>
+      <p>${esc(FIRSEN.ulice)}<br>${esc(FIRSEN.mesto)}</p>
+      <p class="ids">IČ ${esc(FIRSEN.ico)} · DIČ ${esc(FIRSEN.dic)}<br>Plátce DPH<br>
+        Telefon ${esc(FIRSEN.telefon)}<br>E-mail ${esc(FIRSEN.email)}</p>
     </div>
-    <div class="strana">
-      <div class="popisek">Odběratel</div>
-      <div class="nazev">${esc(klient.name)}</div>
-      <div>${esc(klient.address ?? '')}</div>
-      <table class="udaje"><tr><td>IČ</td><td>${esc(klient.ico)}</td></tr>
-      ${klient.dic ? `<tr><td>DIČ</td><td>${esc(klient.dic)}</td></tr>` : ''}</table>
-    </div>
-    <div class="strana">
-      <div class="popisek">Platební údaje</div>
-      <table class="udaje">
-        <tr><td>Číslo účtu</td><td><b>${esc(FIRSEN.ucet)}</b></td></tr>
-        <tr><td>Variabilní symbol</td><td><b>${esc(f.cislo)}</b></td></tr>
-        <tr><td>Konstantní symbol</td><td>${esc(FIRSEN.konstantni_symbol)}</td></tr>
-        <tr><td>Forma úhrady</td><td>Převodem</td></tr>
-        <tr><td>Datum vystavení</td><td>${den(f.vystaveni)}</td></tr>
-        <tr><td>Datum plnění</td><td>${den(f.plneni)}</td></tr>
-        <tr><td>Splatnost</td><td><b>${den(f.splatnost)}</b></td></tr>
-      </table>
+    <div class="card white party buyer">
+      <div class="k">Odběratel</div>
+      <div class="n">${esc(klient.name)}</div>
+      <p>${adresa}</p>
+      <p class="ids">IČ ${esc(klient.ico)}${klient.dic ? ` · DIČ ${esc(klient.dic)}` : ''}</p>
     </div>
   </div>
 
-  <table class="polozky">
-    <thead><tr><th style="width:52%">Označení dodávky</th><th class="cislice">Cena bez DPH</th><th class="cislice">DPH</th><th class="cislice">Celkem</th></tr></thead>
-    <tbody>
-      ${polozky.map((p) => `<tr>
-        <td><b>${esc(p.nazev)}</b>${p.popis ? `<div class="pozn">${esc(p.popis)}</div>` : ''}</td>
-        <td class="cislice">${kc(p.cena)}</td>
-        <td class="cislice">${FIRSEN.sazba_dph} % · ${kc(p.cena * FIRSEN.sazba_dph / 100)}</td>
-        <td class="cislice">${kc(p.cena * (1 + FIRSEN.sazba_dph / 100))}</td>
-      </tr>`).join('')}
-    </tbody>
+  <div class="facts" style="margin-top:4mm">
+    <div class="fact"><div class="l">Datum vystavení</div><div class="v">${den(f.vystaveni)}</div></div>
+    <div class="fact"><div class="l">Datum plnění</div><div class="v">${den(f.plneni)}</div></div>
+    <div class="fact hl"><div class="l">Datum splatnosti</div><div class="v">${den(f.splatnost)}</div></div>
+    <div class="fact"><div class="l">Variabilní symbol</div><div class="v">${esc(f.cislo)}</div></div>
+    <div class="fact"><div class="l">Forma úhrady</div><div class="v">Příkazem</div></div>
+  </div>
+
+  <div class="sec-num" style="margin-top:6mm">01</div>
+  <h2>Předmět <em>fakturace</em></h2>
+  <table class="price items">
+    <tr><th>Označení dodávky</th><th class="r">Základ</th><th class="r">DPH ${FIRSEN.sazba_dph} %</th><th class="r">Kč celkem</th></tr>
+    ${polozky.map((p) => `<tr><td>${esc(p.nazev)}<span class="sub">${esc(p.popis ?? '')}</span></td>
+      <td class="r">${kc(p.cena)}</td><td class="r">${kc(Math.round(p.cena * FIRSEN.sazba_dph) / 100)}</td>
+      <td class="r amt">${kc(Math.round(p.cena * (100 + FIRSEN.sazba_dph)) / 100)}</td></tr>`).join('')}
+    <tr class="tot"><td>Celkem k úhradě</td><td class="r">${kc(zaklad)}</td><td class="r">${kc(dph)}</td><td class="r">${kc(celkem)} Kč</td></tr>
   </table>
+  <div class="recap">Rekapitulace DPH: základ daně ${kc(zaklad)} Kč, sazba ${FIRSEN.sazba_dph} %, daň ${kc(dph)} Kč, celkem ${kc(celkem)} Kč.</div>
 
-  <table class="souhrn">
-    <tr><td>Základ daně</td><td class="cislice">${kc(zaklad)} Kč</td></tr>
-    <tr><td>DPH ${FIRSEN.sazba_dph} %</td><td class="cislice">${kc(dph)} Kč</td></tr>
-    <tr class="celkem"><td>Celkem k úhradě</td><td class="cislice">${kc(celkem)} Kč</td></tr>
-  </table>
-
-  <div class="paticka">
-    <div class="pozn">
-      Vystavil: ${esc(FIRSEN.vystavil)}<br>
-      ${esc(FIRSEN.banka)} · IBAN ${esc(FIRSEN.iban)} · SWIFT ${esc(FIRSEN.swift)}<br>
-      Při nedodržení splatnosti účtujeme úrok z prodlení v zákonné výši.
-    </div>
-    ${qr ? `<div class="qr"><img src="${qr}"><div>QR platba</div></div>` : ''}
+  <div class="sec-num" style="margin-top:6mm">02</div>
+  <h2>Platební <em>údaje</em></h2>
+  <div class="pay">
+    <div class="card white"><div class="paydata">
+      <div class="l">Číslo účtu</div><div class="v">${esc(FIRSEN.ucet)}</div>
+      <div class="l">Banka</div><div class="v">${esc(FIRSEN.banka)}</div>
+      <div class="l">IBAN</div><div class="v">${esc(FIRSEN.iban.replace(/(.{4})/g, '$1 ').trim())}</div>
+      <div class="l">SWIFT</div><div class="v">${esc(FIRSEN.swift)}</div>
+      <div class="l">Variabilní symbol</div><div class="v">${esc(f.cislo)}</div>
+      <div class="l">Konstantní symbol</div><div class="v">${esc(FIRSEN.konstantni_symbol)}</div>
+      <div class="l">Částka</div><div class="v">${kc(celkem)} Kč</div>
+      <div class="l">Splatnost</div><div class="v">${den(f.splatnost)}</div>
+    </div></div>
+    <div class="qr">${qr ? `<img src="${qr}">` : ''}<div class="l">QR platba</div></div>
   </div>
-  ${priloha}
-  </body></html>`
+
+  <div class="dark" style="margin-top:4mm">
+    <h3>Děkuji za <em>úhradu.</em></h3>
+    <p>Fakturu vystavil ${esc(FIRSEN.vystavil)} za ${esc(FIRSEN.nazev)}, zapsanou v obchodním rejstříku vedeném Městským soudem v Praze, oddíl C, vložka 259717. Přehled zpracovaných podkladů za fakturované období je na další straně.</p>
+    <div class="fine">V případě nedodržení data splatnosti uvedeného na faktuře si dovolujeme účtovat úrok z prodlení v dohodnuté, resp. zákonné výši a smluvní pokutu, byla-li sjednána.</div>
+  </div>
+  <footer><span>Kliments. · ${esc(FIRSEN.nazev)} · kliments.cz</span><span>Faktura ${esc(f.cislo)} · 1 / 2</span></footer>
+</div>`
 }
+
+function stranaPrehled({ f, klient, mesic, v, doklady, pohyby, polozky, zaklad, dph, celkem, zamestnanci, pasmo }) {
+  const m = new Date(mesic)
+  const mesicSlovem = `${MESICE[m.getUTCMonth()]} ${m.getUTCFullYear()}`
+  const nazevKratky = esc(klient.name.replace(/,?\s*(s\.\s?r\.\s?o\.|a\.\s?s\.|spol\. s r\. o\.)\s*$/i, ''))
+  const castka = (d) => Number(d.amount_czk ?? (d.currency === 'CZK' || !d.currency ? d.amount_total : 0) ?? 0)
+  const skup = {}
+  for (const d of doklady) {
+    skup[d.kind] ??= { n: 0, suma: 0 }
+    skup[d.kind].n += 1
+    skup[d.kind].suma += castka(d)
+  }
+  const prijmy = pohyby.filter((t) => Number(t.amount) > 0)
+  const vydaje = pohyby.filter((t) => Number(t.amount) < 0)
+  const sum = (a) => a.reduce((s, t) => s + Math.abs(Number(t.amount)), 0)
+  const dodavatelu = new Set(doklady.filter((d) => d.kind === 'received_invoice').map((d) => d.counterparty_name)).size
+  const odberatelu = new Set(doklady.filter((d) => d.kind === 'issued_invoice').map((d) => d.counterparty_name)).size
+  const poradi = ['received_invoice', 'issued_invoice', 'receipt', 'credit_note', 'advance_invoice', 'payroll', 'internal', 'bank_statement', 'other']
+  const druhy = Object.keys(skup).sort((a, b) => poradi.indexOf(a) - poradi.indexOf(b))
+  const radkyDoklady = druhy.map((k) => `<li>${skup[k].n} ${druhN(k, skup[k].n)}${['received_invoice', 'issued_invoice', 'receipt', 'credit_note'].includes(k) && skup[k].suma ? ` za ${kc0(skup[k].suma)} Kč` : ''}</li>`).join('')
+  const stat4 = zamestnanci.length
+    ? `<div class="stat"><div class="v">${zamestnanci.reduce((s, z) => s + z.pocet, 0)}</div><div class="l">Zaměstnanci</div></div>`
+    : `<div class="stat"><div class="v">${dodavatelu + odberatelu}</div><div class="l">Obchodní partneři</div></div>`
+  const tretiKarta = zamestnanci.length
+    ? `<div class="card"><div class="num">03</div><div class="t">Mzdová agenda</div><ul class="dash">
+        ${zamestnanci.map((z) => `<li>mzda ${z.pocet} ${z.pocet === 1 ? 'zaměstnance' : 'zaměstnanců'} ${z.text}</li>`).join('')}
+        <li>výpočet mzdy, daně a pojistného</li><li>podklady k výplatě</li></ul></div>`
+    : `<div class="card"><div class="num">03</div><div class="t">Kontrola a archiv</div><ul class="dash">
+        <li>kontrola úplnosti a správnosti podkladů</li><li>doklady uložené v portálu Kliments</li><li>upozornění na chybějící doklady</li></ul></div>`
+  return `<div class="page prehled">
+  ${hlavicka()}
+  <div class="eyebrow">Přehled zpracování</div>
+  <h1>Účetnictví ${nazevKratky} <em>${esc(mesicSlovem)}</em></h1>
+  <p class="lead">Co se v účetnictví za ${esc(mesicSlovem)} zpracovalo a z čeho vychází fakturovaná cena.</p>
+  <div class="chips">
+    <div class="chip">Pro <b>${esc(klient.name)}</b></div>
+    <div class="chip">IČO <b>${esc(klient.ico)}</b></div>
+    <div class="chip">Faktura <b>č. ${esc(f.cislo)}</b></div>
+    <div class="chip">Zpracováno <b>${den(f.vystaveni)}</b></div>
+  </div>
+
+  <div class="sec-num" style="margin-top:4mm">01</div>
+  <h2>Rozsah <em>v číslech</em></h2>
+  <div class="grid4">
+    <div class="stat"><div class="v">${doklady.length + pohyby.length}</div><div class="l">Účetní podklady</div></div>
+    <div class="stat"><div class="v">${doklady.length}</div><div class="l">Doklady</div></div>
+    <div class="stat"><div class="v">${pohyby.length}</div><div class="l">Bankovní pohyby</div></div>
+    ${stat4}
+  </div>
+
+  <div class="sec-num" style="margin-top:4mm">02</div>
+  <h2>Co práce <em>zahrnuje</em></h2>
+  <div class="grid3">
+    <div class="card"><div class="num">01</div><div class="t">Zaúčtování dokladů</div><ul class="dash">${radkyDoklady}</ul></div>
+    <div class="card"><div class="num">02</div><div class="t">Banka</div><ul class="dash">
+      <li>${pohyby.length} ${tvar(pohyby.length, ['bankovní pohyb', 'bankovní pohyby', 'bankovních pohybů'])}</li>
+      <li>příjmy ${kc0(sum(prijmy))} Kč (${prijmy.length})</li>
+      <li>výdaje ${kc0(sum(vydaje))} Kč (${vydaje.length})</li>
+      <li>párování plateb s doklady</li></ul></div>
+    ${tretiKarta}
+  </div>
+
+  <div class="sec-num" style="margin-top:4mm">03</div>
+  <h2>Doklady <em>podle druhu</em></h2>
+  <table class="price compact">
+    <tr><th>Druh podkladu</th><th class="r">Počet</th><th class="r">Hodnota Kč</th></tr>
+    ${druhy.map((k) => `<tr><td>${esc(velke(DRUH[k]?.[1] ?? k))}</td><td class="r">${skup[k].n}</td><td class="r">${['bank_statement', 'other'].includes(k) ? '' : kc0(skup[k].suma)}</td></tr>`).join('')}
+    <tr><td>Bankovní pohyby</td><td class="r">${pohyby.length}</td><td class="r"></td></tr>
+    <tr class="tot"><td>Účetní podklady celkem</td><td class="r">${doklady.length + pohyby.length}</td><td></td></tr>
+  </table>
+
+  <div class="sec-num" style="margin-top:4mm">04</div>
+  <h2>Cena</h2>
+  <div class="pricebox">
+    <table class="price compact">
+      <tr><th>Položka</th><th class="r">Množství</th><th class="r">Sazba</th><th class="r">Cena</th></tr>
+      <tr><td>Vedení účetnictví<span class="sub">${esc(v.zaklad_nazev)}</span></td>
+        <td class="r">${v.jednotek} podkladů</td><td class="r">${esc(pasmo)}</td><td class="r amt">${kc0(polozky[0].cena)} Kč</td></tr>
+      ${polozky.slice(1).map((p) => `<tr><td>${esc(p.nazev.replace(/ \d+\/\d{4}$/, ''))}<span class="sub">${esc(p.popis ?? '')}</span></td>
+        <td class="r">${p.pocet} ×</td><td class="r">${kc0(p.sazba)} Kč</td><td class="r amt">${kc0(p.cena)} Kč</td></tr>`).join('')}
+      <tr><td>Základ daně</td><td></td><td></td><td class="r">${kc0(zaklad)} Kč</td></tr>
+      <tr><td>DPH ${FIRSEN.sazba_dph} %</td><td></td><td></td><td class="r">${kc(dph)} Kč</td></tr>
+      <tr class="tot"><td>Celkem s DPH</td><td></td><td></td><td class="r">${kc(celkem)} Kč</td></tr>
+    </table>
+    <div class="total">
+      <div class="badge">CELKEM</div>
+      <div class="k">Účetnictví</div>
+      <div class="t">${esc(klient.name)}<br>${esc(mesicSlovem)}</div>
+      <div class="p">${kc0(celkem)} Kč</div>
+      <div class="s">včetně DPH, splatnost ${den(f.splatnost)}</div>
+    </div>
+  </div>
+
+  <div class="dark slim" style="margin-top:4mm">
+    <div><h3>Děkuji za <em>spolupráci.</em></h3>
+    <div class="fine">Příloha k faktuře č. ${esc(f.cislo)}. Počet podkladů vychází z dokladů a bankovních pohybů evidovaných za ${esc(mesicSlovem)}.</div></div>
+    <div class="who">Josef Kliment<span>·</span>kliment.josef@email.cz</div>
+  </div>
+  <footer><span>Kliments. · ${esc(FIRSEN.nazev)} · kliments.cz</span><span>Faktura ${esc(f.cislo)} · 2 / 2</span></footer>
+</div>`
+}
+
+function html(d) {
+  return `<!doctype html><html lang="cs"><head><meta charset="utf-8">
+<title>Faktura ${esc(d.f.cislo)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400;1,600&family=Outfit:wght@300;400;500&display=swap" rel="stylesheet">
+<style>${CSS}
+  .inv-head { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 1.5mm; }
+  .inv-no { text-align: right; }
+  .inv-no .k { font-size: 6.6pt; letter-spacing: 1.6px; text-transform: uppercase; color: var(--muted); }
+  .inv-no .v { font-family: 'Lora', serif; font-size: 16pt; }
+  .party .k { font-size: 6.6pt; letter-spacing: 1.6px; text-transform: uppercase; color: var(--rose-deep); }
+  .party .n { font-family: 'Lora', serif; font-size: 13pt; margin: 0.8mm 0 1.2mm; }
+  .party p { font-size: 8.4pt; line-height: 1.55; color: var(--ink-soft); }
+  .party .ids { margin-top: 1.6mm; padding-top: 1.6mm; border-top: 1px solid var(--line); }
+  .party.buyer { border: 1.5px solid var(--rose); }
+  .facts { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2.5mm; }
+  .fact { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 2.4mm 3mm; }
+  .fact .l { font-size: 6pt; letter-spacing: 0.7px; white-space: nowrap; text-transform: uppercase; color: var(--muted); }
+  .fact .v { font-family: 'Lora', serif; font-size: 12pt; margin-top: 0.6mm; white-space: nowrap; }
+  .fact.hl { border-color: var(--rose); }
+  .fact.hl .v { color: var(--rose-deep); }
+  table.items td { font-size: 9pt; padding: 3mm; }
+  table.items tr.tot td { font-size: 9.4pt; }
+  table.price.compact td { padding: 1.05mm 3mm; }
+  table.price.compact th { padding: 1.8mm 3mm 1.2mm; }
+  table.items td { padding: 2.4mm 3mm; }
+  .party p { font-size: 8pt; }
+  .page h1 { font-size: 21pt; }
+  .stat .v { font-size: 16pt; }
+  .prehled .sec-num { margin-top: 2.6mm !important; }
+  .prehled h2 { font-size: 13pt; margin-bottom: 1.4mm; }
+  .prehled .lead { margin-top: 1.6mm; }
+  .prehled .chips { margin-top: 2.4mm; }
+  .prehled .stat { padding: 1.7mm 3.5mm; }
+  .prehled .card { padding: 2.4mm 3.2mm; }
+  .prehled table.price.compact td { padding: 0.75mm 3mm; }
+  .prehled .total { padding: 3mm 4mm; }
+  .prehled .total .p { font-size: 22pt; }
+  .prehled .dark.slim { margin-top: 3mm !important; }  .recap { font-size: 7pt; color: var(--muted); margin-top: 1.4mm; }
+  .pay { display: grid; grid-template-columns: 1fr 44mm; gap: 3.5mm; align-items: stretch; }
+  .paydata { display: grid; grid-template-columns: 30mm 1fr; row-gap: 1.3mm; font-size: 8.4pt; }
+  .paydata .l { color: var(--muted); }
+  .paydata .v { font-weight: 500; }
+  .qr { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 3mm;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .qr img { width: 34mm; height: 34mm; }
+  .qr .l { font-size: 6.4pt; letter-spacing: 1.4px; text-transform: uppercase; color: var(--rose-deep); margin-top: 1.2mm; }
+  .dark.slim { padding: 3mm 6mm; display: flex; justify-content: space-between; align-items: center; gap: 6mm; }
+  .dark.slim .fine { margin-top: 0.8mm; }
+  .dark.slim .who { margin-top: 0; white-space: nowrap; }
+</style></head><body>
+${stranaFaktura(d)}
+${stranaPrehled(d)}
+</body></html>`
+}
+
 
 async function qrKod(castka, vs) {
   try {
@@ -240,7 +348,7 @@ export async function vystavFakturu({ ico, mesic, cislo, nahled = false, vystave
     nazev: `Vedení účetnictví ${obdobi}`,
     popis: k.pricing.model === 'pausal'
       ? `${v.zaklad_nazev}${k.vat_payer ? ', včetně příplatku za plátcovství DPH' : ''}`
-      : `${v.zaklad_nazev}: ${v.jednotek} (doklady ${v.podklady.dokladu}, bankovní pohyby ${v.podklady.pohybu}), rozpis v příloze`,
+      : `${v.zaklad_nazev}: ${v.jednotek} (doklady ${v.podklady.dokladu}, bankovní pohyby ${v.podklady.pohybu})`,
     cena: Number(v.cena),
   }]
   const pri = k.pricing.priplatky ?? {}
@@ -248,15 +356,34 @@ export async function vystavFakturu({ ico, mesic, cislo, nahled = false, vystave
   for (const [druh, pocet, sazba, text] of [['DPP', dpp, pri.dpp, 'dohoda o provedení práce'], ['HPP', hpp, pri.hpp, 'pracovní poměr']]) {
     if (!pocet) continue
     if (sazba == null) throw new Error(`${k.name}: ceník nemá příplatek za ${druh}`)
-    polozky.push({ nazev: `Mzdová agenda ${obdobi}`, popis: `Zaměstnanec (${text}): ${pocet} × ${kc(Number(sazba))} Kč`, cena: Number(sazba) * pocet })
-    zamestnanci.push(`${pocet} ${druh === 'DPP' ? 'zaměstnanec na dohodu o provedení práce' : 'zaměstnanec v pracovním poměru'}`)
+    polozky.push({ nazev: `Mzdová agenda ${obdobi}`, popis: `zaměstnanec, ${text}`, cena: Number(sazba) * pocet, pocet, sazba: Number(sazba) })
+    zamestnanci.push({ pocet, text: druh === 'DPP' ? 'na dohodu o provedení práce' : 'v pracovním poměru' })
   }
 
-  const { doklady, pohyby } = await podkladyMesice(k.id, mesic)
+  const nacteno = await podkladyMesice(k.id, mesic)
+  // faktura se nepočítá sama do sebe (při opakovaném vystavení už je mezi doklady klienta)
+  const vlastni = (d) => d.counterparty_ico === FIRSEN.ico && d.doc_number === f.cislo
+  const doklady = nacteno.doklady.filter((d) => !vlastni(d))
+  const pohyby = nacteno.pohyby
+  const bezSebe = nacteno.doklady.length - doklady.length
+  if (bezSebe) {
+    v.jednotek = Number(v.jednotek) - bezSebe
+    v.podklady = { ...v.podklady, dokladu: Number(v.podklady.dokladu) - bezSebe }
+    if (k.pricing.model !== 'pausal') {
+      const p = (k.pricing.pasma ?? []).map((x) => ({ do: Number(x.do), cena: Number(x.cena) })).sort((x, y) => x.do - y.do).find((x) => v.jednotek <= x.do)
+      if (!p) throw new Error(`${k.name}: ${v.jednotek} podkladů je nad rámec ceníku`)
+      v.cena = p.cena
+      polozky[0].cena = p.cena
+      polozky[0].popis = `${v.zaklad_nazev}: ${v.jednotek} (doklady ${v.podklady.dokladu}, bankovní pohyby ${v.podklady.pohybu})`
+    }
+  }
   if (doklady.length + pohyby.length !== Number(v.jednotek) && !String(v.zaklad_nazev).match(/bankovních pohybů/i)) {
     throw new Error(`${k.name}: přehled (${doklady.length + pohyby.length}) nesedí na vyúčtování (${v.jednotek})`)
   }
-  const priloha = prehled({ obdobi, doklady, pohyby, zamestnanci })
+  const pasma = (k.pricing.pasma ?? []).map((x) => Number(x.do)).sort((x, y) => x - y)
+  const horni = pasma.find((x) => Number(v.jednotek) <= x)
+  const dolni = horni != null ? (pasma[pasma.indexOf(horni) - 1] ?? -1) + 1 : null
+  const pasmo = k.pricing.model === 'pausal' ? 'paušál' : horni != null ? `pásmo ${dolni} až ${horni}` : 'dohodou'
   const zaklad = polozky.reduce((s, p) => s + p.cena, 0)
   const dph = Math.round(zaklad * FIRSEN.sazba_dph) / 100
   const celkem = zaklad + dph
@@ -265,12 +392,13 @@ export async function vystavFakturu({ ico, mesic, cislo, nahled = false, vystave
   const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'kliments-faktura-'))
   const htmlPath = path.join(dir, 'faktura.html')
   const pdfPath = path.join(dir, `${f.cislo}.pdf`)
-  await fs.promises.writeFile(htmlPath, html({ f, klient: k, polozky, zaklad, dph, celkem, qr, priloha }), 'utf8')
+  await fs.promises.writeFile(htmlPath, html({ f, klient: k, mesic, v, doklady, pohyby, polozky, zaklad, dph, celkem, qr, zamestnanci, pasmo }), 'utf8')
   const browser = await chromium.launch()
   try {
     const page = await browser.newPage()
-    await page.goto(`file://${htmlPath.replace(/\\/g, '/')}`, { waitUntil: 'load' })
-    await page.pdf({ path: pdfPath, format: 'A4', printBackground: true })
+    await page.goto(`file://${htmlPath.replace(/\\/g, '/')}`, { waitUntil: 'networkidle' })
+    await page.evaluate(() => document.fonts.ready)
+    await page.pdf({ path: pdfPath, format: 'A4', printBackground: true, preferCSSPageSize: true })
   } finally {
     await browser.close()
   }
@@ -282,7 +410,11 @@ export async function vystavFakturu({ ico, mesic, cislo, nahled = false, vystave
   if (se) throw new Error(`úložiště: ${se.message}`)
 
   // doklad pro klienta: přijatá faktura od firsen
-  const { data: doklad, error: de } = await db.from('documents').upsert({
+  // opakované vystavení téhož čísla přepíše existující doklad, nezakládá nový
+  const { data: puvodni } = await db.from('documents').select('id')
+    .eq('client_id', k.id).eq('counterparty_ico', FIRSEN.ico).eq('doc_number', f.cislo).limit(1)
+  const zaznam = {
+    ...(puvodni?.[0] ? { id: puvodni[0].id } : {}),
     client_id: k.id, kind: 'received_invoice', source: 'generated', status: 'reviewed',
     storage_path: cesta, file_name: `${f.cislo}.pdf`, mime_type: 'application/pdf',
     counterparty_name: FIRSEN.nazev, counterparty_ico: FIRSEN.ico, counterparty_dic: FIRSEN.dic,
@@ -295,7 +427,8 @@ export async function vystavFakturu({ ico, mesic, cislo, nahled = false, vystave
     supplier_bank_account: FIRSEN.ucet,
     description: polozky[0].popis, extraction_method: 'generated',
     note: 'Faktura za vedení účetnictví vystavená kanceláří Kliments',
-  }, { onConflict: 'client_id,file_sha256', ignoreDuplicates: false }).select('id').single()
+  }
+  const { data: doklad, error: de } = await db.from('documents').upsert(zaznam, { onConflict: 'id' }).select('id').single()
   if (de) throw new Error(`doklad: ${de.message}`)
 
   const { error: be } = await db.from('billing_runs').upsert({
