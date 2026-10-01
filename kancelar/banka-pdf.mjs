@@ -42,6 +42,7 @@ const Vypis = z.object({
     typ: z.string().describe('Typ transakce podle výpisu'),
     puvodni_castka: z.number().nullable().describe('Částka v cizí měně u karetních plateb'),
     puvodni_mena: z.string(),
+    id_transakce: z.string().describe('Identifikátor transakce banky, pokud ho výpis u pohybu uvádí (např. 9559685863), jinak prázdné'),
   })),
 })
 const { $schema, ...SCHEMA_OBJ } = z.toJSONSchema(Vypis)
@@ -58,6 +59,7 @@ async function prectiVypis(soubor, nazev) {
 Vypiš VŠECHNY pohyby na účtu, žádný nevynechej, v pořadí jak jsou ve výpisu.
 Částky opisuj přesně: příjem kladně, výdaj záporně. Co ve výpisu není, nech prázdné.
 U karetních plateb dej do pole zprava jméno obchodníka a místo.
+Pokud výpis u pohybu uvádí identifikátor transakce banky, opiš ho do pole id_transakce.
 Součty příjmů a výdajů opiš z výpisu, ne z vlastního sčítání.`
     const env = { ...process.env }
     delete env.ANTHROPIC_API_KEY
@@ -117,7 +119,9 @@ export async function nactiVypisyZDokladu({ ico, doklad, nasucho = NASUCHO, log 
           var_symbol: prazdne(p.variabilni_symbol), const_symbol: prazdne(p.konstantni_symbol),
           message: prazdne(p.zprava), tx_type: prazdne(p.typ),
           original_amount: p.puvodni_castka, original_currency: prazdne(p.puvodni_mena),
-          dedup_key: `pdf:${otisk}:${poradi.get(otisk)}`,
+          // stejný klíč jako banka-csv.mjs, aby se pohyb z CSV a z PDF výpisu nezdvojil
+          bank_tx_id: prazdne(p.id_transakce),
+          dedup_key: prazdne(p.id_transakce) ? `id:${p.id_transakce.trim()}` : `pdf:${otisk}:${poradi.get(otisk)}`,
           statement_document_id: v.id,
           category: /kart|internet/i.test(p.typ ?? '') ? 'card' : /poplat/i.test(`${p.typ} ${p.zprava}`) ? 'bank_fee' : null,
           raw: p,
