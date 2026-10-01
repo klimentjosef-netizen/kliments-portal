@@ -133,7 +133,6 @@ function stranaFaktura({ f, klient, polozky, zaklad, dph, celkem, qr }) {
       <td class="r amt">${kc(Math.round(p.cena * (100 + FIRSEN.sazba_dph)) / 100)}</td></tr>`).join('')}
     <tr class="tot"><td>Celkem k úhradě</td><td class="r">${kc(zaklad)}</td><td class="r">${kc(dph)}</td><td class="r">${kc(celkem)} Kč</td></tr>
   </table>
-  <div class="recap">Rekapitulace DPH: základ daně ${kc(zaklad)} Kč, sazba ${FIRSEN.sazba_dph} %, daň ${kc(dph)} Kč, celkem ${kc(celkem)} Kč.</div>
 
   <div class="sec-num" style="margin-top:6mm">02</div>
   <h2>Platební <em>údaje</em></h2>
@@ -160,7 +159,7 @@ function stranaFaktura({ f, klient, polozky, zaklad, dph, celkem, qr }) {
 </div>`
 }
 
-function stranaPrehled({ f, klient, mesic, v, doklady, pohyby, polozky, zaklad, dph, celkem, zamestnanci, pasmo }) {
+function stranaPrehled({ f, klient, mesic, v, doklady, pohyby, polozky, zaklad, dph, celkem, zamestnanci, pasmo, smluvni }) {
   const m = new Date(mesic)
   const mesicSlovem = `${MESICE[m.getUTCMonth()]} ${m.getUTCFullYear()}`
   const nazevKratky = esc(klient.name.replace(/,?\s*(s\.\s?r\.\s?o\.|a\.\s?s\.|spol\. s r\. o\.)\s*$/i, ''))
@@ -231,13 +230,14 @@ function stranaPrehled({ f, klient, mesic, v, doklady, pohyby, polozky, zaklad, 
   </table>
 
   <div class="sec-num" style="margin-top:4mm">04</div>
-  <h2>Cena</h2>
+  <h2>Cena <em>podle smlouvy</em></h2>
+  <p class="smluvni">${esc(smluvni)}</p>
   <div class="pricebox">
     <table class="price compact">
       <tr><th>Položka</th><th class="r">Množství</th><th class="r">Sazba</th><th class="r">Cena</th></tr>
-      <tr><td>Vedení účetnictví<span class="sub">${esc(v.zaklad_nazev)}</span></td>
+      <tr><td>Vedení účetnictví</td>
         <td class="r">${v.jednotek} podkladů</td><td class="r">${esc(pasmo)}</td><td class="r amt">${kc0(polozky[0].cena)} Kč</td></tr>
-      ${polozky.slice(1).map((p) => `<tr><td>${esc(p.nazev.replace(/ \d+\/\d{4}$/, ''))}<span class="sub">${esc(p.popis ?? '')}</span></td>
+      ${polozky.slice(1).map((p) => `<tr><td>${esc(p.nazev.replace(/ \d+\/\d{4}$/, ''))}<span class="sub">${esc(p.kratky ?? p.popis ?? '')}</span></td>
         <td class="r">${p.pocet} ×</td><td class="r">${kc0(p.sazba)} Kč</td><td class="r amt">${kc0(p.cena)} Kč</td></tr>`).join('')}
       <tr><td>Základ daně</td><td></td><td></td><td class="r">${kc0(zaklad)} Kč</td></tr>
       <tr><td>DPH ${FIRSEN.sazba_dph} %</td><td></td><td></td><td class="r">${kc(dph)} Kč</td></tr>
@@ -289,6 +289,7 @@ function html(d) {
   .party p { font-size: 8pt; }
   .page h1 { font-size: 21pt; }
   .stat .v { font-size: 16pt; }
+  .smluvni { font-size: 7.9pt; color: var(--ink-soft); margin: -0.6mm 0 2mm; line-height: 1.45; }
   .prehled .sec-num { margin-top: 2.6mm !important; }
   .prehled h2 { font-size: 13pt; margin-bottom: 1.4mm; }
   .prehled .lead { margin-top: 1.6mm; }
@@ -384,6 +385,23 @@ export async function vystavFakturu({ ico, mesic, cislo, nahled = false, vystave
   const horni = pasma.find((x) => Number(v.jednotek) <= x)
   const dolni = horni != null ? (pasma[pasma.indexOf(horni) - 1] ?? -1) + 1 : null
   const pasmo = k.pricing.model === 'pausal' ? 'paušál' : horni != null ? `pásmo ${dolni} až ${horni}` : 'dohodou'
+
+  // odvolání na smlouvu: do kterého pásma paušálu rozsah spadá
+  const smlouva = k.pricing.smlouva_clanek ? `čl. ${k.pricing.smlouva_clanek} Smlouvy o vedení účetnictví` : 'Smlouvy o vedení účetnictví'
+  const mesicText = `${MESICE[new Date(mesic).getUTCMonth()]} ${new Date(mesic).getUTCFullYear()}`
+  let smluvni
+  if (k.pricing.model === 'pausal') {
+    smluvni = `Podle ${smlouva} se účtuje pevný měsíční paušál ${kc0(polozky[0].cena)} Kč bez DPH.`
+  } else {
+    polozky[0].popis = `měsíční paušál podle ${smlouva}: ${v.jednotek} podkladů, ${pasmo}`
+    smluvni = `Podle ${smlouva} se výše měsíčního paušálu odvíjí od počtu zpracovaných účetních podkladů v kalendářním měsíci. `
+      + `Za ${mesicText} bylo zpracováno ${v.jednotek} podkladů, rozsah tedy spadá do pásma ${dolni} až ${horni} podkladů s měsíčním paušálem ${kc0(polozky[0].cena)} Kč bez DPH.`
+  }
+  for (const p of polozky.slice(1)) {
+    p.kratky = p.popis
+    p.popis = `${p.pocet} × ${p.popis.replace(/^zaměstnanec, /, '')}, ${kc0(p.sazba)} Kč za osobu podle ${smlouva}`
+    smluvni += ` Zpracování mzdy zaměstnance (${p.kratky.replace(/^zaměstnanec, /, '')}) se podle téže smlouvy účtuje ${kc0(p.sazba)} Kč za osobu a měsíc.`
+  }
   const zaklad = polozky.reduce((s, p) => s + p.cena, 0)
   const dph = Math.round(zaklad * FIRSEN.sazba_dph) / 100
   const celkem = zaklad + dph
@@ -392,7 +410,7 @@ export async function vystavFakturu({ ico, mesic, cislo, nahled = false, vystave
   const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'kliments-faktura-'))
   const htmlPath = path.join(dir, 'faktura.html')
   const pdfPath = path.join(dir, `${f.cislo}.pdf`)
-  await fs.promises.writeFile(htmlPath, html({ f, klient: k, mesic, v, doklady, pohyby, polozky, zaklad, dph, celkem, qr, zamestnanci, pasmo }), 'utf8')
+  await fs.promises.writeFile(htmlPath, html({ f, klient: k, mesic, v, doklady, pohyby, polozky, zaklad, dph, celkem, qr, zamestnanci, pasmo, smluvni }), 'utf8')
   const browser = await chromium.launch()
   try {
     const page = await browser.newPage()
