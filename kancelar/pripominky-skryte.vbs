@@ -1,0 +1,1 @@
+CreateObject("WScript.Shell").Run "cmd /c cd /d ""C:\Users\klime\projects\kliments-portal\kancelar"" && node pripominky.mjs >> ""C:\Users\klime\projects\kliments-portal\kancelar\logy\pripominky.log"" 2>&1", 0, True
