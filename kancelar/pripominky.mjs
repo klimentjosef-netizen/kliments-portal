@@ -23,8 +23,23 @@ firsen@email.cz
 www.firsen.cz
 `
 
-// Připomínky: zatím jen Maliiisa (pokyn 4. 10. 2026)
+// Připomínky: Maliiisa a Media Level (pokyn 4. 10. 2026)
 const PRIPOMINKY = [
+  {
+    id: 'medialevel-mzdy',
+    den: 1,
+    komu: 'marketa@medialevel.cz',
+    predmet: (m) => `Media Level · podklady k odměně Natálie za ${m.mm}/${m.rok}`,
+    text: (m) => `Ahoj, začal ${m.novy} a potřebuji podklady k odměně Natálie Vránové za ${m.nazev} ${m.rok}:
+
+- potvrzení výše odměny (podle dohody 10 000 Kč),
+- počet hodin, které Natálie v ${m.nazev6} odpracovala, kvůli ročnímu limitu 300 hodin u dohody,
+- jakékoli změny, například ukončení dohody nebo nového pracovníka.
+
+Díky
+
+${PODPIS}`,
+  },
   {
     id: 'maliiisa-mzdy',
     den: 1,
