@@ -4,11 +4,13 @@
 //
 //   node faktury.mjs --mesic 2026-08 [--ico 24052477] [--cislo 2026080] [--nahled]
 //                    [--vystaveni 2026-10-01] [--splatnost 2026-10-15] [--dpp 1] [--hpp 0]
-//                    [--dodavatel firsen|kliment]
+//                    [--dodavatel firsen|kliment] [--odhad 68] [--polozka "Název|popis|cena bez DPH"]...
 //
 // Faktura se vystavuje 10. dne následujícího měsíce se splatností podle smlouvy,
 // --vystaveni ji vystaví k jinému dni. --dpp/--hpp přidá příplatek za zaměstnance
-// podle ceníku. Za fakturou následuje přehled zpracovaných podkladů za měsíc
+// podle ceníku. --odhad určí pásmo podle předpokládaného počtu podkladů (když klient ještě
+// nedodal doklady a fakturu je potřeba vystavit dřív), --polozka přidá vlastní položku.
+// Za fakturou následuje přehled zpracovaných podkladů za měsíc
 // (stejný výběr jako kl_podklady_mesic, takže počty sedí na fakturovaný rozsah).
 import './lib/env.mjs'
 import fs from 'node:fs'
@@ -326,7 +328,23 @@ function html(d) {
   .dark.slim { padding: 3mm 6mm; display: flex; justify-content: space-between; align-items: center; gap: 6mm; }
   .dark.slim .fine { margin-top: 0.8mm; }
   .dark.slim .who { margin-top: 0; white-space: nowrap; }
-</style></head><body>
+  /* víc položek (příplatky, vlastní položky): hustší řádky, ať se obě strany vejdou */
+  .husta table.items td { padding: 1.3mm 3mm; }
+  .husta .page .sec-num { margin-top: 3.4mm !important; }
+  .husta .prehled .sec-num { margin-top: 1.6mm !important; }
+  .husta .prehled .card { padding: 1.8mm 3mm; }
+  .husta .prehled table.price td { padding: 0.9mm 3mm; }
+  .husta .prehled .total .p { font-size: 18pt; }
+  .husta .prehled .stat { padding: 1.2mm 3.5mm; }
+  .husta .paydata { row-gap: 0.7mm; }
+  .husta .qr img { width: 28mm; height: 28mm; }
+  .husta .party p { line-height: 1.4; }
+  .husta .grid2 { margin-top: 3mm !important; }
+  .husta .facts { margin-top: 3mm !important; }
+  .husta .prehled ul.dash li { margin-bottom: 0.4mm; }
+  .husta .prehled .stat .v { font-size: 13pt; }
+  .husta .prehled table.price th { padding: 1mm 3mm; }
+</style></head><body${d.polozky.length > 2 ? ' class="husta"' : ''}>
 ${stranaFaktura(d)}
 ${stranaPrehled(d)}
 </body></html>`
@@ -343,7 +361,7 @@ async function qrKod(castka, vs) {
   }
 }
 
-export async function vystavFakturu({ ico, mesic, cislo, nahled = false, vystaveni, splatnost, dpp = 0, hpp = 0, dodavatel = 'firsen' }) {
+export async function vystavFakturu({ ico, mesic, cislo, nahled = false, vystaveni, splatnost, dpp = 0, hpp = 0, dodavatel = 'firsen', odhad = null, extra = [] }) {
   D = DODAVATELE[dodavatel]
   if (!D) throw new Error(`neznámý dodavatel ${dodavatel}, možnosti: ${Object.keys(DODAVATELE).join(', ')}`)
   const { data: k } = await db.from('clients').select('*').eq('ico', ico).single()
@@ -395,7 +413,15 @@ export async function vystavFakturu({ ico, mesic, cislo, nahled = false, vystave
       polozky[0].popis = `${v.zaklad_nazev}: ${v.jednotek} (doklady ${v.podklady.dokladu}, bankovní pohyby ${v.podklady.pohybu})`
     }
   }
-  if (doklady.length + pohyby.length !== Number(v.jednotek) && !String(v.zaklad_nazev).match(/bankovních pohybů/i)) {
+  const skutecne = Number(v.jednotek)
+  if (odhad != null) {
+    const p = (k.pricing.pasma ?? []).map((x) => ({ do: Number(x.do), cena: Number(x.cena) })).sort((x, y) => x.do - y.do).find((x) => odhad <= x.do)
+    if (!p) throw new Error(`${k.name}: odhad ${odhad} podkladů je nad rámec ceníku`)
+    v.jednotek = odhad
+    v.cena = p.cena
+    polozky[0].cena = p.cena
+  }
+  if (odhad == null && doklady.length + pohyby.length !== Number(v.jednotek) && !String(v.zaklad_nazev).match(/bankovních pohybů/i)) {
     throw new Error(`${k.name}: přehled (${doklady.length + pohyby.length}) nesedí na vyúčtování (${v.jednotek})`)
   }
   // Výplata z platební brány se podle dohody s klientem počítá po jednotlivých
@@ -428,20 +454,27 @@ export async function vystavFakturu({ ico, mesic, cislo, nahled = false, vystave
   if (k.pricing.model === 'pausal') {
     smluvni = `Podle ${smlouva} se účtuje pevný měsíční paušál ${kc0(polozky[0].cena)} Kč${D.platce ? ' bez DPH' : ''}.`
   } else {
-    polozky[0].popis = `měsíční paušál podle ${smlouva}: ${v.jednotek} ${jednotka}, ${pasmo}`
+    polozky[0].popis = `měsíční paušál podle ${smlouva}: ${odhad != null ? 'přibližně ' : ''}${v.jednotek} ${jednotka}, ${pasmo}`
     if (jednotka === 'pohybů') {
       smluvni = `Podle ${smlouva} se paušál odvíjí od počtu bankovních pohybů v měsíci, tedy každé jednotlivé transakce na bankovním účtu. `
         + (rozpad ? `Výplaty z GoPay se podle dohody počítají po jednotlivých objednávkách. Za ${mesicText} jde o ${rozpad.ostatnich} bankovních pohybů a ${rozpad.objednavek} plateb přes GoPay, celkem ${v.jednotek} pohybů. ` : `Za ${mesicText} bylo na účtu ${v.jednotek} pohybů. `)
         + `To je pásmo ${dolni} až ${horni} pohybů s paušálem ${kc0(polozky[0].cena)} Kč${D.platce ? ' bez DPH' : ''}.`
     } else {
       smluvni = `Podle ${smlouva} se výše měsíčního paušálu odvíjí od počtu zpracovaných účetních podkladů v kalendářním měsíci. `
-        + `Za ${mesicText} bylo zpracováno ${v.jednotek} podkladů, rozsah tedy spadá do pásma ${dolni} až ${horni} podkladů s měsíčním paušálem ${kc0(polozky[0].cena)} Kč${D.platce ? ' bez DPH' : ''}.`
+        + (odhad != null
+          ? `Za ${mesicText} je na účtu ${pohyby.length} bankovních pohybů a k nim odpovídající doklady a podklady ke mzdám, předpokládaný rozsah je přibližně ${odhad} podkladů (k datu vystavení zpracováno ${skutecne}). Rozsah spadá do pásma ${dolni} až ${horni} podkladů s měsíčním paušálem ${kc0(polozky[0].cena)} Kč${D.platce ? ' bez DPH' : ''}.`
+          : `Za ${mesicText} bylo zpracováno ${v.jednotek} podkladů, rozsah tedy spadá do pásma ${dolni} až ${horni} podkladů s měsíčním paušálem ${kc0(polozky[0].cena)} Kč${D.platce ? ' bez DPH' : ''}.`)
     }
   }
   for (const p of polozky.slice(1)) {
     p.kratky = p.popis
     p.popis = `${p.pocet} × ${p.popis.replace(/^zaměstnanec, /, '')}, ${kc0(p.sazba)} Kč za osobu podle ${smlouva}`
     smluvni += ` Mzdy (${p.kratky.replace(/^zaměstnanec, /, '')}) se účtují ${kc0(p.sazba)} Kč za osobu a měsíc.`
+  }
+  for (const e of extra) {
+    const [nazev, popis, cena] = e.split('|').map((x) => x.trim())
+    if (!nazev || !(Number(cena) > 0)) throw new Error(`--polozka "${e}": čekám "název|popis|cena"`)
+    polozky.push({ nazev, popis, kratky: popis, cena: Number(cena), pocet: 1, sazba: Number(cena) })
   }
   const zaklad = polozky.reduce((s, p) => s + p.cena, 0)
   const dph = Math.round(zaklad * D.sazba_dph) / 100
@@ -509,6 +542,8 @@ if (import.meta.url === `file:///${process.argv[1].replace(/\\/g, '/')}`) {
         ico, mesic, cislo: arg('--cislo'), nahled: NAHLED, vystaveni: arg('--vystaveni'), splatnost: arg('--splatnost'),
         dodavatel: arg('--dodavatel') ?? 'firsen',
         dpp: Number(arg('--dpp') ?? 0), hpp: Number(arg('--hpp') ?? 0),
+        odhad: arg('--odhad') != null ? Number(arg('--odhad')) : null,
+        extra: args.flatMap((a, i) => (a === '--polozka' ? [args[i + 1]] : [])),
       })
       console.log(`${f.klient}: faktura ${f.cislo}, ${f.jednotek} podkladů, ${kc(f.celkem)} Kč s DPH, splatnost ${den(f.splatnost)}${f.pdf ? ` (náhled: ${f.pdf})` : ''}`)
     } catch (e) {
