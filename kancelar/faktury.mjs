@@ -64,6 +64,7 @@ const tvar = (n, [a, b, c]) => (n === 1 ? a : n >= 2 && n <= 4 ? b : c)
 const druhN = (k, n) => tvar(n, DRUH[k] ?? [k, k, k])
 const velke = (s) => s.charAt(0).toUpperCase() + s.slice(1)
 const MESICE = ['leden', 'únor', 'březen', 'duben', 'květen', 'červen', 'červenec', 'srpen', 'září', 'říjen', 'listopad', 'prosinec']
+const MESICE6 = ['lednu', 'únoru', 'březnu', 'dubnu', 'květnu', 'červnu', 'červenci', 'srpnu', 'září', 'říjnu', 'listopadu', 'prosinci']
 const CSS = fs.readFileSync(new URL('./sablony/kliments.css', import.meta.url), 'utf8')
 const kc0 = (n) => Math.round(n).toLocaleString('cs-CZ')
 
@@ -170,7 +171,8 @@ function stranaFaktura({ f, klient, polozky, zaklad, dph, celkem, qr }) {
 </div>`
 }
 
-function stranaPrehled({ f, klient, mesic, v, doklady, pohyby, polozky, zaklad, dph, celkem, zamestnanci, pasmo, smluvni, rozpad, jednotka = 'podkladů' }) {
+function stranaPrehled({ f, klient, mesic, v, doklady, pohyby, polozky, zaklad, dph, celkem, zamestnanci, pasmo, smluvni, rozpad, jednotka = 'podkladů', odhadRozpis = null }) {
+  const O = odhadRozpis
   const m = new Date(mesic)
   const mesicSlovem = `${MESICE[m.getUTCMonth()]} ${m.getUTCFullYear()}`
   const nazevKratky = esc(klient.name.replace(/,?\s*(s\.\s?r\.\s?o\.|a\.\s?s\.|spol\. s r\. o\.)\s*$/i, ''))
@@ -217,6 +219,10 @@ function stranaPrehled({ f, klient, mesic, v, doklady, pohyby, polozky, zaklad, 
       ? `<div class="stat"><div class="v">${v.jednotek}</div><div class="l">Pohyby podle smlouvy</div></div>
     <div class="stat"><div class="v">${pohyby.length}</div><div class="l">Řádky výpisu</div></div>
     <div class="stat"><div class="v">${rozpad.objednavek}</div><div class="l">Platby přes GoPay</div></div>`
+      : O
+      ? `<div class="stat"><div class="v">${O.celkem}</div><div class="l">Předpokládané podklady</div></div>
+    <div class="stat"><div class="v">${O.pohybu}</div><div class="l">Bankovní pohyby</div></div>
+    <div class="stat"><div class="v">${O.odchozich}</div><div class="l">Doklady k platbám</div></div>`
       : `<div class="stat"><div class="v">${doklady.length + pohyby.length}</div><div class="l">Účetní podklady</div></div>
     <div class="stat"><div class="v">${doklady.length}</div><div class="l">Doklady</div></div>
     <div class="stat"><div class="v">${pohyby.length}</div><div class="l">Bankovní pohyby</div></div>`}
@@ -226,7 +232,9 @@ function stranaPrehled({ f, klient, mesic, v, doklady, pohyby, polozky, zaklad, 
   <div class="sec-num" style="margin-top:4mm">02</div>
   <h2>Co práce <em>zahrnuje</em></h2>
   <div class="grid3">
-    <div class="card"><div class="num">01</div><div class="t">Zaúčtování dokladů</div><ul class="dash">${radkyDoklady}</ul></div>
+    <div class="card"><div class="num">01</div><div class="t">Zaúčtování dokladů</div><ul class="dash">${O
+      ? `<li>doklady k ${O.odchozich} odchozím platbám</li><li>výdaje ${kc0(sum(vydaje))} Kč</li>`
+      : radkyDoklady}</ul></div>
     <div class="card"><div class="num">02</div><div class="t">Banka</div><ul class="dash">
       <li>${pohyby.length} ${tvar(pohyby.length, ['bankovní pohyb', 'bankovní pohyby', 'bankovních pohybů'])}</li>
       ${rozpad ? `<li>${rozpad.vyplat} výplaty GoPay za ${kc0(rozpad.vyplatCastka)} Kč, rozpad na ${rozpad.objednavek} plateb</li>` : ''}
@@ -237,13 +245,19 @@ function stranaPrehled({ f, klient, mesic, v, doklady, pohyby, polozky, zaklad, 
   </div>
 
   <div class="sec-num" style="margin-top:4mm">03</div>
-  <h2>Doklady <em>podle druhu</em></h2>
-  <table class="price compact">
+  <h2>${O ? 'Předpokládaný <em>rozsah</em>' : 'Doklady <em>podle druhu</em>'}</h2>
+  ${O ? `<table class="price compact">
+    <tr><th>Podklad</th><th class="r">Počet</th><th class="r">Podle čeho</th></tr>
+    <tr><td>Bankovní pohyby</td><td class="r">${O.pohybu}</td><td class="r">výpis z účtu</td></tr>
+    <tr><td>Doklady k odchozím platbám</td><td class="r">${O.odchozich}</td><td class="r">jeden doklad na provedenou platbu</td></tr>
+    ${O.mzdy ? `<tr><td>Podklady ke mzdám</td><td class="r">${O.mzdy}</td><td class="r">zaměstnanci</td></tr>` : ''}
+    <tr class="tot"><td>Účetní podklady celkem</td><td class="r">${O.celkem}</td><td class="r">příchozí platby (${O.prichozich}) bez dokladu</td></tr>
+  </table>` : `<table class="price compact">
     <tr><th>Druh podkladu</th><th class="r">Počet</th><th class="r">Hodnota Kč</th></tr>
     ${druhy.map((k) => `<tr><td>${esc(velke(DRUH[k]?.[1] ?? k))}</td><td class="r">${skup[k].n}</td><td class="r">${['bank_statement', 'other'].includes(k) ? '' : kc0(skup[k].suma)}</td></tr>`).join('')}
     <tr><td>Bankovní pohyby</td><td class="r">${pohyby.length}</td><td class="r"></td></tr>
     ${jednotka === 'pohybů' ? '' : `<tr class="tot"><td>Účetní podklady celkem</td><td class="r">${doklady.length + pohyby.length}</td><td></td></tr>`}
-  </table>
+  </table>`}
 
   <div class="sec-num" style="margin-top:4mm">04</div>
   <h2>Cena <em>podle smlouvy</em></h2>
@@ -271,7 +285,7 @@ function stranaPrehled({ f, klient, mesic, v, doklady, pohyby, polozky, zaklad, 
 
   <div class="dark slim" style="margin-top:4mm">
     <div><h3>Děkuji za <em>spolupráci.</em></h3>
-    <div class="fine">Příloha k faktuře č. ${esc(f.cislo)}. Počet podkladů vychází z dokladů a bankovních pohybů evidovaných za ${esc(mesicSlovem)}.</div></div>
+    <div class="fine">Příloha k faktuře č. ${esc(f.cislo)}. ${O ? `Počet podkladů je předpoklad podle plateb provedených za ${esc(mesicSlovem)}.` : `Počet podkladů vychází z dokladů a bankovních pohybů evidovaných za ${esc(mesicSlovem)}.`}</div></div>
     <div class="who">Josef Kliment<span>·</span>kliment.josef@email.cz</div>
   </div>
   <footer><span>Kliments. · ${esc(D.paticka)} · kliments.cz</span><span>Faktura ${esc(f.cislo)} · 2 / 2</span></footer>
@@ -344,6 +358,10 @@ function html(d) {
   .husta .prehled ul.dash li { margin-bottom: 0.4mm; }
   .husta .prehled .stat .v { font-size: 13pt; }
   .husta .prehled table.price th { padding: 1mm 3mm; }
+  .husta .prehled h2 { font-size: 12pt; margin-bottom: 1mm; }
+  .husta .prehled .smluvni { font-size: 7.4pt; margin: -0.8mm 0 1.4mm; }
+  .husta .prehled .chips { margin-top: 1.6mm; }
+  .husta .prehled h1 { font-size: 19pt; }
 </style></head><body${d.polozky.length > 2 ? ' class="husta"' : ''}>
 ${stranaFaktura(d)}
 ${stranaPrehled(d)}
@@ -414,6 +432,13 @@ export async function vystavFakturu({ ico, mesic, cislo, nahled = false, vystave
     }
   }
   const skutecne = Number(v.jednotek)
+  let odhadRozpis = null
+  if (odhad === 'platby') {
+    const odchozich = pohyby.filter((t) => Number(t.amount) < 0).length
+    odhadRozpis = { pohybu: pohyby.length, odchozich, prichozich: pohyby.length - odchozich, mzdy: dpp + hpp, zpracovano: skutecne, dokladu: doklady.filter((d) => d.kind !== 'bank_statement').length }
+    odhad = odhadRozpis.pohybu + odchozich + odhadRozpis.mzdy
+    odhadRozpis.celkem = odhad
+  }
   if (odhad != null) {
     const p = (k.pricing.pasma ?? []).map((x) => ({ do: Number(x.do), cena: Number(x.cena) })).sort((x, y) => x.do - y.do).find((x) => odhad <= x.do)
     if (!p) throw new Error(`${k.name}: odhad ${odhad} podkladů je nad rámec ceníku`)
@@ -454,7 +479,7 @@ export async function vystavFakturu({ ico, mesic, cislo, nahled = false, vystave
   if (k.pricing.model === 'pausal') {
     smluvni = `Podle ${smlouva} se účtuje pevný měsíční paušál ${kc0(polozky[0].cena)} Kč${D.platce ? ' bez DPH' : ''}.`
   } else {
-    polozky[0].popis = `měsíční paušál podle ${smlouva}: ${odhad != null ? 'přibližně ' : ''}${v.jednotek} ${jednotka}, ${pasmo}`
+    polozky[0].popis = `měsíční paušál podle ${smlouva}: ${odhadRozpis ? 'předpoklad podle provedených plateb ' : odhad != null ? 'přibližně ' : ''}${v.jednotek} ${jednotka}, ${pasmo}`
     if (jednotka === 'pohybů') {
       smluvni = `Podle ${smlouva} se paušál odvíjí od počtu bankovních pohybů v měsíci, tedy každé jednotlivé transakce na bankovním účtu. `
         + (rozpad ? `Výplaty z GoPay se podle dohody počítají po jednotlivých objednávkách. Za ${mesicText} jde o ${rozpad.ostatnich} bankovních pohybů a ${rozpad.objednavek} plateb přes GoPay, celkem ${v.jednotek} pohybů. ` : `Za ${mesicText} bylo na účtu ${v.jednotek} pohybů. `)
@@ -462,7 +487,9 @@ export async function vystavFakturu({ ico, mesic, cislo, nahled = false, vystave
     } else {
       smluvni = `Podle ${smlouva} se výše měsíčního paušálu odvíjí od počtu zpracovaných účetních podkladů v kalendářním měsíci. `
         + (odhad != null
-          ? `Za ${mesicText} je na účtu ${pohyby.length} bankovních pohybů a k nim odpovídající doklady a podklady ke mzdám, předpokládaný rozsah je přibližně ${odhad} podkladů (k datu vystavení zpracováno ${skutecne}). Rozsah spadá do pásma ${dolni} až ${horni} podkladů s měsíčním paušálem ${kc0(polozky[0].cena)} Kč${D.platce ? ' bez DPH' : ''}.`
+          ? (odhadRozpis
+            ? `Faktura se vystavuje před dodáním všech dokladů, rozsah je proto stanoven předpokladem podle plateb provedených v ${MESICE6[new Date(mesic).getUTCMonth()]} ${new Date(mesic).getUTCFullYear()}: ${odhadRozpis.pohybu} bankovních pohybů, k ${odhadRozpis.odchozich} odchozím platbám po jednom dokladu${odhadRozpis.mzdy ? ` a podklady ke mzdám ${odhadRozpis.mzdy} zaměstnanců` : ''}, celkem ${odhad} podkladů. Rozsah spadá do pásma ${dolni} až ${horni} podkladů s měsíčním paušálem ${kc0(polozky[0].cena)} Kč${D.platce ? ' bez DPH' : ''}.`
+            : `Za ${mesicText} je na účtu ${pohyby.length} bankovních pohybů a k nim odpovídající doklady a podklady ke mzdám, předpokládaný rozsah je přibližně ${odhad} podkladů (k datu vystavení zpracováno ${skutecne}). Rozsah spadá do pásma ${dolni} až ${horni} podkladů s měsíčním paušálem ${kc0(polozky[0].cena)} Kč${D.platce ? ' bez DPH' : ''}.`)
           : `Za ${mesicText} bylo zpracováno ${v.jednotek} podkladů, rozsah tedy spadá do pásma ${dolni} až ${horni} podkladů s měsíčním paušálem ${kc0(polozky[0].cena)} Kč${D.platce ? ' bez DPH' : ''}.`)
     }
   }
@@ -484,7 +511,7 @@ export async function vystavFakturu({ ico, mesic, cislo, nahled = false, vystave
   const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'kliments-faktura-'))
   const htmlPath = path.join(dir, 'faktura.html')
   const pdfPath = path.join(dir, `${f.cislo}.pdf`)
-  await fs.promises.writeFile(htmlPath, html({ f, klient: k, mesic, v, doklady, pohyby, polozky, zaklad, dph, celkem, qr, zamestnanci, pasmo, smluvni, rozpad, jednotka }), 'utf8')
+  await fs.promises.writeFile(htmlPath, html({ f, klient: k, mesic, v, doklady, pohyby, polozky, zaklad, dph, celkem, qr, zamestnanci, pasmo, smluvni, rozpad, jednotka, odhadRozpis }), 'utf8')
   const browser = await chromium.launch()
   try {
     const page = await browser.newPage()
@@ -542,7 +569,7 @@ if (import.meta.url === `file:///${process.argv[1].replace(/\\/g, '/')}`) {
         ico, mesic, cislo: arg('--cislo'), nahled: NAHLED, vystaveni: arg('--vystaveni'), splatnost: arg('--splatnost'),
         dodavatel: arg('--dodavatel') ?? 'firsen',
         dpp: Number(arg('--dpp') ?? 0), hpp: Number(arg('--hpp') ?? 0),
-        odhad: arg('--odhad') != null ? Number(arg('--odhad')) : null,
+        odhad: arg('--odhad') == null ? null : arg('--odhad') === 'platby' ? 'platby' : Number(arg('--odhad')),
         extra: args.flatMap((a, i) => (a === '--polozka' ? [args[i + 1]] : [])),
       })
       console.log(`${f.klient}: faktura ${f.cislo}, ${f.jednotek} podkladů, ${kc(f.celkem)} Kč s DPH, splatnost ${den(f.splatnost)}${f.pdf ? ` (náhled: ${f.pdf})` : ''}`)

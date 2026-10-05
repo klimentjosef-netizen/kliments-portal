@@ -19,6 +19,14 @@ const args = process.argv.slice(2)
 const arg = (n) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : undefined }
 const db = createClient(need('NEXT_PUBLIC_SUPABASE_URL'), need('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } })
 
+// Společníci podle IČO klienta: platby od nich = půjčky, platby jim = vratky (bez dokladu)
+const SPOLECNICI = {
+  '24052477': [ // BOZA REKO
+    { nazev: 'Tomáš Bolcek', jmeno: /bol[cč]ek/i, ucty: ['311890960/0300', '3174977173/0800', '2606198911/5500'] },
+    { nazev: 'Petr Zajac', jmeno: /zajac/i, ucty: ['332678707/0300'] },
+  ],
+}
+
 const VYDAJ = new Set(['received_invoice', 'receipt', 'advance'])
 const PRIJEM = new Set(['issued_invoice'])
 const DEN = 86_400_000
@@ -47,7 +55,7 @@ async function vse(dotaz) {
 
 export async function sparuj({ ico, nasucho = false }) {
   const { data: k } = await db.from('clients').select('id, name').eq('ico', ico).single()
-  const tx = await vse(() => db.from('bank_transactions').select('id, booked_on, amount, var_symbol, message, counterparty_name, counterparty_account, original_amount, original_currency, no_document_needed').eq('client_id', k.id))
+  const tx = await vse(() => db.from('bank_transactions').select('id, booked_on, amount, var_symbol, message, counterparty_name, counterparty_account, original_amount, original_currency, no_document_needed, category').eq('client_id', k.id))
   const docs = await vse(() => db.from('documents').select('id, kind, doc_number, var_symbol, issue_date, taxable_date, due_date, amount_total, amount_czk, currency, counterparty_name, status, mail_message_id, extracted').eq('client_id', k.id).not('status', 'in', '(duplicate,rejected)'))
   const matches = await vse(() => db.from('payment_matches').select('bank_transaction_id, document_id').eq('client_id', k.id))
 
@@ -95,6 +103,20 @@ export async function sparuj({ ico, nasucho = false }) {
     if (error) throw error
   }
   for (const t of pujcky) t.no_document_needed = true
+
+  // 0f. Společníci klienta: každá platba od nich je půjčka společníka, platba jim je vratka.
+  //     Sleduje se jen, kolik kdo půjčil (jméno společníka v poznámce). Pravidlo od Josefa 5. 10. 2026.
+  for (const sp of SPOLECNICI[ico] ?? []) {
+    const jeho = tx.filter((t) => (!t.no_document_needed || t.category === 'loan') && (sp.ucty.includes(t.counterparty_account) || sp.jmeno.test(t.counterparty_name ?? '')))
+    for (const t of jeho) {
+      const note = `${Number(t.amount) > 0 ? 'Půjčka společníka' : 'Vratka půjčky společníkovi'} · ${sp.nazev}`
+      if (!nasucho) {
+        const { error } = await db.from('bank_transactions').update({ category: 'loan', no_document_needed: true, note }).eq('id', t.id)
+        if (error) throw error
+      }
+      t.no_document_needed = true
+    }
+  }
 
   const txHotove = new Set(matches.map((m) => m.bank_transaction_id))
   const docHotove = new Set(matches.map((m) => m.document_id))
