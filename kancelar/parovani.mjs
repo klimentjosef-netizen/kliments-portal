@@ -25,6 +25,9 @@ const SPOLECNICI = {
     { nazev: 'Tomáš Bolcek', jmeno: /bol[cč]ek/i, ucty: ['311890960/0300', '3174977173/0800', '2606198911/5500'] },
     { nazev: 'Petr Zajac', jmeno: /zajac/i, ucty: ['332678707/0300'] },
   ],
+  '17347670': [ // MB&AL (jméno celé: Dominik Bičaník je dodavatel, ne společník)
+    { nazev: 'Martin Bičaník', jmeno: /martin\s+bi[cč]an[ií]k|bi[cč]an[ií]k\s+martin/i, ucty: ['299304542/0300'] },
+  ],
 }
 
 const VYDAJ = new Set(['received_invoice', 'receipt', 'advance'])
