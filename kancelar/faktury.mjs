@@ -58,6 +58,7 @@ const DRUH = {
   advance_invoice: ['zálohová faktura', 'zálohové faktury', 'zálohových faktur'],
   payroll: ['mzdový doklad', 'mzdové doklady', 'mzdových dokladů'],
   internal: ['interní doklad', 'interní doklady', 'interních dokladů'],
+  payment_report: ['report plateb', 'reporty plateb', 'reportů plateb'],
   other: ['ostatní doklad', 'ostatní doklady', 'ostatních dokladů'],
 }
 const tvar = (n, [a, b, c]) => (n === 1 ? a : n >= 2 && n <= 4 ? b : c)
@@ -254,7 +255,7 @@ function stranaPrehled({ f, klient, mesic, v, doklady, pohyby, polozky, zaklad, 
     <tr class="tot"><td>Účetní podklady celkem</td><td class="r">${O.celkem}</td><td class="r">příchozí platby (${O.prichozich}) bez dokladu</td></tr>
   </table>` : `<table class="price compact">
     <tr><th>Druh podkladu</th><th class="r">Počet</th><th class="r">Hodnota Kč</th></tr>
-    ${druhy.map((k) => `<tr><td>${esc(velke(DRUH[k]?.[1] ?? k))}</td><td class="r">${skup[k].n}</td><td class="r">${['bank_statement', 'other'].includes(k) ? '' : kc0(skup[k].suma)}</td></tr>`).join('')}
+    ${druhy.map((k) => `<tr><td>${esc(velke(DRUH[k]?.[1] ?? k))}</td><td class="r">${skup[k].n}</td><td class="r">${['bank_statement', 'other', 'payment_report'].includes(k) ? '' : kc0(skup[k].suma)}</td></tr>`).join('')}
     <tr><td>Bankovní pohyby</td><td class="r">${pohyby.length}</td><td class="r"></td></tr>
     ${jednotka === 'pohybů' ? '' : `<tr class="tot"><td>Účetní podklady celkem</td><td class="r">${doklady.length + pohyby.length}</td><td></td></tr>`}
   </table>`}
