@@ -96,10 +96,10 @@ async function main() {
 
   <div class="sec-num" style="margin-top:4mm">01</div>
   <h2>Shrnutí</h2>
-  <div class="grid4">
+  <div class="grid4"${k.pricing?.gopay_rozpad ? '' : ' style="grid-template-columns:repeat(3,1fr)"'}>
     <div class="stat"><div class="v">${chybi.length}</div><div class="l">Platby bez dokladu</div></div>
     <div class="stat"><div class="v">${Math.round(soucet).toLocaleString('cs-CZ')} Kč</div><div class="l">Jejich hodnota</div></div>
-    <div class="stat"><div class="v">${vyplaty.length}</div><div class="l">Vyúčtování GoPay</div></div>
+    ${k.pricing?.gopay_rozpad ? `<div class="stat"><div class="v">${vyplaty.length}</div><div class="l">Vyúčtování GoPay</div></div>` : ''}
     <div class="stat"><div class="v">${poznamky.length}</div><div class="l">K vyjasnění</div></div>
   </div>
 
@@ -145,7 +145,7 @@ async function main() {
   } finally {
     await browser.close()
   }
-  console.log(`${k.name}: chybí ${chybi.length} dokladů (${kc(soucet)} Kč), vyúčtování GoPay ${vyplaty.length}, k vyjasnění ${poznamky.length}\n${pdf}`)
+  console.log(`${k.name}: chybí ${chybi.length} dokladů (${kc(soucet)} Kč), ${k.pricing?.gopay_rozpad ? `vyúčtování GoPay ${vyplaty.length}, ` : ''}k vyjasnění ${poznamky.length}\n${pdf}`)
 }
 
 main().catch((e) => { console.error(e.message); process.exit(1) })
